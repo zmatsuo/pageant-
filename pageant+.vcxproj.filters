@@ -1,0 +1,382 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Form Files">
+      <UniqueIdentifier>{99349809-55BA-4b9d-BF79-8FDBB0286EB3}</UniqueIdentifier>
+      <Extensions>ui</Extensions>
+      <ParseFiles>false</ParseFiles>
+    </Filter>
+    <Filter Include="Form Files">
+      <UniqueIdentifier>{99349809-55BA-4b9d-BF79-8FDBB0286EB3}</UniqueIdentifier>
+      <Extensions>ui</Extensions>
+      <ParseFiles>false</ParseFiles>
+    </Filter>
+    <Filter Include="Generated Files">
+      <UniqueIdentifier>{71ED8ED8-ACB9-4CE9-BBE1-E00B30144E11}</UniqueIdentifier>
+      <Extensions>cpp;c;cxx;moc;h;def;odl;idl;res;</Extensions>
+    </Filter>
+    <Filter Include="Generated Files">
+      <UniqueIdentifier>{71ED8ED8-ACB9-4CE9-BBE1-E00B30144E11}</UniqueIdentifier>
+      <Extensions>cpp;c;cxx;moc;h;def;odl;idl;res;</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{D9D6E242-F8AF-46E4-B9FD-80ECBC20BA3E}</UniqueIdentifier>
+      <Extensions>qrc;*</Extensions>
+      <ParseFiles>false</ParseFiles>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{D9D6E242-F8AF-46E4-B9FD-80ECBC20BA3E}</UniqueIdentifier>
+      <Extensions>qrc;*</Extensions>
+      <ParseFiles>false</ParseFiles>
+    </Filter>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Generated Files\Debug">
+      <UniqueIdentifier>{3c5c0787-0419-427f-8dc3-0636804fe3e4}</UniqueIdentifier>
+      <Extensions>cpp;moc</Extensions>
+      <SourceControlFiles>False</SourceControlFiles>
+    </Filter>
+    <Filter Include="Generated Files\Release">
+      <UniqueIdentifier>{99f3d17a-e4bc-4602-ac90-6378e5db6acf}</UniqueIdentifier>
+      <Extensions>cpp;moc</Extensions>
+      <SourceControlFiles>False</SourceControlFiles>
+    </Filter>
+    <Filter Include="ud_socket">
+      <UniqueIdentifier>{b946e74a-1dde-43f1-9c9b-05de3a33cf76}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ssh-agent-emu">
+      <UniqueIdentifier>{3363f752-8b56-41f5-9efa-39ddc90ae9f5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="cert">
+      <UniqueIdentifier>{24869e3b-e0ae-4f75-b294-c94d68e5f3d2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ssh">
+      <UniqueIdentifier>{57196c67-23dc-4363-b451-27f13dc07cb9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="winpgnt">
+      <UniqueIdentifier>{89760f36-e967-4f05-9f76-bdfcbad2e030}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="gui">
+      <UniqueIdentifier>{2103137f-3de3-4fd1-b1fe-9682db3185bd}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ssh-agent-ms">
+      <UniqueIdentifier>{7d329584-3e03-420e-88ef-709ed8aec361}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="misc.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="tree234.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="version.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="winutils.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Debug\moc_mainwindow.cpp">
+      <Filter>Generated Files\Debug</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Release\moc_mainwindow.cpp">
+      <Filter>Generated Files\Release</Filter>
+    </ClCompile>
+    <ClCompile Include="winutils_qt.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Debug\moc_confirmacceptdlg.cpp">
+      <Filter>Generated Files\Debug</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Release\moc_confirmacceptdlg.cpp">
+      <Filter>Generated Files\Release</Filter>
+    </ClCompile>
+    <ClCompile Include="winmisc.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="db.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="winhelp.cpp">
+      <Filter>Generated Files\Debug</Filter>
+    </ClCompile>
+    <ClCompile Include="ssh-agent_emu.cpp">
+      <Filter>ssh-agent-emu</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\unixdomain\libunixdomain\ud_socket.c">
+      <Filter>ud_socket</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\unixdomain\libunixdomain\sock_server.c">
+      <Filter>ud_socket</Filter>
+    </ClCompile>
+    <ClCompile Include="cert\cert_pkcs.c">
+      <Filter>cert</Filter>
+    </ClCompile>
+    <ClCompile Include="cert\cert_capi.c">
+      <Filter>cert</Filter>
+    </ClCompile>
+    <ClCompile Include="cert\cert_common.c">
+      <Filter>cert</Filter>
+    </ClCompile>
+    <ClCompile Include="sshaes.c">
+      <Filter>ssh</Filter>
+    </ClCompile>
+    <ClCompile Include="sshbn.c">
+      <Filter>ssh</Filter>
+    </ClCompile>
+    <ClCompile Include="sshdes.c">
+      <Filter>ssh</Filter>
+    </ClCompile>
+    <ClCompile Include="sshdss.c">
+      <Filter>ssh</Filter>
+    </ClCompile>
+    <ClCompile Include="sshecc.c">
+      <Filter>ssh</Filter>
+    </ClCompile>
+    <ClCompile Include="sshmd5.c">
+      <Filter>ssh</Filter>
+    </ClCompile>
+    <ClCompile Include="sshpubk.c">
+      <Filter>ssh</Filter>
+    </ClCompile>
+    <ClCompile Include="sshrsa.c">
+      <Filter>ssh</Filter>
+    </ClCompile>
+    <ClCompile Include="sshsh512.c">
+      <Filter>ssh</Filter>
+    </ClCompile>
+    <ClCompile Include="sshsha.c">
+      <Filter>ssh</Filter>
+    </ClCompile>
+    <ClCompile Include="pageant.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="sshsh256.c">
+      <Filter>ssh</Filter>
+    </ClCompile>
+    <ClCompile Include="aqsync.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="miscucs.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="winucs.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Debug\moc_settingdlg.cpp">
+      <Filter>Generated Files\Debug</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Release\moc_settingdlg.cpp">
+      <Filter>Generated Files\Release</Filter>
+    </ClCompile>
+    <ClCompile Include="setting.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="winpgntc.c">
+      <Filter>winpgnt</Filter>
+    </ClCompile>
+    <ClCompile Include="confirmacceptdlg.cpp">
+      <Filter>gui</Filter>
+    </ClCompile>
+    <ClCompile Include="aboutdlg.cpp">
+      <Filter>gui</Filter>
+    </ClCompile>
+    <ClCompile Include="settingdlg.cpp">
+      <Filter>gui</Filter>
+    </ClCompile>
+    <ClCompile Include="passphrase.cpp">
+      <Filter>gui</Filter>
+    </ClCompile>
+    <ClCompile Include="mainwindow.cpp">
+      <Filter>gui</Filter>
+    </ClCompile>
+    <ClCompile Include="winpgnt.cpp">
+      <Filter>winpgnt</Filter>
+    </ClCompile>
+    <ClCompile Include="pageant_cpp.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="misc_cpp.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\qrc_pageant+.cpp">
+      <Filter>Generated Files\Debug</Filter>
+    </ClCompile>
+    <ClCompile Include="ssh-agent_ms.cpp">
+      <Filter>ssh-agent-ms</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="passphrase.ui">
+      <Filter>Form Files</Filter>
+    </CustomBuild>
+    <CustomBuild Include="aboutdlg.ui">
+      <Filter>Form Files</Filter>
+    </CustomBuild>
+    <CustomBuild Include="confirmacceptdlg.ui">
+      <Filter>Form Files</Filter>
+    </CustomBuild>
+    <CustomBuild Include="settingdlg.ui">
+      <Filter>Form Files</Filter>
+    </CustomBuild>
+    <CustomBuild Include="confirmacceptdlg.h">
+      <Filter>gui</Filter>
+    </CustomBuild>
+    <CustomBuild Include="aboutdlg.h">
+      <Filter>gui</Filter>
+    </CustomBuild>
+    <CustomBuild Include="settingdlg.h">
+      <Filter>gui</Filter>
+    </CustomBuild>
+    <CustomBuild Include="mainwindow.h">
+      <Filter>gui</Filter>
+    </CustomBuild>
+    <CustomBuild Include="pageant+.qrc">
+      <Filter>Resource Files</Filter>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="debug\moc_predefs.h.cbt">
+      <Filter>Generated Files</Filter>
+    </CustomBuild>
+    <CustomBuild Include="release\moc_predefs.h.cbt">
+      <Filter>Generated Files</Filter>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="mainwindow.ui">
+      <Filter>Form Files</Filter>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="GeneratedFiles\ui_mainwindow.h">
+      <Filter>Generated Files</Filter>
+    </ClInclude>
+    <ClInclude Include="GeneratedFiles\ui_passphrase.h">
+      <Filter>Generated Files</Filter>
+    </ClInclude>
+    <ClInclude Include="GeneratedFiles\ui_aboutdlg.h">
+      <Filter>Generated Files</Filter>
+    </ClInclude>
+    <ClInclude Include="GeneratedFiles\ui_confirmacceptdlg.h">
+      <Filter>Generated Files</Filter>
+    </ClInclude>
+    <ClInclude Include="filename_.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="winutils.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="pageant_msg.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="debug.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="db.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ssh-agent_emu.h">
+      <Filter>ssh-agent-emu</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\unixdomain\libunixdomain\sock_server.h">
+      <Filter>ud_socket</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\unixdomain\libunixdomain\ud_socket.h">
+      <Filter>ud_socket</Filter>
+    </ClInclude>
+    <ClInclude Include="cert\cert_common.h">
+      <Filter>cert</Filter>
+    </ClInclude>
+    <ClInclude Include="cert\cert_pkcs.h">
+      <Filter>cert</Filter>
+    </ClInclude>
+    <ClInclude Include="cert\pkcs\pkcs11.h">
+      <Filter>cert</Filter>
+    </ClInclude>
+    <ClInclude Include="cert\pkcs\pkcs11f.h">
+      <Filter>cert</Filter>
+    </ClInclude>
+    <ClInclude Include="cert\pkcs\pkcs11t.h">
+      <Filter>cert</Filter>
+    </ClInclude>
+    <ClInclude Include="cert\cert_capi.h">
+      <Filter>cert</Filter>
+    </ClInclude>
+    <ClInclude Include="ssh.h">
+      <Filter>ssh</Filter>
+    </ClInclude>
+    <ClInclude Include="pageant.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="sshbn.h">
+      <Filter>ssh</Filter>
+    </ClInclude>
+    <ClInclude Include="network.h">
+      <Filter>Generated Files</Filter>
+    </ClInclude>
+    <ClInclude Include="GeneratedFiles\ui_settingdlg.h">
+      <Filter>Generated Files</Filter>
+    </ClInclude>
+    <ClInclude Include="setting.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="winpgnt.h">
+      <Filter>winpgnt</Filter>
+    </ClInclude>
+    <ClInclude Include="confirmacceptdlg_.h">
+      <Filter>gui</Filter>
+    </ClInclude>
+    <ClInclude Include="passphrase.h">
+      <Filter>gui</Filter>
+    </ClInclude>
+    <ClInclude Include="passphrase_.h">
+      <Filter>gui</Filter>
+    </ClInclude>
+    <ClInclude Include="misc_cpp.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="misc.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="puttymem.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ssh-agent_ms.h">
+      <Filter>ssh-agent-ms</Filter>
+    </ClInclude>
+    <ClInclude Include="pgpkey.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="pageant_.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="pageant+.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="copyright.txt">
+      <Filter>Resource Files</Filter>
+    </Text>
+    <Text Include="copyright_putty.txt">
+      <Filter>Resource Files</Filter>
+    </Text>
+    <Text Include="reference.txt">
+      <Filter>Resource Files</Filter>
+    </Text>
+  </ItemGroup>
+</Project>

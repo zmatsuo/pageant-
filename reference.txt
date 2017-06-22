@@ -1,0 +1,11 @@
+﻿<a href="http://hp.vector.co.jp/authors/VA024651/PuTTYkj.html">hdk の自作ソフトの紹介</a><br>
+<br>
+<a href="http://yebisuya.dip.jp/Software/PuTTY/">PuTTY ごった煮版</a><br>
+<br>
+<a href="https://github.com/PowerShell/Win32-OpenSSH/">openssh ported by microsoft</a><br>
+<br>
+<a href="https://github.com/cuviper/ssh-pageant">ssh-pagent</a><br>
+<br>
+<a href="https://github.com/ganaware/win-ssh-agent">win-ssh-agent</a><br>
+<br>
+<a href="https://github.com/OpenSC/OpenSC/wiki">OpenSC</a>

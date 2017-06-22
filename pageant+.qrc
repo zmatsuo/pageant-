@@ -1,0 +1,8 @@
+<RCC>
+    <qresource prefix="/">
+        <file>license.txt</file>
+        <file>license_putty.txt</file>
+        <file>reference.txt</file>
+        <file>images/pageant.png</file>
+    </qresource>
+</RCC>

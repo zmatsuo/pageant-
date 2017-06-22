@@ -1,0 +1,10 @@
+LIBRARY NCRYPT.DLL
+EXPORTS
+NCryptOpenStorageProvider@12
+NCryptOpenKey@20
+NCryptSetProperty@20
+NCryptSetProperty@20
+NCryptSignHash@32
+NCryptSignHash@32
+NCryptFreeObject@4
+NCryptFreeObject@4

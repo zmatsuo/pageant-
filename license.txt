@@ -1,0 +1,32 @@
+﻿pagant+のコピーライト
+----
+このプロジェクトのライセンスはマルチライセンスとなります。
+
+コンパイルされたバイナリを頒布する場合、GPLに従う。
+GPLに基づいたソースコードはGPLに従う。
+ソースヘッダに明示してあるソースはそのライセンスに従う。
+puttyへ各パッチはMITに従う。
+その他の部分はMITライセンスとする。
+----
+意訳
+
+MITライセンス
+Copyright 2017 Masaaki Matsuo
+
+下記の条件を受け入れていただけるのであれば、誰でも自由に無料で、このソフトウェアをつかっていただくことができます。
+
+このソフトウェアをコピーしてつかったり、配布したり、変更を加えたり、変更を加えたものを配布したり、商用利用したり、有料で販売したり、なんにでも自由につかってください。
+
+このソフトウェアの著作権表示と、このライセンスの全文(英語の文章)を、ソースコードのなかや、ソースコードに同梱したライセンス表示用の別ファイルなどに掲載してください。
+
+このソフトウェアにはなんの保証もついていません。たとえ、このソフトウェアを利用したことでなにか問題が起こったとしても、作者はなんの責任も負いません。 
+----
+MIT License
+
+Copyright (c) 2017 Masaaki Matsuo
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.

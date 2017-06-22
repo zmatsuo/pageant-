@@ -1,0 +1,12 @@
+LIBRARY HHCTRL.OCX
+EXPORTS
+AuthorMsg
+DllCanUnloadNow
+DllGetClassObject
+DllRegisterServer
+DllUnregisterServer
+HhWindowThread
+HtmlHelpA@16
+HtmlHelpW@16
+LoadHHA
+doWinMain

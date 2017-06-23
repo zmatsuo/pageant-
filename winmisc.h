@@ -1,4 +1,7 @@
 ﻿
+#ifndef _WINMISC_H_
+#define	_WINMISC_H_
+
 #include <windows.h>
 #include <Shlobj.h>	// for CSIDL_ constant
 
@@ -32,6 +35,8 @@ void exec_regedit(const wchar_t *open_path);
 // misc stuff
 HWND get_hwnd();
 std::wstring get_full_path(const wchar_t *filename, bool search_path = false);
+
+#endif	// _WINMISC_H_
 
 // Local Variables:
 // mode: c++

@@ -156,6 +156,7 @@ void pgp_fingerprints(void)
 		HELPCTXID(pgp_fingerprints));
 }
 
+#if 0
 /*
  * Split a complete command line into argc/argv, attempting to do
  * it exactly the same way Windows itself would do it (so that
@@ -365,8 +366,10 @@ void split_into_argv(char *cmdline, int *argc, char ***argv,
     if (argv) *argv = outputargv; else sfree(outputargv);
     if (argstart) *argstart = outputargstart; else sfree(outputargstart);
 }
+#endif
 
-#ifdef TESTMODE
+#if 0
+//#ifdef TESTMODE
 
 const struct argv_test {
     const char *cmdline;

@@ -25,7 +25,9 @@
 #define PUTTY_CHM_FILE		L"putty.chm"
 #define PUTTY_HELP_CONTENTS L"putty.cnt"
 
+#if defined(_MSC_VER)
 #pragma comment(lib,"Htmlhelp.lib")
+#endif
 
 static bool requested_help;
 static std::string help_path;		// TODO wstring
@@ -56,8 +58,7 @@ int has_help(void)
      * unrealistic, since even Vista will have it if the user
      * specifically downloads it.
      */
-//    return (!help_path.empty() || !chm_path.empty());
-	return 1;
+    return (!help_path.empty() || !chm_path.empty());
 }
 
 void launch_help(HWND hwnd, const char *topic)

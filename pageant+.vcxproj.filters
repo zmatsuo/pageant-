@@ -110,17 +110,8 @@
     <ClCompile Include="db.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="winhelp.cpp">
-      <Filter>Generated Files\Debug</Filter>
-    </ClCompile>
     <ClCompile Include="ssh-agent_emu.cpp">
       <Filter>ssh-agent-emu</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\unixdomain\libunixdomain\ud_socket.c">
-      <Filter>ud_socket</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\unixdomain\libunixdomain\sock_server.c">
-      <Filter>ud_socket</Filter>
     </ClCompile>
     <ClCompile Include="cert\cert_pkcs.c">
       <Filter>cert</Filter>
@@ -218,6 +209,15 @@
     <ClCompile Include="ssh-agent_ms.cpp">
       <Filter>ssh-agent-ms</Filter>
     </ClCompile>
+    <ClCompile Include="libunixdomain\ud_socket.c">
+      <Filter>ud_socket</Filter>
+    </ClCompile>
+    <ClCompile Include="libunixdomain\sock_server.c">
+      <Filter>ud_socket</Filter>
+    </ClCompile>
+    <ClCompile Include="winhelp.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="passphrase.ui">
@@ -292,12 +292,6 @@
     <ClInclude Include="ssh-agent_emu.h">
       <Filter>ssh-agent-emu</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\unixdomain\libunixdomain\sock_server.h">
-      <Filter>ud_socket</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\unixdomain\libunixdomain\ud_socket.h">
-      <Filter>ud_socket</Filter>
-    </ClInclude>
     <ClInclude Include="cert\cert_common.h">
       <Filter>cert</Filter>
     </ClInclude>
@@ -324,9 +318,6 @@
     </ClInclude>
     <ClInclude Include="sshbn.h">
       <Filter>ssh</Filter>
-    </ClInclude>
-    <ClInclude Include="network.h">
-      <Filter>Generated Files</Filter>
     </ClInclude>
     <ClInclude Include="GeneratedFiles\ui_settingdlg.h">
       <Filter>Generated Files</Filter>
@@ -365,6 +356,21 @@
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="pageant+.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="network.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="libunixdomain\ud_socket.h">
+      <Filter>ud_socket</Filter>
+    </ClInclude>
+    <ClInclude Include="libunixdomain\sock_server.h">
+      <Filter>ud_socket</Filter>
+    </ClInclude>
+    <ClInclude Include="winhelp.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="winhelp_.h">
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>

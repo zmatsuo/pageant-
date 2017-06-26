@@ -2,10 +2,6 @@
  * winmisc.c: miscellaneous Windows-specific things
  */
 #undef UNICODE
-#if defined(__MINGW32__)
-// QT 5.9は windows7以上
-#define _WIN32_WINNT _WIN32_WINNT_WIN7
-#endif
 #include <algorithm>
 #include <vector>
 #include <stdio.h>

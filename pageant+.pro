@@ -16,7 +16,7 @@ TEMPLATE = app
 # depend on your compiler). Please consult the documentation of the
 # deprecated API in order to know how to port your code away from it.
 DEFINES += QT_DEPRECATED_WARNINGS
-DEFINES += _WIN32_WINNT=0x0600
+DEFINES += _WIN32_WINNT=_WIN32_WINNT_WIN7
 msvc:DEFINES += PUTTY_CAC
 
 # You can also make your code fail to compile if you use deprecated APIs.

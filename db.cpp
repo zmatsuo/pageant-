@@ -10,6 +10,7 @@
 #include "ssh.h"	// base64_decode_atom()
 #include "winhelp_.h"
 #include "winmisc.h"
+#include "misc_cpp.h"
 
 #include "db.h"
 
@@ -18,9 +19,9 @@
 #define PUTTY_DEFAULT     "Default%20Settings"
 #define PUTTY_REGKEY      "Software\\SimonTatham\\PuTTY\\Sessions"
 
-static std::wstring putty_path;		// putty.exe
 static int use_inifile;				// putty.iniを見るか?(見つけたか)
 static std::string inifile_;		// putty.ini
+static std::wstring inifile_w;		// putty.ini
 
 tree234 *passphrases;
 
@@ -30,59 +31,49 @@ int get_use_inifile(void)
     return use_inifile;
 }
 
-/*
- * Look for the PuTTY binary
- *  (we will enable the saved session submenu if we find it).
- */
-static void init_putty_path()
-{
-	putty_path = get_full_path(L"putty.exe", true);
-}
-
-std::wstring get_putty_path()
-{
-    return putty_path;
-}
-
 std::string get_putty_ini()
 {
 	return inifile_;
 }
 
-static bool init_putty_ini_sub(const char *ini)
+static bool init_putty_ini_sub(const wchar_t *ini)
 {
-	char buf[10];
-	GetPrivateProfileString("Generic", "UseIniFile", "", buf, sizeof (buf), ini);
-	return (buf[0] == '1');
+	wchar_t buf[10];
+	GetPrivateProfileStringW(L"Generic", L"UseIniFile", L"", buf, _countof(buf), ini);
+	return (buf[0] == L'1');
 }
 
 static void init_putty_ini()
 {
-	std::string s = _GetModuleFileNameA(NULL);
-	s += "\\putty.ini";
+	std::wstring s = _GetModuleFileName(NULL);
+	s += L"\\putty.ini";
 	if (init_putty_ini_sub(s.c_str())) {
-		inifile_ = s;
+		inifile_w = s;
+		inifile_ = wc_to_mb(s);
 		use_inifile = 1;
 		return;
 	}
 
-	s = _GetCurrentDirectoryA();
-	s += "\\putty.ini";
+	s = _GetCurrentDirectory();
+	s += L"\\putty.ini";
 	if (init_putty_ini_sub(s.c_str())) {
-		inifile_ = s;
+		inifile_w = s;
+		inifile_ = wc_to_mb(s);
 		use_inifile = 1;
 		return;
 	}
 
-	s = _SHGetFolderPathA(CSIDL_APPDATA);
-	s += "\\PuTTY\\putty.ini";
+	s = _SHGetFolderPath(CSIDL_APPDATA);
+	s += L"\\PuTTY\\putty.ini";
 	if (init_putty_ini_sub(s.c_str())) {
-        inifile_ = s;
+		inifile_w = s;
+        inifile_ = wc_to_mb(s);
 		use_inifile = 1;
 		return;
 	}
 
 	use_inifile = 0;
+	inifile_w.clear();
 	inifile_.clear();
 }
 
@@ -180,42 +171,42 @@ void load_passphrases()
 				WritePrivateProfileString("Passphrases", key, NULL, inifile);
 			}
 		}
-		return;
-    }
-    if (RegOpenKey(HKEY_CURRENT_USER, "Software\\SimonTatham\\PuTTY\\Passphrases", &hkey) == ERROR_SUCCESS) {
-        DWORD type, size;
-        int ret;
-        while (1) {
-			sprintf(key, "crypto%d", i++);
-			size = sizeof buffer;
-			ret = RegQueryValueEx(hkey, key, 0, &type, (LPBYTE)buffer, &size);
-			if (ret == ERROR_FILE_NOT_FOUND)
-				break;
-			if (ret == ERROR_SUCCESS && type == REG_SZ) {
-				original_len = decrypto(buffer, NULL);
-				original = (char*) malloc(original_len + 1);
-				if (original != NULL) {
-					decrypto(buffer, original);
-					addpos234(passphrases, original, 0);
+    } else {
+		if (RegOpenKey(HKEY_CURRENT_USER, "Software\\SimonTatham\\PuTTY\\Passphrases", &hkey) == ERROR_SUCCESS) {
+			DWORD type, size;
+			int ret;
+			while (1) {
+				sprintf(key, "crypto%d", i++);
+				size = sizeof buffer;
+				ret = RegQueryValueEx(hkey, key, 0, &type, (LPBYTE)buffer, &size);
+				if (ret == ERROR_FILE_NOT_FOUND)
+					break;
+				if (ret == ERROR_SUCCESS && type == REG_SZ) {
+					original_len = decrypto(buffer, NULL);
+					original = (char*) malloc(original_len + 1);
+					if (original != NULL) {
+						decrypto(buffer, original);
+						addpos234(passphrases, original, 0);
+					}
 				}
 			}
-        }
-		// convert from previous version data
-        i = 1;
-        while (1) {
-			sprintf(key, "%d", i++);
-			size = sizeof buffer;
-			ret = RegQueryValueEx(hkey, key, 0, &type, (LPBYTE)buffer, &size);
-			if (ret == ERROR_FILE_NOT_FOUND)
-				break;
-			if (ret == ERROR_SUCCESS && type == REG_SZ) {
-				addpos234(passphrases, strdup(buffer), 0);
-				save_passphrases(buffer);
-				RegDeleteValue(hkey, key);
+			// convert from previous version data
+			i = 1;
+			while (1) {
+				sprintf(key, "%d", i++);
+				size = sizeof buffer;
+				ret = RegQueryValueEx(hkey, key, 0, &type, (LPBYTE)buffer, &size);
+				if (ret == ERROR_FILE_NOT_FOUND)
+					break;
+				if (ret == ERROR_SUCCESS && type == REG_SZ) {
+					addpos234(passphrases, strdup(buffer), 0);
+					save_passphrases(buffer);
+					RegDeleteValue(hkey, key);
+				}
 			}
-        }
-        RegCloseKey(hkey);
-    }
+			RegCloseKey(hkey);
+		}
+	}
 }
 
 /* generate random number by MT(http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/MT2002/mt19937ar.html) */
@@ -331,23 +322,6 @@ int decrypto(const char* encrypted, char* buffer)
     }
 }
 
-
-/**
- *	@retval		0-3600[sec]
- *	@retval		-1	no setting
- */
-int get_confirm_timeout()
-{
-	const char *inifile = inifile_.c_str();
-    int timeout = -1;
-	if (get_use_inifile()) {
-		timeout = GetPrivateProfileInt(APPNAME, "ConfirmTimeout", -1, inifile);
-	} else {
-		bool r = reg_read_cur_user(L"Software\\SimonTatham\\PuTTY\\" APPNAME, L"ConfirmTimeout", timeout);
-		if (r == false) timeout = -1;
-    }
-    return timeout;
-}
 
 /**
  * @param[in]	keyname
@@ -481,8 +455,6 @@ std::vector<std::string> setting_get_putty_sessions()
     static const char HEADER[] = "Session:";
     std::vector<std::string> resultAry;
     
-    char buf[MAX_PATH + 1];
-
     if (get_use_inifile()) {
 		const char *inifile = inifile_.c_str();
 		char* buffer;
@@ -500,7 +472,7 @@ std::vector<std::string> setting_get_putty_sessions()
 		std::string s;
 		while(*p != '\0') {
 			if (!strncmp(p, HEADER, sizeof (HEADER) - 1)) {
-				if(strcmp(buf, PUTTY_DEFAULT) != 0) {
+				if(strcmp(p, PUTTY_DEFAULT) != 0) {
 					char session_name[MAX_PATH + 1];
 					unmungestr(p + sizeof (HEADER) - 1, session_name, MAX_PATH);
 					s = session_name;
@@ -511,26 +483,27 @@ std::vector<std::string> setting_get_putty_sessions()
         }
 		sfree(buffer);
 		return resultAry;
-    }
+    } else {
+		char buf[MAX_PATH + 1];
+		HKEY hkey;
+		if(ERROR_SUCCESS != RegOpenKeyA(HKEY_CURRENT_USER, PUTTY_REGKEY, &hkey))
+			return resultAry;
 
-    HKEY hkey;
-    if(ERROR_SUCCESS != RegOpenKeyA(HKEY_CURRENT_USER, PUTTY_REGKEY, &hkey))
-		return resultAry;
-
-    int index_key = 0;
-    while(ERROR_SUCCESS == RegEnumKey(hkey, index_key, buf, MAX_PATH)) {
-		TCHAR session_name[MAX_PATH + 1];
-		unmungestr(buf, session_name, MAX_PATH);
-		if(strcmp(buf, PUTTY_DEFAULT) != 0) {
-			std::string s = session_name;
-			resultAry.push_back(s);
+		int index_key = 0;
+		while(ERROR_SUCCESS == RegEnumKey(hkey, index_key, buf, MAX_PATH)) {
+			TCHAR session_name[MAX_PATH + 1];
+			unmungestr(buf, session_name, MAX_PATH);
+			if(strcmp(buf, PUTTY_DEFAULT) != 0) {
+				std::string s = session_name;
+				resultAry.push_back(s);
+			}
+			index_key++;
 		}
-		index_key++;
-    }
 
-    RegCloseKey(hkey);
+		RegCloseKey(hkey);
 
-    return resultAry;
+		return resultAry;
+	}
 }
 
 void db_init()
@@ -540,9 +513,7 @@ void db_init()
      */
     init_help();
 
-    init_putty_path();
 	init_putty_ini();
-
 }
 
 // Local Variables:

@@ -9,12 +9,15 @@
 #include "debug.h"
 #include "setting.h"
 #include "db.h"
+#include "winhelp_.h"
 
+#define APPNAME "Pageant"			// access ini and registory
 #define INI_FILE	APP_NAME ".ini"
 
 static QSettings *settings;
 static bool use_inifile;
 static QString ini_file;
+static std::wstring putty_path;		// putty.exe
 
 static bool decide_ini_path(QString &ini)
 {
@@ -55,6 +58,11 @@ bool setting_isempty(const char *key)
 	return (settings->value(key) == QVariant());
 }
 
+bool setting_isempty(const QString &key)
+{
+	return (settings->value(key) == QVariant());
+}
+
 QString setting_get_my_fullpath()
 {
 	return QString::fromStdWString(_GetModuleFileName(NULL));
@@ -91,6 +99,9 @@ static void set_default()
  */
 void setting_init(int _use_ini, const char *_ini_file)
 {
+	db_init();
+    init_help();
+
 	bool ok = false;
 
 	// iniファイル強制
@@ -133,6 +144,11 @@ void setting_init(int _use_ini, const char *_ini_file)
 	}
 
 	set_default();
+
+	///////
+	putty_path = get_full_path(L"putty.exe", true);
+
+	
 	debug_printf("setting_init()\n");
 }
 
@@ -168,7 +184,7 @@ void setting_get_confirm_info(const char *keyname, char *value_ptr, size_t value
     }
 
 	const QString key = "ssh-agent_confirm/" + QString(keyname);
-	if (settings->value(key) != QVariant()) {
+	if (!setting_isempty(key)) {
         const std::string s = settings->value(key, "").toString().toStdString();
         const char *ps = s.c_str();
         const size_t len = (size_t)s.length() + 1;		// '\0'も含む長さ
@@ -181,16 +197,26 @@ void setting_get_confirm_info(const char *keyname, char *value_ptr, size_t value
     }
 }
 
+/**
+ *	@retval		0-3600[sec]
+ *	@retval		-1	no setting
+ */
 int setting_get_confirm_timeout()
 {
 	int timeout;
 	const char *key = "ssh-agent/timeout";
 
-	if (settings->value(key) != QVariant()) {
+	if (!setting_isempty(key)) {
 		timeout = settings->value(key, -1).toInt();
 	} else {
-		// 以前の設定から取得
-		timeout = get_confirm_timeout();
+		// puttyの設定から取得
+		if (get_use_inifile()) {
+			std::string inifile = get_putty_ini();
+			timeout = GetPrivateProfileIntA(APPNAME, "ConfirmTimeout", -1, inifile.c_str());
+		} else {
+			bool r = reg_read_cur_user(L"Software\\SimonTatham\\PuTTY\\" APPNAME, L"ConfirmTimeout", timeout);
+			if (r == false) timeout = -1;
+		}
 	}
 
 	// clip
@@ -200,30 +226,10 @@ int setting_get_confirm_timeout()
 	return timeout;
 }	
 
-//////////////////////////////////////////////////////////////////////////////
-#if 0
-QString setting_get_unixdomain_path()
+std::wstring get_putty_path()
 {
-	return settings->value("ssh-agent/path").toString();
+    return putty_path;
 }
-
-void setting_set_unixdomain_path(const QString &path)
-{
-	QString path2 = path;
-	path2.replace("/", "\\");
-    settings->setValue("ssh-agent/path", path2);
-}
-
-bool setting_get_unixdomain_enable()
-{
-	return setting_get_bool("ssh-agent/cygwin_sock");
-}
-
-void setting_set_unixdomain_enable(bool enable)
-{
-	setting_set_bool("ssh-agent/cygwin_sock", enable);
-}
-#endif
 
 // Local Variables:
 // mode: c++

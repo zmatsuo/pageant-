@@ -313,9 +313,18 @@ void SettingDlg::setStartup(int action)
     ui->pushButton_5->setToolTip(tip);
 }
 
+// 登録解除
 void SettingDlg::on_pushButton_5_clicked()
 {
     setStartup(1);
+}
+
+// exeフォルダをexplorerで開く
+void SettingDlg::on_pushButton_8_clicked()
+{
+	QString s = setting_get_my_fullpath();
+	QString dir = s.left(s.lastIndexOf("\\"));
+	::exec(dir.toStdWString().c_str());
 }
 
 // 自分の設定
@@ -359,5 +368,6 @@ void SettingDlg::on_checkBox_4_clicked()
 // coding: utf-8-with-signature
 // tab-width: 4
 // End:
+
 
 

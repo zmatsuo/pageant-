@@ -5,8 +5,6 @@
 #include "winpgnt.h"
 #include "pageant.h"
 #include "misc.h"
-#include "db.h"
-#include "winhelp_.h"
 #include "setting.h"
 #include "ssh-agent_ms.h"
 #include "ssh-agent_emu.h"
@@ -36,8 +34,6 @@ int main(int argc, char *argv[])
 	QApplication a(argc, argv);
 
 	setting_init();
-	db_init();
-    init_help();
 
 	debug_printf("main() start\n");
 

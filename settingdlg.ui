@@ -32,8 +32,8 @@
   <widget class="QPlainTextEdit" name="plainTextEdit">
    <property name="geometry">
     <rect>
-     <x>420</x>
-     <y>380</y>
+     <x>400</x>
+     <y>430</y>
      <width>361</width>
      <height>141</height>
     </rect>
@@ -45,10 +45,10 @@
   <widget class="QGroupBox" name="groupBox">
    <property name="geometry">
     <rect>
-     <x>400</x>
+     <x>390</x>
      <y>20</y>
      <width>361</width>
-     <height>101</height>
+     <height>151</height>
     </rect>
    </property>
    <property name="title">
@@ -74,7 +74,7 @@
     <property name="geometry">
      <rect>
       <x>130</x>
-      <y>70</y>
+      <y>90</y>
       <width>121</width>
       <height>23</height>
      </rect>
@@ -87,7 +87,7 @@
     <property name="geometry">
      <rect>
       <x>10</x>
-      <y>70</y>
+      <y>90</y>
       <width>111</width>
       <height>23</height>
      </rect>
@@ -102,11 +102,27 @@
       <x>30</x>
       <y>50</y>
       <width>291</width>
-      <height>16</height>
+      <height>31</height>
      </rect>
     </property>
     <property name="text">
      <string>TextLabel</string>
+    </property>
+    <property name="wordWrap">
+     <bool>true</bool>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="pushButton_8">
+    <property name="geometry">
+     <rect>
+      <x>10</x>
+      <y>120</y>
+      <width>81</width>
+      <height>23</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>explorer</string>
     </property>
    </widget>
   </widget>
@@ -246,10 +262,10 @@
   <widget class="QGroupBox" name="groupBox_3">
    <property name="geometry">
     <rect>
-     <x>420</x>
-     <y>160</y>
-     <width>301</width>
-     <height>191</height>
+     <x>390</x>
+     <y>180</y>
+     <width>361</width>
+     <height>211</height>
     </rect>
    </property>
    <property name="title">
@@ -259,7 +275,7 @@
     <property name="geometry">
      <rect>
       <x>10</x>
-      <y>120</y>
+      <y>140</y>
       <width>101</width>
       <height>16</height>
      </rect>
@@ -285,7 +301,7 @@
     <property name="geometry">
      <rect>
       <x>10</x>
-      <y>70</y>
+      <y>80</y>
       <width>121</width>
       <height>23</height>
      </rect>
@@ -298,7 +314,7 @@
     <property name="geometry">
      <rect>
       <x>10</x>
-      <y>140</y>
+      <y>160</y>
       <width>221</width>
       <height>16</height>
      </rect>
@@ -312,32 +328,38 @@
      <rect>
       <x>30</x>
       <y>50</y>
-      <width>261</width>
-      <height>16</height>
+      <width>321</width>
+      <height>31</height>
      </rect>
     </property>
     <property name="text">
      <string>TextLabel</string>
+    </property>
+    <property name="wordWrap">
+     <bool>true</bool>
     </property>
    </widget>
    <widget class="QLabel" name="label_5">
     <property name="geometry">
      <rect>
       <x>30</x>
-      <y>100</y>
-      <width>261</width>
-      <height>16</height>
+      <y>110</y>
+      <width>321</width>
+      <height>31</height>
      </rect>
     </property>
     <property name="text">
      <string>TextLabel</string>
+    </property>
+    <property name="wordWrap">
+     <bool>true</bool>
     </property>
    </widget>
    <widget class="QCheckBox" name="checkBox_6">
     <property name="geometry">
      <rect>
       <x>10</x>
-      <y>160</y>
+      <y>180</y>
       <width>231</width>
       <height>16</height>
      </rect>

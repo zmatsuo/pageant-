@@ -17,7 +17,6 @@
 #include "mainwindow.h"
 #include "winpgnt.h"
 #include "debug.h"
-#include "db.h"
 #include "winhelp_.h"
 #include "misc.h"
 #include "winmisc.h"
@@ -32,6 +31,7 @@
 #include "ssh-agent_ms.h"
 #include "pageant.h"
 #include "winutils.h"
+#include "ssh.h"
 
 #include "ui_mainwindow.h"
 
@@ -763,6 +763,44 @@ HWND get_hwnd()
 	return (HWND)win->winId();
 }
 
+/*
+ * Warn about the obsolescent key file format.
+ */
+void old_keyfile_warning(void)
+{
+    static const char mbtitle[] = "PuTTY Key File Warning";
+    static const char message[] =
+	"You are loading an SSH-2 private key which has an\n"
+	"old version of the file format. This means your key\n"
+	"file is not fully tamperproof. Future versions of\n"
+	"PuTTY may stop supporting this private key format,\n"
+	"so we recommend you convert your key to the new\n"
+	"format.\n"
+	"\n"
+	"You can perform this conversion by loading the key\n"
+	"into PuTTYgen and then saving it again.";
+
+	HWND hwnd = get_hwnd();
+    MessageBox(hwnd, message, mbtitle, MB_OK);
+}
+
+/*
+ * Print a modal (Really Bad) message box and perform a fatal exit.
+ */
+void modalfatalbox(const char *fmt, ...)
+{
+    va_list ap;
+    char *buf;
+
+    va_start(ap, fmt);
+    buf = dupvprintf(fmt, ap);
+    va_end(ap);
+	HWND hwnd = get_hwnd();
+    MessageBox(hwnd, buf, "Pageant Fatal Error",
+	       MB_SYSTEMMODAL | MB_ICONERROR | MB_OK);
+    sfree(buf);
+    exit(1);
+}
 
 // Local Variables:
 // mode: c++

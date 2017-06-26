@@ -10,7 +10,6 @@
 #include "winpgnt.h"
 #include "tree234.h"
 #include "ssh.h"
-#include "db.h"
 #include "pageant.h"
 
 typedef struct {

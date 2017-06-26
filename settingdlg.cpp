@@ -40,6 +40,13 @@ void SettingDlg::dispSetting()
 		}
 		text += "\n";
 	}
+
+	text += u8"Qt コンパイルバージョン\n";
+	text += QT_VERSION_STR;
+	text += "\n";
+	text += u8"Qt ライブラリ(DLL)バージョン\n";
+	text += qVersion();
+	
 	ui->plainTextEdit->insertPlainText(text);
 }
 

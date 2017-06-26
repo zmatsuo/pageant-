@@ -57,7 +57,7 @@ QTのDLLが必要です(Qtをstatic linkにしてexe1つだけで起動するよ
 次のようなバッチファイルで起動させると便利です。
 
 ```bat
-set QT_BIN=C:\Qt\5.8\msvc2015_64\bin
+set QT_BIN=C:\Qt\5.9\msvc2015_64\bin
 set exe=debug\pageant+.exe
 path %QT_BIN%;%PATH%
 start "" %exe%
@@ -73,7 +73,7 @@ start "" %exe%
 
 - 準備
 	- <https://www.qt.io/> から Qtをダウンロードしてインストールする
-	- Qt 5.8 又は 5.9 (5.9へ移行中)
+	- Qt 5.9
 	- Visual Studo 2015を使用する場合
 		- msvc2015 64-bit ,32-bit をインストール
 	- MinGWを使用する場合

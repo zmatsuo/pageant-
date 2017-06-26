@@ -24,7 +24,9 @@ rm debug.log
 rm -rf .vs
 rm -rf ../build-pageant+-Desktop_Qt_5_8_0_MSVC2015_64bit-Debug
 rm -rf ../build-pageant+-Desktop_Qt_5_9_0_MSVC2015_64bit-Release
+rm -rf ../build-pageant+-Desktop_Qt_5_9_0_MSVC2015_64bit-Debug
 rm -rf ../build-pageant+-Desktop_Qt_5_9_0_MinGW_32bit2-Debug
+rm -rf ../build-pageant+-Desktop_Qt_5_9_0_MinGW_32bit2-Release
 rm -rf ui_passphrase.h
 rm -rf ui_aboutdlg.h
 rm -rf ui_confirmacceptdlg.h

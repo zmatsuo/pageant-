@@ -11,11 +11,16 @@ std::string _GetModuleFileNameA(HMODULE hModule);
 std::wstring _GetModuleFileName(HMODULE hModule);
 std::string _GetCurrentDirectoryA();
 std::wstring _GetCurrentDirectory();
-std::wstring _SHGetFolderPath(int nFolder);
-std::string _SHGetFolderPathA(int nFolder);
 std::wstring _SHGetKnownFolderPath(REFKNOWNFOLDERID rfid);
+bool _SHGetKnownFolderPath(REFKNOWNFOLDERID rfid, std::wstring &path);
 std::string _ExpandEnvironmentStrings(const char *str);
 std::wstring _ExpandEnvironmentStrings(const wchar_t *str);
+bool _WritePrivateProfileString(
+	const wchar_t *section, const wchar_t *key, const wchar_t *ini,
+	const wchar_t *str);
+bool _GetPrivateProfileString(
+	const wchar_t *section, const wchar_t *key, const wchar_t *ini,
+	std::wstring &str);
 
 bool reg_read_cur_user(const wchar_t *subkey, const wchar_t *valuename,
 					   std::wstring &str);

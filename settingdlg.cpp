@@ -57,14 +57,17 @@ static QString get_recommended_ssh_sock_path()
 	s =  QDir(qgetenv("HOME").constData()).absolutePath() + "\\.ssh";
 	s.replace("/","\\");
 	path_list.push_back(s);
-	s = QString::fromStdWString(_SHGetFolderPath(CSIDL_PROFILE)) + "\\.ssh";
+	s = QString::fromStdWString(_SHGetKnownFolderPath(FOLDERID_Profile))
+		+ "\\.ssh";
 	s.replace("/","\\");
 	path_list.push_back(s);
 	path_list.push_back("c:\\cygwin64\\tmp");
 	path_list.push_back("c:\\msys64\\tmp");
 	path_list.push_back("c:\\tmp");
-    path_list.push_back(QString::fromStdWString(_SHGetFolderPath(CSIDL_LOCAL_APPDATA)) + "\\temp");
+    path_list.push_back(QString::fromStdWString(_SHGetKnownFolderPath(FOLDERID_LocalAppData)) + "\\temp");
 
+
+	
 	QDir dir;
 	QString path;
 	for(size_t i=0; i<path_list.size(); i++) {
@@ -370,11 +373,29 @@ void SettingDlg::on_checkBox_4_clicked()
 	debug_console_show(check);
 }
 
+// startup user
+void SettingDlg::on_pushButton_9_clicked()
+{
+	std::wstring path;
+	bool r = _SHGetKnownFolderPath(FOLDERID_Startup, path);
+	if (r) {
+        ::exec(path.c_str());
+	}
+}
+
+// startup common
+void SettingDlg::on_pushButton_10_clicked()
+{
+	std::wstring path;
+	bool r = _SHGetKnownFolderPath(FOLDERID_CommonStartup, path);
+	if (r) {
+        ::exec(path.c_str());
+	}
+}
+
 // Local Variables:
 // mode: c++
 // coding: utf-8-with-signature
 // tab-width: 4
 // End:
-
-
 

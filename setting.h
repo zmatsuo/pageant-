@@ -11,6 +11,7 @@ bool setting_isempty(const char *key);
 bool setting_get_bool(const char *key);
 void setting_set_bool(const char *key, bool _bool);
 QString setting_get_my_fullpath();
+void setting_get_keyfiles(std::vector<std::wstring> &list);
 
 #endif
 

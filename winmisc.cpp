@@ -157,38 +157,29 @@ static std::wstring _SearchPath(const wchar_t *filename)
 	return &buf[0];
 }
 
-std::wstring _SHGetFolderPath(int nFolder)
+/**
+ *
+ *	SHGetFolderPath() is supported only for backward compatibility.
+ */
+bool _SHGetKnownFolderPath(REFKNOWNFOLDERID rfid, std::wstring &path)
 {
-	wchar_t path[MAX_PATH+1];
-	HRESULT r = SHGetFolderPathW(NULL, nFolder, NULL, 0, path);
+	PWSTR pszPath = NULL;
+	HRESULT r = SHGetKnownFolderPath(rfid, KF_FLAG_DEFAULT, NULL, &pszPath);
 	if (r != S_OK) {
-		return L"";
-	} else {
-		return path;
+		return false;
 	}
-}
-
-// TODO: wstinrgにする
-std::string _SHGetFolderPathA(int nFolder)
-{
-	char path[MAX_PATH+1];
-	HRESULT r = SHGetFolderPath(NULL, nFolder, NULL, 0, path);
-	if (r != S_OK) {
-		return "";
-	} else {
-		return path;
-	}
+	path = pszPath;
+	CoTaskMemFree(pszPath);
+	return true;
 }
 
 std::wstring _SHGetKnownFolderPath(REFKNOWNFOLDERID rfid)
 {
-	PWSTR pszPath = NULL;
-	HRESULT r = SHGetKnownFolderPath(rfid, KF_FLAG_CREATE, NULL, &pszPath);
-	if (r != S_OK) {
+	std::wstring path;
+	bool r = _SHGetKnownFolderPath(rfid, path);
+	if (r == false) {
 		return L"";
 	}
-	std::wstring path = pszPath;
-	CoTaskMemFree(pszPath);
 	return path;
 }
 
@@ -381,6 +372,37 @@ bool reg_delete(HKEY hKey, const wchar_t *subkey, const wchar_t *valuename)
 bool reg_delete_cur_user(const wchar_t *subkey, const wchar_t *valuename)
 {
 	return reg_delete(HKEY_CURRENT_USER, subkey, valuename);
+}
+
+bool _WritePrivateProfileString(
+	const wchar_t *section, const wchar_t *key, const wchar_t *ini,
+	const wchar_t *str)
+{
+	DWORD r = ::WritePrivateProfileStringW(section, key, str, ini);
+	(void)r;
+	return true;
+}
+
+bool _GetPrivateProfileString(
+	const wchar_t *section, const wchar_t *key, const wchar_t *ini,
+	std::wstring &str)
+{
+	std::vector<wchar_t> buf(1024);
+	buf[0] = 0;
+	while(1) {
+		DWORD r = ::GetPrivateProfileStringW(section, key, L"", &buf[0], (DWORD)buf.size(), ini);
+		if (buf[0] == L'\0') {
+			// エントリがない
+			str.clear();
+			return false;
+		}
+		if (r < (DWORD)buf.size() - 2) {
+			break;
+		}
+		buf.resize(buf.size()*2);
+	}
+	str = &buf[0];
+	return true;
 }
 
 void exec(const wchar_t *file, const wchar_t *param)

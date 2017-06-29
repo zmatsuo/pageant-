@@ -185,15 +185,15 @@ sock_server_t *sock_server_init(const sock_server_init_t *init_info)
 		pSS->port_no = init_info->port_no;
 		break;
 	case SOCK_SERVER_TYPE_UNIXDOMAIN:
+#if defined(_MSC_VER) || defined(__MINGW32__)
 		if (init_info->Wsocket_path != NULL) {
 			pSS->socket_path = _wcsdup(init_info->Wsocket_path);
 		} else {
-#if defined(_MSC_VER) || defined(__MINGW32__)
 			pSS->socket_path = utf8_2_utf16(init_info->socket_path);
-#else
-			pSS->socket_path = strdup(init_info->socket_path);
-#endif
 		}
+#else
+		pSS->socket_path = strdup(init_info->socket_path);
+#endif
 		break;
     default:
         goto cleanup;

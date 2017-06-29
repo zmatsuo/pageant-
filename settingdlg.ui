@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>801</width>
+    <width>778</width>
     <height>679</height>
    </rect>
   </property>
@@ -33,7 +33,7 @@
    <property name="geometry">
     <rect>
      <x>400</x>
-     <y>430</y>
+     <y>480</y>
      <width>361</width>
      <height>141</height>
     </rect>
@@ -48,7 +48,7 @@
      <x>390</x>
      <y>20</y>
      <width>361</width>
-     <height>151</height>
+     <height>201</height>
     </rect>
    </property>
    <property name="title">
@@ -117,12 +117,38 @@
      <rect>
       <x>10</x>
       <y>120</y>
-      <width>81</width>
+      <width>131</width>
       <height>23</height>
      </rect>
     </property>
     <property name="text">
-     <string>explorer</string>
+     <string>exeファイルの場所を開く</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="pushButton_9">
+    <property name="geometry">
+     <rect>
+      <x>10</x>
+      <y>150</y>
+      <width>121</width>
+      <height>23</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Startup folder(user)</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="pushButton_10">
+    <property name="geometry">
+     <rect>
+      <x>140</x>
+      <y>150</y>
+      <width>141</width>
+      <height>23</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Startup Folder(common)</string>
     </property>
    </widget>
   </widget>
@@ -263,7 +289,7 @@
    <property name="geometry">
     <rect>
      <x>390</x>
-     <y>180</y>
+     <y>230</y>
      <width>361</width>
      <height>211</height>
     </rect>

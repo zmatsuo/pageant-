@@ -134,7 +134,6 @@ void MainWindow::createTrayIcon()
 	s += tr("PuTTY authentication agent");
 	s += ")";
 	trayIcon->setToolTip(s);
-//    trayIcon->setContextMenu(trayIconMenu);
 
 	connect(trayIcon, SIGNAL(activated(QSystemTrayIcon::ActivationReason)),
 			this, SLOT(trayClicked(QSystemTrayIcon::ActivationReason)));
@@ -143,17 +142,6 @@ void MainWindow::createTrayIcon()
 void MainWindow::createTrayIconMenu()
 {
     QMenu *trayIconMenu;
-#if 0
-	if (trayIconMenu != NULL) {
-		delete trayIconMenu;
-
-		for(auto a : sessionActionAry){
-			delete a;
-		}
-		sessionActionAry.resize(0);
-	}
-#endif
-
 	trayIconMenu = new QMenu(this);
 	if (!get_putty_path().empty()) {
 		// putty
@@ -270,7 +258,7 @@ void MainWindow::keylist_update()
 /*
  * This function loads a key from a file and adds it.
  */
-void MainWindow::add_keyfile(const QString &filename)
+ void MainWindow::add_keyfile(const QString &filename)
 {
 	Filename *fn = filename_from_str(filename.toStdString().c_str());
 
@@ -284,7 +272,7 @@ void MainWindow::add_keyfile(const QString &filename)
     if (ret == PAGEANT_ACTION_OK) {
         goto done;
     } else if (ret == PAGEANT_ACTION_FAILURE) {
-        goto error;
+		goto error;
     }
 
     /*
@@ -311,7 +299,7 @@ void MainWindow::add_keyfile(const QString &filename)
         if (ret == PAGEANT_ACTION_OK) {
             goto done;
         } else if (ret == PAGEANT_ACTION_FAILURE) {
-            goto error;
+			goto error;
         }
 
         smemclr(passphrase, strlen(passphrase));
@@ -344,23 +332,9 @@ void MainWindow::on_pushButtonAddKey_clicked()
 
     QStringList files = QFileDialog::getOpenFileNames( this, cap, folder, filter );
 
-    debug_printf("select %d\n", files.size());
-    if (files.size() == 0) {
-
-    } else {
-        for (int i = 0; i < files.size(); i++) {
-#if 0
-#if defined(_MSC_VER)
-			std::string f = files[i].toStdString();
-            debug_printf("file '%s'\n", f.c_str());
-            Filename *ff = filename_from_str(f.c_str());
-#else
-            Filename ff = filename_from_str(files[i].toStdString().c_str());
-#endif
-//            add_keyfile(ff);
-#endif
-            add_keyfile(files[i]);
-        }
+    debug_printf("select count %d\n", files.size());
+	for (int i = 0; i < files.size(); i++) {
+		add_keyfile(files[i]);
     }
 
 	keylist_update();
@@ -400,7 +374,6 @@ void MainWindow::closeEvent(QCloseEvent *event)
 	}
 }
 
-//static void showAndBringFront(QDialog *dlg)
 static void showAndBringFront(QWidget *win)
 {
 #if 1
@@ -703,9 +676,11 @@ bool MainWindow::nativeEventFilter(const QByteArray &eventType, void *message, l
 extern "C" char *test_0606(const char *comment);
 #endif
 
+// clipboard
 void MainWindow::on_pushButton_3_clicked()
 {
     debug_printf("pubkey to clipboard\n");
+#if 0
 #ifdef PUTTY_CAC
 	const char *comment = "CAPI:dfaflafjlaseifaliejf83u98q4usdlkjfla33bf";
 	char *keyString = test_0606(comment);
@@ -716,6 +691,16 @@ void MainWindow::on_pushButton_3_clicked()
 	QApplication::clipboard()->setText(QString(keyString));
     sfree(keyString);
 #endif
+#endif
+
+	{
+		std::vector<std::wstring> list;
+		setting_get_keyfiles(list);
+		for(auto f: list) {
+			QString qf = QString::fromStdWString(f);
+			add_keyfile(qf);
+		}
+	}
 }
 
 int MainWindow::confirmAcceptDlg(struct ConfirmAcceptDlgInfo *info)

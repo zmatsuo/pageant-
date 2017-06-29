@@ -8,4 +8,6 @@
 <br>
 <a href="https://github.com/ganaware/win-ssh-agent">win-ssh-agent</a><br>
 <br>
-<a href="https://github.com/OpenSC/OpenSC/wiki">OpenSC</a>
+<a href="https://github.com/OpenSC/OpenSC/wiki">OpenSC</a><br>
+<br>
+<a href="http://d.hatena.ne.jp/nattou_curry_2/20090101/1230806259">いろいろ解析日記</a>

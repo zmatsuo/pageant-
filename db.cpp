@@ -63,7 +63,7 @@ static void init_putty_ini()
 		return;
 	}
 
-	s = _SHGetFolderPath(CSIDL_APPDATA);
+	s = _SHGetKnownFolderPath(FOLDERID_RoamingAppData);
 	s += L"\\PuTTY\\putty.ini";
 	if (init_putty_ini_sub(s.c_str())) {
 		inifile_w = s;

@@ -20,10 +20,8 @@ void SettingDlg::dispSetting()
 {
 	QString text;
 	QString s1;
-	text += u8"pagent+:\n";
-	text += setting_get_my_fullpath() + "\n";
 	text += u8"pagent+ 設定保存場所:\n";
-	text += setting_get_inifile() + "\n";
+	text += QString::fromStdWString(setting_get_inifile()) + "\n";
 	text += u8"putty path:\n";
 	std::wstring ss = get_putty_path();
 	if (ss.empty()) {
@@ -134,7 +132,7 @@ SettingDlg::SettingDlg(QWidget *parent) :
 
 	ui->label_6->setText(setting_get_my_fullpath());
 
-	ui->label_4->setText(setting_get_inifile());
+	ui->label_4->setText(QString::fromStdWString(setting_get_inifile()));
     ui->label_5->setText(QString::fromStdString(get_putty_ini()));
 }
 
@@ -264,7 +262,7 @@ void SettingDlg::on_pushButton_clicked()
     ::exec(path.c_str());
 }
 
-// regedit
+// regedit 環境変数
 void SettingDlg::on_pushButton_2_clicked()
 {
     exec_regedit(L"HKEY_CURRENT_USER\\Environment");
@@ -278,9 +276,16 @@ void SettingDlg::on_pushButton_4_clicked()
     ::exec(path.c_str(), param);
 }
 
+// regedit run user
 void SettingDlg::on_pushButton_3_clicked()
 {
     exec_regedit(L"HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run");
+}
+
+// regedit run common
+void SettingDlg::on_pushButton_11_clicked()
+{
+	exec_regedit(L"HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run");
 }
 
 /*
@@ -341,13 +346,11 @@ void SettingDlg::on_pushButton_8_clicked()
 void SettingDlg::on_pushButton_6_clicked()
 {
 	if (setting_get_use_inifile() == true) {
-		QString ini = setting_get_inifile();
-        std::wstring ini_ws = ini.toStdWString();
-        ::exec(ini_ws.c_str());
+		std::wstring ini = setting_get_inifile();
+        ::exec(ini.c_str());
     } else {
-		QString reg_path = setting_get_inifile();
-        std::wstring reg_path_ws = reg_path.toStdWString();
-		exec_regedit(reg_path_ws.c_str());
+		std::wstring reg_path = setting_get_inifile();
+		exec_regedit(reg_path.c_str());
 	}
 }
 
@@ -398,4 +401,5 @@ void SettingDlg::on_pushButton_10_clicked()
 // coding: utf-8-with-signature
 // tab-width: 4
 // End:
+
 

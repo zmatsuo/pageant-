@@ -44,17 +44,67 @@ putty-CACを元にしたCAPI(Cryptographic API)経由、pkcs#11経由で対応�
 - winscp
 - filezilla
 
+# 動作チェック
+
+次のようにコマンドを実行して同一のfingerprintが表示されればokです。
+表示されているバージョンはチェックした時点のものです。
+
+## git for windows
+```
+$ ssh -V
+OpenSSH_7.3p1, OpenSSL 1.0.2k  26 Jan 2017
+$ ssh-add -l -E md5
+```
+
+## msys2
+```
+$ pacman -S openssh
+$ LANG=C pacman -Sl | grep openssh
+msys openssh 7.5p1-1 [installed]
+$ ssh-add -l -E md5
+```
+
+## cygwin
+```
+$ cygcheck -c | grep openssh
+openssh                                 7.5p1-1                      OK
+$ ssh-add -l -E md5
+```
+
+## source tree
+- open sourcetree gui
+- push terminal button
+```
+$ ssh -V
+OpenSSH_7.1p2, OpenSSL 1.0.2g  1 Mar 2016
+$ ssh-add -l -E md5
+```
+
+## openssh ported by microsoft
+```
+PS C:\Program Files\OpenSSH-Win64> .\ssh -V
+OpenSSH_7.5p1, OpenSSL 1.0.2d 9 Jul 2015
+.\ssh-add -l -E md5
+```
+
 # 参照したプロジェクトなど
 
-- PuTTY <https://www.chiark.greenend.org.uk/~sgtatham/putty/latest.html>
-- PuTTY-CAC <https://risacher.org/putty-cac/>
+- PuTTY  
+	<https://www.chiark.greenend.org.uk/~sgtatham/putty/latest.html>
+- PuTTY-CAC  
+	<https://risacher.org/putty-cac/>
 
 reference.txt を参照してください。
 
 # プログラムの起動
 
-QTのDLLが必要です(Qtをstatic linkにしてexe1つだけで起動するようにしたい :-)。
-次のようなバッチファイルで起動させると便利です。
+次のQTのdllがexeと同じフォルダにあれば起動します(Debug版の場合は各々のDebug版)
+- QtCore.dll
+- Qt5Gui.dll
+- Qt5Widgets.dll
+
+exeだけのときはパスを通しておくとokです(Qtをstatic linkにしてexe1つだけで起動するようにしたい :-)。
+次のようなバッチファイルで起動させる方法があります。
 
 ```bat
 set QT_BIN=C:\Qt\5.9\msvc2015_64\bin
@@ -62,12 +112,6 @@ set exe=debug\pageant+.exe
 path %QT_BIN%;%PATH%
 start "" %exe%
 ```
-
-次のdllがexeと同じフォルダにあれば起動します(Debug版の場合は各々のDebug版)
-- QtCore.dll
-- Qt5Gui.dll
-- Qt5Widgets.dll
-
 
 # ビルド
 

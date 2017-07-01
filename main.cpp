@@ -121,6 +121,15 @@ int main(int argc, char *argv[])
 	a.installNativeEventFilter(&w);
 	w.show();
 
+	{
+		std::vector<std::wstring> list;
+		setting_get_keyfiles(list);
+		for(auto f: list) {
+			add_keyfile(f.c_str());
+		}
+		keylist_update();
+	}
+
 	int r = a.exec();
 
 	debug_printf("main leave %d\n", r);

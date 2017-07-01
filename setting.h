@@ -1,11 +1,12 @@
 
 #ifdef __cplusplus
 
+#include <string>
 #include <QString>
 
 void setting_init(int _use_ini = true, const char *_ini_file = NULL);
 void setting_exit();
-QString setting_get_inifile();
+std::wstring setting_get_inifile();
 bool setting_get_use_inifile();
 bool setting_isempty(const char *key);
 bool setting_get_bool(const char *key);

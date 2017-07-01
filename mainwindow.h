@@ -73,9 +73,9 @@ public:
     int passphraseDlg(struct PassphraseDlgInfo *info);
     int confirmAcceptDlg(struct ConfirmAcceptDlgInfo *info);
     void keylist_update();
+    void add_keyfile(const QString &filename);
 
 private:
-    void add_keyfile(const QString &filename);
     bool nativeEventFilter(const QByteArray &eventType, void *message, long *result);
 };
 

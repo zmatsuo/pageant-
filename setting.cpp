@@ -15,7 +15,7 @@
 #define INI_FILE	APP_NAME ".ini"
 
 static bool use_inifile;
-static QString ini_file;
+static QString ini_file;			// TODO削除
 static std::wstring ini_file_w;
 static std::wstring putty_path;		// putty.exe
 
@@ -37,9 +37,9 @@ static bool decide_ini_path(QString &ini)
     return false;
 }
 
-QString setting_get_inifile()
+std::wstring setting_get_inifile()
 {
-    return ini_file;
+    return ini_file_w;
 }
 
 static void get_key_sec(const char *unikey, std::wstring &section, std::wstring &key)

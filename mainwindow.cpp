@@ -748,6 +748,13 @@ HWND get_hwnd()
 	return (HWND)win->winId();
 }
 
+void add_keyfile(const wchar_t *filename)
+{
+	win->add_keyfile(QString::fromStdWString(filename));
+	keylist_update();
+}
+
+
 /*
  * Warn about the obsolescent key file format.
  */

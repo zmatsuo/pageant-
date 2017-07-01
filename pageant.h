@@ -153,6 +153,8 @@ void pageant_delete_key2(int selectedCount, const int *selectedArray);
 
 void *pageant_handle_msg_2(const void *msgv, int *replylen);
 
+void add_keyfile(const wchar_t *filename);
+
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

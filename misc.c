@@ -1024,6 +1024,9 @@ int strendswith(const char *s, const char *t)
 
 #define BUILDINFO_PLATFORM "Windows"
 
+#define str(s)			#s
+#define xstr(s)			str(s)
+
 char *buildinfo(const char *newline)
 {
     strbuf *buf = strbuf_new();
@@ -1041,6 +1044,14 @@ char *buildinfo(const char *newline)
     strbuf_catf(buf, "%sCompiler: Visual Studio", newline);
 #if _MSC_VER == 1900
     strbuf_catf(buf, " 2015 / MSVC++ 14.0");
+    strbuf_catf(buf, " (%s)",
+		(_MSC_FULL_VER == 190024215) ? "Update 3(KB3165756)" :
+		(_MSC_FULL_VER == 190024213) ? "Update 3(KB3022398)" :	// ‘½•ª
+		(_MSC_FULL_VER == 190024210) ? "Update 3" :
+		(_MSC_FULL_VER == 190023918) ? "Update 2" :
+		(_MSC_FULL_VER == 190023506) ? "Update 1" :
+		(_MSC_FULL_VER == 190023026) ? "update 0" :
+		"(" xstr( _MSC_FULL_VER) ")" );
 #elif _MSC_VER == 1800
     strbuf_catf(buf, " 2013 / MSVC++ 12.0");
 #elif _MSC_VER == 1700
@@ -1141,4 +1152,10 @@ void filename_free(Filename *fn)
     sfree(fn->path);
     sfree(fn);
     _CrtCheckMemory();
+}
+
+void logevent(void *f, const char *msg)
+{
+    (void)f;
+    (void)msg;
 }

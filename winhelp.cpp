@@ -34,6 +34,7 @@ static std::string help_path;		// TODO wstring
 static int help_has_contents;
 static std::string chm_path;
 
+#if 0
 void init_help(void)
 {
 	std::wstring f;
@@ -42,6 +43,7 @@ void init_help(void)
     f = get_full_path(PUTTY_CHM_FILE);
 	if (!f.empty()) chm_path = wc_to_mb(f);
 }
+#endif
 
 void shutdown_help(void)
 {

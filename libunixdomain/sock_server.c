@@ -342,10 +342,8 @@ static void call_server(
 	int r = pSS->serv_func(notify_param);
 	if (r == 0) {
 		// continue;
-		switch (notify_type) {
-		case SS_NOTIFY_CONNECT:
+		if (notify_type == SS_NOTIFY_CONNECT) {
 			p->data = notify_param->u.connect.data;
-			break;
 		}
 		if (p->timeout != notify_param->timeout)
 		{
@@ -357,11 +355,8 @@ static void call_server(
 		{
 			p->recv_ptr = notify_param->recv.ptr;
 			p->recv_size = notify_param->recv.size;
-			if (p->recv_size != 0) {
-				// start recv
-				FD_SET(p->sock, &pSS->read_set);
-			} else {
-				FD_CLR(p->sock, &pSS->read_set);
+			if (p->recv_ptr == NULL || p->recv_size == 0) {
+				debug("[%d] recv buf is empty?\n", server_index);
 			}
 		}
 		if (notify_param->send.ptr != p->send_ptr ||
@@ -369,7 +364,7 @@ static void call_server(
 		{
 			p->send_ptr = notify_param->send.ptr;
 			p->send_size = notify_param->send.size;
-			if (p->send_size != 0) {
+			if (p->send_ptr != NULL && p->send_size != 0) {
 				// start send
 				FD_SET(p->sock, &pSS->write_set);
 			} else {
@@ -396,25 +391,29 @@ int sock_server_main(sock_server_t *pSS)
 		SOCKET fd_max = listen_sock;
 		for (int i=0; i<pSS->server_list_size; i++) {
 			if (pSS->server_list[i].available != false) {
-				if (fd_max < pSS->server_list[i].sock) {
-					fd_max = pSS->server_list[i].sock;
+				SOCKET fd = pSS->server_list[i].sock;
+				if (fd_max < fd) {
+					fd_max = fd;
 				}
 			}
 		}
 
-		// select
-		// 		windows	決して中断しない(cygwinも??)
-		//		unix	シグナルの発生で中断する
-		struct timeval polling_interval;
-		polling_interval.tv_sec = 0;			// sec
-		polling_interval.tv_usec = 10*1000;		// usec
-        fd_set read_set_tmp = pSS->read_set;
-        fd_set write_set_tmp = pSS->write_set;
-		int select_ret = select((int)(fd_max+1),
+		int select_ret;
+		fd_set read_set_tmp;
+		fd_set write_set_tmp;
+		while(1) {
+			struct timeval polling_interval;
+			polling_interval.tv_sec = 0;			// sec
+			polling_interval.tv_usec = 10*1000;		// usec
+			read_set_tmp = pSS->read_set;
+			write_set_tmp = pSS->write_set;
+			select_ret = select((int)(fd_max+1),
 								&read_set_tmp, &write_set_tmp,
 								NULL, &polling_interval);
-		if (select_ret == 0) {
-			// polling
+			if (select_ret != 0) {
+				// not timeout
+				break;
+			}
 
 			if (pSS->exit_requet_flag) {
 				// exit
@@ -423,7 +422,7 @@ int sock_server_main(sock_server_t *pSS)
 
 			sock_server_notify_param_t notify_param = { SS_NOTIFY_TIMEOUT };
 			uint64_t now = get_serial_time();
-			
+			bool timeout = false;
 			for (int i = 0; i < pSS->server_list_size; i++) {
 				server_list_t *p = &pSS->server_list[i];
 				if (p->available == false || p->timeout == 0) {
@@ -432,9 +431,20 @@ int sock_server_main(sock_server_t *pSS)
 				if (now > p->timeout) {
 					p->timeout = 0;
 					call_server(pSS, i, &notify_param);
+					timeout = true;
 				}
 			}
-		} else if (select_ret > 0) {
+			if (timeout) {
+				break;
+			}
+		}
+
+		if (pSS->exit_requet_flag) {
+			// exit
+			break;
+		}
+
+		if (select_ret > 0) {
 
 			// listen socket
 			if (FD_ISSET(listen_sock, &read_set_tmp)) {
@@ -442,6 +452,7 @@ int sock_server_main(sock_server_t *pSS)
 				struct sockaddr_in client;
 				int len = sizeof(client);
 				SOCKET client_sock;
+				debug("accept?\n");
 #if defined(_MSC_VER) || defined(__MINGW32__)
 				if (pSS->socket_type == SOCK_SERVER_TYPE_UNIXDOMAIN) {
 					client_sock = ud_accept(listen_sock,
@@ -475,6 +486,7 @@ int sock_server_main(sock_server_t *pSS)
 						p->shutdown_receive = false;
 						sock_server_notify_param_t notify_param = { SS_NOTIFY_CONNECT };
 						call_server(pSS, i, &notify_param);
+						FD_SET(client_sock, &pSS->read_set);
 					}
 				}
 			}
@@ -490,33 +502,34 @@ int sock_server_main(sock_server_t *pSS)
 					// receive
 					uint8_t *recv_ptr = p->recv_ptr;
 					size_t recv_size = p->recv_size;
-					int r = recv(sock, (char *)recv_ptr, (int)recv_size, 0);
-					if (r == 0) {
-						// disconnect from client
-						debug("[%d] recv disconnect\n", i);
-						FD_CLR(p->sock, &pSS->read_set);
-						shutdown(p->sock, SD_RECEIVE);
-						p->shutdown_receive = true;
-						sock_server_notify_param_t notify_param = { SS_NOTIFY_DISCONNECT };
-						call_server(pSS, i, &notify_param);
-					} else if (r < 0) {
-						// error
-						debug("[%d] recv error\n", i);
-						sock_server_notify_param_t notify_param = { SS_NOTIFY_CLOSE };
-						call_server(pSS, i, &notify_param);
-						close_server(pSS, i);
-					} else {
-						recv_size = r;
-						debug("[%d] recv: len=%zd\n", i, recv_size);
-						sock_server_notify_param_t notify_param = { SS_NOTIFY_RECV };
-						notify_param.u.recv.ptr = recv_ptr;
-						notify_param.u.recv.size = recv_size;
-						p->recv_ptr += recv_size;
-						p->recv_size -= recv_size;
-						if (p->recv_size == 0) {
+					if (recv_ptr != NULL && recv_size > 0) {
+						int r = recv(sock, (char *)recv_ptr, (int)recv_size, 0);
+						if (r == 0) {
+							// disconnect from client
+							debug("[%d] recv() = 0 disconnect from client\n", i);
 							FD_CLR(p->sock, &pSS->read_set);
+							shutdown(p->sock, SD_RECEIVE);
+							p->shutdown_receive = true;
+							sock_server_notify_param_t notify_param = { SS_NOTIFY_DISCONNECT };
+							call_server(pSS, i, &notify_param);
+						} else if (r < 0) {
+							// error
+							debug("[%d] recv error\n", i);
+							sock_server_notify_param_t notify_param = { SS_NOTIFY_CLOSE };
+							call_server(pSS, i, &notify_param);
+							close_server(pSS, i);
+						} else if (p->recv_ptr == NULL || p->recv_size == 0) {
+							debug("[%d] recv: buf is empty?\n", i);
+						} else {
+							recv_size = r;
+							debug("[%d] recv: len=%zd\n", i, recv_size);
+							sock_server_notify_param_t notify_param = { SS_NOTIFY_RECV };
+							notify_param.u.recv.ptr = recv_ptr;
+							notify_param.u.recv.size = recv_size;
+							p->recv_ptr += recv_size;
+							p->recv_size -= recv_size;
+							call_server(pSS, i, &notify_param);
 						}
-						call_server(pSS, i, &notify_param);
 					}
 				}
 
@@ -545,8 +558,7 @@ int sock_server_main(sock_server_t *pSS)
 					}
 				}
 			}
-		}
-		else {
+		} else if (select_ret < 0) {
 			debug("select return signal?\n");
 			if (errno == EINTR) {
 				// シグナル受信

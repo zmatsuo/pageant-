@@ -10,7 +10,7 @@
 #define WIN32_LEAN_AND_MEAN
 #include <winsock2.h>
 #include <windows.h>
-#include <shlwapi.h>		// for PathFileExists()
+#include <time.h>
 
 #include <crtdbg.h>
 #include <assert.h>
@@ -42,8 +42,17 @@ typedef struct ud_data_st {
  */
 static uint16_t get_portno(void)
 {
+#if 1
+	srand((unsigned int)time(NULL));
 	uint16_t portno = 49152 + (rand() % (65535-49152));
 	return portno;
+#endif
+#if 0
+	srandom((unsigned int)time(NULL));
+	int r = random();
+	uint16_t portno = 49152 + (rand() % (65535-49152));
+	return portno;
+#endif
 }
 
 /**
@@ -61,7 +70,7 @@ static void deleteSockPath(
 		return;
 
 #if defined(_MSC_VER) || defined(__MINGW32__)
-	if (PathFileExistsW(sock_path) != 0) {
+	if (GetFileAttributesW(sock_path) != INVALID_FILE_ATTRIBUTES) {
 		int r = SetFileAttributesW(sock_path, FILE_ATTRIBUTE_NORMAL);
 		r = DeleteFileW(sock_path);
 	}
@@ -109,11 +118,14 @@ SOCKET ud_socket(const ud_open_data_t *data, ud_data_t **fd_ud)
 	self->fd_ = sock;
 	self->sockPath_	= NULL;
 
+#if 0
 	char value = 1;
 	setsockopt(sock,
 			   SOL_SOCKET, SO_REUSEADDR, (const char *)&value, sizeof(value));
+#endif
 
 	// 16byte GUID
+	srand((unsigned int)time(NULL));
 	for(int i = 0 ; i < _countof(self->guid_); i++) {
 		self->guid_[i] = rand() * 0x10000 + rand();		// TODO: RAND_MAX=32767(0x7fff)
 	}

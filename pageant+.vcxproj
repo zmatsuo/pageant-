@@ -116,8 +116,9 @@
       <RuntimeTypeInfo>true</RuntimeTypeInfo>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
-      <WarningLevel>Level3</WarningLevel>
+      <WarningLevel>Level4</WarningLevel>
       <ProgramDataBaseFileName>$(IntDir)vc$(PlatformToolsetVersion).pdb</ProgramDataBaseFileName>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
       <AdditionalDependencies>$(QTDIR)\lib\qtmaind.lib;shell32.lib;gdi32.lib;User32.lib;Advapi32.lib;Comdlg32.lib;$(QTDIR)\lib\Qt5Widgetsd.lib;$(QTDIR)\lib\Qt5Guid.lib;$(QTDIR)\lib\Qt5Cored.lib;%(AdditionalDependencies)</AdditionalDependencies>
@@ -182,6 +183,7 @@
     <ClCompile Include="pageant.c" />
     <ClCompile Include="pageant_cpp.cpp" />
     <ClCompile Include="passphrase.cpp" />
+    <ClCompile Include="sc.c" />
     <ClCompile Include="setting.cpp" />
     <ClCompile Include="settingdlg.cpp" />
     <ClCompile Include="ssh-agent_emu.cpp" />

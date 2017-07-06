@@ -367,6 +367,7 @@ void rsastr_fmt(char *str, struct RSAKey *key)
  * Generate a fingerprint string for the key. Compatible with the
  * OpenSSH fingerprint code.
  */
+#if 0
 void rsa_fingerprint(char *str, int len, struct RSAKey *key)
 {
     struct MD5Context md5c;
@@ -399,6 +400,46 @@ void rsa_fingerprint(char *str, int len, struct RSAKey *key)
 	strncpy(str + slen + 1, key->comment, len - slen - 1);
 	str[len - 1] = '\0';
     }
+}
+#endif
+
+//void rsa_fingerprint_sha256(char *str, int len, struct RSAKey *key)
+void rsa_fingerprint(char *str, int len, struct RSAKey *key)
+{
+    SHA256_State ctx;
+    int numlen, slen, i;
+
+    SHA256_Init(&ctx);
+    numlen = ssh1_bignum_length(key->modulus) - 2;
+    for (i = numlen; i--;) {
+	unsigned char c = bignum_byte(key->modulus, i);
+	SHA256_Bytes(&ctx, &c, 1);
+    }
+    numlen = ssh1_bignum_length(key->exponent) - 2;
+    for (i = numlen; i--;) {
+	unsigned char c = bignum_byte(key->exponent, i);
+	SHA256_Bytes(&ctx, &c, 1);
+    }
+
+    unsigned char digest[32];	// 32byte = 256bit
+    SHA256_Final(&ctx, digest);
+
+    char buffer[5+7+32*4/3+10];
+    memset(buffer, 0, sizeof(buffer));
+    sprintf(buffer, "%d ", bignum_bitcount(key->modulus));
+    strcat(buffer, "SHA256:");
+    char *p = buffer + strlen(buffer);
+    base64_encode_atom(digest, 32, p);
+    strcpy(str, buffer);
+#if 0
+    str[len - 1] = '\0';
+    slen = strlen(str);
+    if (key->comment && slen < len - 1) {
+	str[slen] = ' ';
+	strncpy(str + slen + 1, key->comment, len - slen - 1);
+	str[len - 1] = '\0';
+    }
+#endif
 }
 
 /*

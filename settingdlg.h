@@ -33,12 +33,17 @@ private slots:
 
     void on_pushButton_11_clicked();
 
+    void on_checkBox_7_clicked();
+
+    void on_pushButton_12_clicked();
+
 private:
     Ui::SettingDlg *ui;
 
     void dispSockPath(const std::string &path);
     void setStartup(int action);
     void dispSetting();
+    void arrengePassphraseUI(bool enable);
 };
 
 #endif // SETTINGDLG_H

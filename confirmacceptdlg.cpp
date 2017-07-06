@@ -14,6 +14,9 @@ ConfirmAcceptDlg::ConfirmAcceptDlg(
     timerId_ = startTimer(1000);	// 1sec
 
     ui->checkBox->setChecked(info_->dont_ask_again == 0 ? false : true);
+	if (info_->dont_ask_again_available == 0) {
+		ui->checkBox->setEnabled(false);
+	}
     QString s = info->title;
     ui->label->setText(s);
     s = info->fingerprint;

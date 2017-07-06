@@ -6,9 +6,7 @@
 #include <string>
 #include <thread>
 
-extern "C" {
 #include "pageant.h"
-}
 #include "puttymem.h"
 
 #include "ssh-agent_ms.h"
@@ -16,20 +14,24 @@ extern "C" {
 static HANDLE hPipe;
 static uint8_t szData[8*1024];
 static std::thread *pipe_th;
+static HANDLE hEventControl;
+static HANDLE hEventConnect;
 
-static void init(const wchar_t *sock_path)
+static bool init(const wchar_t *sock_path)
 {
 	std::wstring path = L"\\\\.\\pipe\\";
 	path += sock_path;
 	
     hPipe = CreateNamedPipeW(path.c_str(),
-							 PIPE_ACCESS_DUPLEX,
+							 PIPE_ACCESS_DUPLEX | FILE_FLAG_OVERLAPPED,
 							 PIPE_TYPE_BYTE, 1,
 							 sizeof(szData), sizeof(szData),
 							 1000, NULL);
     if (hPipe == INVALID_HANDLE_VALUE) {
-	printf("パイプの作成に失敗しました。");
+		printf("パイプの作成に失敗しました。");
+		return false;
     }
+	return true;
 }
 
 static inline int msglen(const void *p)
@@ -42,8 +44,24 @@ int pipe_main()
 {
 	while(1) {
 		// 待つ
-		ConnectNamedPipe(hPipe, NULL);
+		OVERLAPPED ov;
+		ZeroMemory(&ov, sizeof(OVERLAPPED));
+		ov.hEvent = hEventConnect;
+		ConnectNamedPipe(hPipe, &ov);
 
+		HANDLE hEventArray[2];
+		hEventArray[0] = hEventControl;
+		hEventArray[1] = hEventConnect;
+
+		DWORD  dwEventNo = WaitForMultipleObjects(2, hEventArray, FALSE, INFINITE);
+		dwEventNo -= WAIT_OBJECT_0;
+		if (dwEventNo == 0) {
+			// event control -> exit
+			return 0;
+		} else if (dwEventNo == 1) {
+			// event connect -> continue
+			;
+		}		
 		while(1) {
 
 			DWORD read_size;
@@ -91,20 +109,28 @@ bool pipe_th_start(const wchar_t *sock_path)
 {
 	if (pipe_th != nullptr)
 		return false;
-    init(sock_path);
+    if (init(sock_path) == false) {
+		return false;
+	}
+	hEventControl = CreateEvent(NULL, TRUE, FALSE, NULL);
+	hEventConnect = CreateEvent(NULL, FALSE, FALSE, NULL);
     pipe_th = new std::thread(pipe_main);
 	return true;
 }
 
 void pipe_th_stop()
 {
-	if (pipe_th != nullptr) {
-		CloseHandle(hPipe);		// かなり強引
-		hPipe = NULL;
-		pipe_th->join();
-		delete pipe_th;
-		pipe_th = nullptr;
+	if (pipe_th == nullptr) {
+		return;
 	}
+	SetEvent(hEventControl);
+	pipe_th->join();
+	delete pipe_th;
+	pipe_th = nullptr;
+	CloseHandle(hPipe);
+	hPipe = NULL;
+	CloseHandle(hEventConnect);
+	CloseHandle(hEventControl);
 }
 
 // Local Variables:

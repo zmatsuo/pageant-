@@ -218,6 +218,9 @@
     <ClCompile Include="winhelp.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="sc.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="passphrase.ui">

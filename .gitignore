@@ -41,3 +41,5 @@ x64/
 *.c~
 *.h~
 *.VC.opendb
+*.org~
+*.md~

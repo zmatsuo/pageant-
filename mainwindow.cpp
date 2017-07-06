@@ -19,6 +19,7 @@
 #include "debug.h"
 #include "winhelp_.h"
 #include "misc.h"
+#include "misc_cpp.h"
 #include "winmisc.h"
 #include "filename_.h"
 #include "setting.h"
@@ -47,7 +48,6 @@ extern "C" {
 
 #define APPNAME			APP_NAME	// in pageant+.h
 
-static QStandardItemModel *model;		// TODO: メンバ変数化
 static MainWindow *win;
 
 MainWindow::MainWindow(QWidget *parent) :
@@ -146,10 +146,10 @@ void MainWindow::createTrayIconMenu()
 	if (!get_putty_path().empty()) {
 		// putty
 		QMenu *session_menu = trayIconMenu->addMenu( "putty" );
-		std::vector<std::string> session_info = setting_get_putty_sessions();
+		std::vector<std::wstring> session_info = setting_get_putty_sessions();
 
 		for (size_t i=0; i< session_info.size() + 1; i++) {
-			QString s = i == 0 ? "&New session" : session_info[i-1].c_str();
+			QString s = i == 0 ? "&New session" : QString::fromStdWString(session_info[i - 1]);
 			QAction *action = new QAction(s, this);
 			action->setData(i-1);
 			session_menu->addAction(action);
@@ -206,8 +206,7 @@ void MainWindow::createTrayIconMenu()
 
 static QString get_ssh_folder()
 {
-    QByteArray home_ba = qgetenv("HOME");
-    QString home = home_ba.constData();
+    QString home = QString::fromStdWString(_getenv(L"HOME"));
     QDir home_dir(home);
     //QDir home_dir = QDir::home();
     if (home_dir.exists()) {
@@ -261,6 +260,7 @@ void MainWindow::keylist_update()
  void MainWindow::add_keyfile(const QString &filename)
 {
 	Filename *fn = filename_from_str(filename.toStdString().c_str());
+	std::string comment;
 
     /*
      * Try loading the key without a passphrase. (Or rather, without a
@@ -274,17 +274,22 @@ void MainWindow::keylist_update()
     } else if (ret == PAGEANT_ACTION_FAILURE) {
 		goto error;
     }
+	// PAGEANT_ACTION_NEED_PP
 
     /*
      * OK, a passphrase is needed, and we've been given the key
      * comment to use in the passphrase prompt.
      */
+	comment = err;
+	comment += "\n";
+	comment += filename.toStdString();
     while (1) {
 		char *passphrase;
         struct PassphraseDlgInfo pps;
 		pps.passphrase = &passphrase;
-		pps.comment = "comment";
+		pps.comment = comment.c_str();
 		pps.save = 0;
+		pps.saveAvailable = setting_get_bool("Passphrase/save_enable", false);
 		int dlgret = slot_passphraseDlg(&pps);
         if (dlgret != QDialog::Accepted) {
 			// cancell	
@@ -292,12 +297,17 @@ void MainWindow::keylist_update()
 		}
 
         sfree(err);
+		err = NULL;
 
         assert(passphrase != NULL);
 
         ret = pageant_add_keyfile(fn, passphrase, &err);
         if (ret == PAGEANT_ACTION_OK) {
-            goto done;
+			if (pps.save != 0) {
+				add_passphrase(passphrase);
+				save_passphrases(passphrase);
+			}
+			goto done;
         } else if (ret == PAGEANT_ACTION_FAILURE) {
 			goto error;
         }
@@ -429,13 +439,14 @@ void MainWindow::on_pushButtonRemoveKey_clicked()
 	std::vector<int> selectedArray;
 	QItemSelectionModel *selection = ui->treeView->selectionModel();
 	QModelIndexList indexes = selection->selectedRows();
-	qSort(indexes);
-	for (int i = 0; i < indexes.count(); i++) {
-		selectedArray.push_back(indexes[i].row());
+	if (indexes.count() > 0) {
+		qSort(indexes);
+		for (int i = 0; i < indexes.count(); i++) {
+			selectedArray.push_back(indexes[i].row());
+		}
+
+		pageant_delete_key2(selectedArray.size(), &selectedArray[0]);
 	}
-
-	pageant_delete_key2(selectedArray.size(), &selectedArray[0]);
-
 	keylist_update();
 }
 
@@ -520,12 +531,12 @@ void MainWindow::on_session(QAction *action)
 
 	std::wstring param;
 	if (value >= 0) {
-		std::vector<std::string> session_info = setting_get_putty_sessions();
-		param = L"@" + QString(session_info[value].c_str()).toStdWString();
+		std::vector<std::wstring> session_info = setting_get_putty_sessions();
+		param = L"@" + session_info[value];
 	}
 
-	const wchar_t *putty_path = get_putty_path().c_str();
-	exec(putty_path, param.c_str());
+	const std::wstring putty_path = get_putty_path();
+	exec(putty_path.c_str(), param.c_str());
 
 	debug_printf("on_session %d leave\n", value);
 }
@@ -578,7 +589,7 @@ void MainWindow::on_actionregedit_triggered()
 void MainWindow::on_actionsetting_triggered()
 {
     debug_printf("setting\n");
-    QString unixdomain_path = getenv("SSH_AUTH_SOCK");
+	std::wstring unixdomain_path = _getenv(L"SSH_AUTH_SOCK");
     bool unixdomain_enable_prev = setting_get_bool("ssh-agent/cygwin_sock");
     bool pageant_enable_prev = setting_get_bool("ssh-agent/pageant");
 	bool ms_agent_enable_prev = setting_get_bool("ssh-agent/ms_ssh");
@@ -586,7 +597,7 @@ void MainWindow::on_actionsetting_triggered()
     dlg.exec();
 
 	// サービス再起動が必要
-	bool reboot_services = (unixdomain_path != unixdomain_path);
+	bool reboot_services = (unixdomain_path != _getenv(L"SSH_AUTH_SOCK"));
     if (reboot_services) {
 		// すべて止める
 		winpgnt_stop();
@@ -609,14 +620,14 @@ void MainWindow::on_actionsetting_triggered()
 	}
 	if (unixdomain_enable_prev != unixdomain_enable) {
 		if (unixdomain_enable) {
-			ssh_agent_server_start(unixdomain_path.toStdWString().c_str());
+			ssh_agent_server_start(unixdomain_path.c_str());
 		} else {
 			ssh_agent_server_stop();
 		}
 	}
 	if (ms_agent_enable_prev != ms_agent_enable) {
 		if (ms_agent_enable) {
-			pipe_th_start(unixdomain_path.toStdWString().c_str());
+			pipe_th_start(unixdomain_path.c_str());
 		} else {
 			pipe_th_stop();
 		}
@@ -648,9 +659,14 @@ bool MainWindow::nativeEventFilter(const QByteArray &eventType, void *message, l
 						 w == PBT_POWERSETTINGCHANGE ? "PBT_POWERSETTINGCHANGE" :
 						 "??",
 						 w);
+			if (w == PBT_APMSUSPEND) {
+				if (setting_get_bool("Passphrase/forget_when_terminal_locked", false)) {
+					pageant_forget_passphrases();
+					setting_remove_passphrases();
+				}
+			}
 			break;
 		case WM_WTSSESSION_CHANGE:
-			// TODO キーの制御をする
 			debug_printf("WM_WTSSESSION_CHANGE(%d) wParam=%s(%d)\n",
 						 msg->message,
 						 w == WTS_CONSOLE_CONNECT ? "WTS_CONSOLE_CONNECT" :
@@ -666,6 +682,12 @@ bool MainWindow::nativeEventFilter(const QByteArray &eventType, void *message, l
 						 w == WTS_SESSION_TERMINATE ? "WTS_SESSION_TERMINATE" :
 						 "??",
 						 w);
+			if (w == WTS_SESSION_LOCK) {
+				if (setting_get_bool("Passphrase/forget_when_terminal_locked", false)) {
+					pageant_forget_passphrases();
+					setting_remove_passphrases();
+				}
+			}
 			break;
 		}
 	}
@@ -680,7 +702,7 @@ extern "C" char *test_0606(const char *comment);
 void MainWindow::on_pushButton_3_clicked()
 {
     debug_printf("pubkey to clipboard\n");
-#if 0
+#if 1
 #ifdef PUTTY_CAC
 	const char *comment = "CAPI:dfaflafjlaseifaliejf83u98q4usdlkjfla33bf";
 	char *keyString = test_0606(comment);
@@ -693,6 +715,7 @@ void MainWindow::on_pushButton_3_clicked()
 #endif
 #endif
 
+#if 0
 	{
 		std::vector<std::wstring> list;
 		setting_get_keyfiles(list);
@@ -701,6 +724,7 @@ void MainWindow::on_pushButton_3_clicked()
 			add_keyfile(qf);
 		}
 	}
+#endif
 }
 
 int MainWindow::confirmAcceptDlg(struct ConfirmAcceptDlgInfo *info)
@@ -726,7 +750,6 @@ DIALOG_RESULT_T confirmAcceptDlg(struct ConfirmAcceptDlgInfo *info)
 				 "??",
 				 r);
 	DIALOG_RESULT_T retval = (r == QDialog::Accepted) ? DIALOG_RESULT_OK : DIALOG_RESULT_CANCEL;
-	info->result = retval;
 	return retval;
 }
 
@@ -751,6 +774,14 @@ HWND get_hwnd()
 void add_keyfile(const wchar_t *filename)
 {
 	win->add_keyfile(QString::fromStdWString(filename));
+	keylist_update();
+}
+
+void add_keyfile(const std::vector<std::wstring> &keyfileAry)
+{
+	for(auto &f: keyfileAry) {
+		win->add_keyfile(QString::fromStdWString(f));
+	}
 	keylist_update();
 }
 

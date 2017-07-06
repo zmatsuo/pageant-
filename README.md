@@ -6,7 +6,7 @@ Windows用のssh-agentです。
 次の通信を行うことができます。
 - pageant (putty ssh-agent)
 - ssh-agent cygwin
-- ssh-agent Microsoft
+- ssh-agent Microsoft (0.0.17.0は未対応)
 
 まだまだ気になるところはありますが、
 概ね動作します。
@@ -14,10 +14,17 @@ Windows用のssh-agentです。
 ## スマートカード対応について
 
 putty-CACを元にしたCAPI(Cryptographic API)経由、pkcs#11経由で対応しています。
-手元に使えるハードウェアがほとんどないのでほとんどテストできていません。
+手元に使えるハードウェアが限られているのでほとんどテストできていません。
 
-マイナンバーカードに対応したWindows版OpenSCとハードウェアが準備できれば
-マイナンバーカードでsshできるようになるはずです。試したい :-)
+マイナンバーカード対応版OpenSCがインストールしてあれば
+マイナンバーカードが使えます。
+
+動作したリーダー+カード
+- SCR3310-NTTCom + マイナンバーカード
+- ACS ACR122 + マイナンバーカード
+- yubiko yubikey neo pivモード
+
+Windowsでスマートカードでsshできるようになります。
 
 # 通信できるプログラム
 
@@ -28,7 +35,8 @@ putty-CACを元にしたCAPI(Cryptographic API)経由、pkcs#11経由で対応�
 - teraterm
 
 ## OpenSSH
-- OpenSSH ported by Microsoft
+- Win32 port of OpenSSH
+	- v0.0.17.0は未対応
 
 ## cygwin/msys ssh familys
 - cygwin/msys ssh
@@ -81,6 +89,10 @@ $ ssh-add -l -E md5
 ```
 
 ## openssh ported by microsoft
+
+- https://github.com/PowerShell/Win32-OpenSSH/releases/tag/v0.0.16.0
+- v0.0.17.0からソケットの仕組みが変わったらしく、通信できません
+
 ```
 PS C:\Program Files\OpenSSH-Win64> .\ssh -V
 OpenSSH_7.5p1, OpenSSL 1.0.2d 9 Jul 2015
@@ -130,15 +142,14 @@ start "" %exe%
 	- `pageant+.pro`からQtCreatorを開く
 	- Configure Projectでmingwを選ぶ
 
-# わかっている不具合
+# X11 Forwarding (Cygwin/X + ssh)
 
-## いつの間にか閉じている事がある
+Cygwin/Xを使っていて、cygwin系の`ssh -Y`を使用するとX11 Forwardingがう
+まくいくのに、puttyやMS sshなどではうまくいかないのは、Xサーバーがtcp
+をlistenしていないためです。
 
-つぎの手順で再現
-- `pageant+.exe`を起動する
-- 最小化ボタンで最小化(タスクトレイに入れる)
-- tasktrayからアイコンを右クリック、aboutboxを出す
-- [OK]を押して閉じると、プログラム本体も終了してしまう
+`startxwin -- -listen tcp`などでtcp経由で接続できるようになります。
+- http://x.cygwin.com/docs/faq/cygwin-x-faq.html#q-xserver-nolisten-tcp-default
 
 # license
 

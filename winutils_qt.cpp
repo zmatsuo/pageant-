@@ -25,6 +25,14 @@ static VOID CALLBACK message_box_help_callback(LPHELPINFO lpHelpInfo)
 	launch_help_id(NULL, (DWORD)id);
 }
 
+/**
+ *	@retvalue
+ *		IDCANCEL
+ *		IDNO
+ *		IDOK
+ *		IDRETRY
+ *		IDYES
+ */
 int message_box(LPCTSTR text, LPCTSTR caption, DWORD style, DWORD helpctxid)
 {
 	MSGBOXPARAMSA mbox = {
@@ -173,7 +181,7 @@ int task_dialog(
     text += Content;
 	int r = message_box(
 		wc_to_mb(text).c_str(),
-		wc_to_mb(WindowTitle).c_str(),
+        wc_to_mb(std::wstring(WindowTitle)).c_str(),
 		MB_OK, helpid);
     return r;
 #endif

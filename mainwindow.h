@@ -68,6 +68,7 @@ private:
     QSystemTrayIcon *trayIcon;
     bool quitGurad_;
     std::vector<QAction *> sessionActionAry;
+	QStandardItemModel *model;
 
 public:
     int passphraseDlg(struct PassphraseDlgInfo *info);

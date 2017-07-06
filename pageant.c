@@ -1,6 +1,7 @@
 ﻿/*
  * pageant.c: cross-platform code to implement Pageant.
  */
+#define _CRT_SECURE_NO_WARNINGS
 #include <stddef.h>
 #include <stdlib.h>
 #include <assert.h>
@@ -15,9 +16,24 @@
 #include "gui_stuff.h"
 #include "setting.h"
 
+#if 1
+#include "pkcs11.h"
+#include "sc.h"
+#endif
+
 #ifdef PUTTY_CAC
 #include "cert/cert_common.h"
 #endif // PUTTY_CAC
+
+#if 1
+#define PASSPHRASE_MAXLEN 64
+static int init=0;
+static sc_lib *sclib = NULL;
+static char pkcs11_token_label[70];
+static char pkcs11_cert_label[70];
+static char sc_save_passphrase[PASSPHRASE_MAXLEN];
+static int sc_activate_pwd_cache = 0;
+#endif
 
 /*
  * We need this to link with the RSA code, because rsaencrypt()
@@ -43,6 +59,8 @@ static int pageant_local = FALSE;
  */
 static tree234 *rsakeys;
 static tree234 *ssh2keys;
+//static tree234 *passphrases = NULL;
+tree234 *passphrases;
 
 /*
  * Blob structure for passing to the asymmetric SSH-2 key compare
@@ -53,6 +71,51 @@ struct blob {
     int len;
 };
 static int cmpkeys_ssh2_asymm(void *av, void *bv);
+
+#if 1
+static void sc_init()
+{
+    if (init==0) {
+	Filename pkcs11_libfile;
+	int ln = sizeof(pkcs11_token_label);
+	strcpy(pkcs11_token_label, "User Authentication PIN (JPKI)");
+	strcpy(pkcs11_cert_label, "User Authentication Certificate");
+	pkcs11_libfile.path = L"C:\\Windows\\System32\\opensc-pkcs11.dll";
+
+	{
+	    sclib = calloc(sizeof(sc_lib), 1);
+	    if(sc_init_library(NULL, 1, sclib, &pkcs11_libfile)) {
+		int bloblen;
+		char *algorithm;		// TODO free?
+		unsigned char *blob = (unsigned char *)sc_get_pub(NULL, 0, sclib,
+								  pkcs11_token_label,
+								  pkcs11_cert_label,
+								  &algorithm,
+								  &bloblen);
+		if(blob == NULL) {
+		    sc_free_sclib(sclib);
+		    sclib = NULL;
+		} else {
+		    struct RSAKey *rkey = snew(struct RSAKey);
+		    struct ssh2_userkey *newKey = snew(struct ssh2_userkey);
+
+		    rkey->exponent = sclib->rsakey->exponent;
+		    rkey->modulus = sclib->rsakey->modulus;
+		    newKey->data = rkey;
+		    newKey->comment = pkcs11_cert_label;
+		    newKey->alg = find_pubkey_alg("ssh-rsa");
+
+		    if(add234(ssh2keys, newKey) != newKey) {
+			MessageBoxA(NULL, "Failed to add token key", "Pageant Error",
+				    MB_ICONERROR | MB_OK);
+		    }
+		}
+	    }
+	}
+	init = 1;
+    }
+}
+#endif
 
 /*
  * Key comparison function for the 2-3-4 tree of RSA keys.
@@ -404,21 +467,20 @@ static int accept_agent_request(int type, const void* key)
 	    break;
 	}
     }
-    struct ConfirmAcceptDlgInfo info = {
-	type
-    };
+    struct ConfirmAcceptDlgInfo info;
     info.title = title;
     info.fingerprint = fingerprint;
+    info.dont_ask_again_available = confirm_any_request == 0 ? 1 : 0;
     info.dont_ask_again = 0;
     info.timeout = setting_get_confirm_timeout();
     DIALOG_RESULT_T r = confirmAcceptDlg(&info);
-    if (info.dont_ask_again) {
-	const char *value = (r == DIALOG_RESULT_CANCEL) ? VALUE_REFUSE : VALUE_ACCEPT;
-	setting_write_confirm_info(keyname, value);
-    }
     if (r == DIALOG_RESULT_CANCEL) {
 	return 0;
     } else {
+	if (info.dont_ask_again) {
+	    const char *value = (r == DIALOG_RESULT_CANCEL) ? VALUE_REFUSE : VALUE_ACCEPT;
+	    setting_write_confirm_info(keyname, value);
+	}
 	return 1;
     }
 }
@@ -591,6 +653,8 @@ void *pageant_handle_msg(const void *msg, int msglen, int *outlen,
 		freebn(reqkey.exponent);
 		freebn(reqkey.modulus);
 		freebn(challenge);
+		// TODO
+		fail_reason = "TODO";
 		goto failure;
 	    }
 	    response = rsadecrypt(challenge, key);
@@ -670,13 +734,32 @@ void *pageant_handle_msg(const void *msg, int msglen, int *outlen,
 		// TODO
 		fail_reason = "TODO";
 		goto failure;
-		}
+	    }
 #ifdef PUTTY_CAC
-		if (cert_is_certpath(key->comment))
-		{
-			signature = cert_sign(key, (const char *)data, datalen, &siglen, NULL);
+	    if (cert_is_certpath(key->comment))
+	    {
+		signature = cert_sign(key, (const char *)data, datalen, &siglen, NULL);
+	    }
+	    else
+#endif
+#if 1
+	    if((sclib != NULL) && (strcmp(key->comment, pkcs11_cert_label) == 0)) {
+		const char *passphrase;
+		struct PassphraseDlgInfo info = {0};
+		info.comment = "pkcs11";
+		info.passphrase = &passphrase;
+		info.save = 0;
+		info.saveAvailable = 0;
+		DIALOG_RESULT_T r = passphraseDlg(&info);
+		if (r == DIALOG_RESULT_OK) {
+		    signature = sc_sig(NULL, 0, sclib, pkcs11_token_label, passphrase, data, datalen, &siglen);
+		    free(passphrase);
+		} else {
+		    signature = 0;
+		    siglen = 0;
 		}
-		else
+	    }
+	    else
 #endif
 	    signature = key->alg->sign(key->data, (const char *)data,
                                        datalen, &siglen);
@@ -779,7 +862,8 @@ void *pageant_handle_msg(const void *msg, int msglen, int *outlen,
 		freersakey(key);
 		sfree(key);
 		sfree(comment);
-		// TODO:
+		// TODO
+		fail_reason = "TODO";
 	        goto failure;
 	    }
 
@@ -879,6 +963,8 @@ void *pageant_handle_msg(const void *msg, int msglen, int *outlen,
 		key->alg->freekey(key->data);
 		sfree(key);
                 sfree(comment);
+		// TODO
+		fail_reason = "TODO";
 	        goto failure;
 	    }
             if (logfn) {
@@ -937,6 +1023,8 @@ void *pageant_handle_msg(const void *msg, int msglen, int *outlen,
 	        if (!accept_agent_request(type, key)) {
 		    freersakey(key);
 		    sfree(key);
+		    // TODO
+		    fail_reason = "TODO";
 		    goto failure;
                 }
                 plog(logctx, logfn, "found with comment: %s", key->comment);
@@ -991,8 +1079,11 @@ void *pageant_handle_msg(const void *msg, int msglen, int *outlen,
                 fail_reason = "key not found";
 		goto failure;
             }
-	    if (!accept_agent_request(type, key))
+	    if (!accept_agent_request(type, key)) {
+		// TODO
+		fail_reason = "TODO";
 	        goto failure;
+	    }
 
             plog(logctx, logfn, "found with comment: %s", key->comment);
 
@@ -1011,6 +1102,8 @@ void *pageant_handle_msg(const void *msg, int msglen, int *outlen,
 	 * Remove all SSH-1 keys. Always returns success.
 	 */
 	if (!accept_agent_request(type, NULL)) {
+	  // TODO
+	  fail_reason = "TODO";
 	  goto failure;
 	}
 	{
@@ -1087,6 +1180,31 @@ void pageant_init(void)
     pageant_local = TRUE;
     rsakeys = newtree234(cmpkeys_rsa);
     ssh2keys = newtree234(cmpkeys_ssh2);
+    sc_init();
+}
+
+static void free_mem(tree234 *tree)
+{
+    if (tree == NULL)
+        return;
+
+    while (count234(tree) > 0) {
+	char *pp = index234(tree, 0);
+//	smemclr(pp, strlen(pp));		// TODO メモリクリア
+	delpos234(tree, 0);
+	sfree(pp);
+    }
+    sfree(tree);
+}
+
+void pageant_exit(void)
+{
+    free_mem(rsakeys);
+    rsakeys = NULL;
+    free_mem(ssh2keys);
+    ssh2keys = NULL;
+    free_mem(passphrases);
+    passphrases = NULL;
 }
 
 struct RSAKey *pageant_nth_ssh1_key(int i)
@@ -1352,8 +1470,15 @@ void pageant_listener_free(struct pageant_listen_state *pl)
  * same process as the running agent.
  */
 
-//static tree234 *passphrases = NULL;
-tree234 *passphrases;
+void add_passphrase(const char *passphrase)
+{
+	char *pp_copy = dupstr(passphrase);
+	if (addpos234(passphrases, pp_copy, 0) != pp_copy) {
+		/* No need; it was already there. */
+		smemclr(pp_copy, strlen(pp_copy));
+		sfree(pp_copy);
+	}
+}
 
 /*
  * After processing a list of filenames, we want to forget the
@@ -1434,6 +1559,11 @@ void *pageant_get_keylist2(int *length)
     return ret;
 }
 
+/**
+ *	@retval		PAGEANT_ACTION_OK
+ *	@retval		PAGEANT_ACTION_FAILURE
+ *	@retval		PAGEANT_ACTION_NEED_PP
+ */
 int pageant_add_keyfile(const Filename *filename, const char *passphrase,
                         char **retstr)
 {
@@ -1659,14 +1789,18 @@ int pageant_add_keyfile(const Filename *filename, const char *passphrase,
      * If the key was successfully decrypted, save the passphrase for
      * use with other keys we try to load.
      */
+#if 0
     {
         char *pp_copy = dupstr(this_passphrase);
 	if (addpos234(passphrases, pp_copy, 0) != pp_copy) {
             /* No need; it was already there. */
             smemclr(pp_copy, strlen(pp_copy));
             sfree(pp_copy);
-        }
+        } else {
+	    save_passphrases(this_passphrase);
+	}
     }
+#endif
 
     if (comment)
 	sfree(comment);
@@ -2058,12 +2192,21 @@ void pageant_delete_key2(int selectedCount, const int *selectedArray)
     }
 }
 
+// 公開鍵を何とかする
 #ifdef PUTTY_CAC
 char *test_0606(const char *comment)
 {
+#if 0
     char * szKeyString = cert_key_string(comment);
     if (szKeyString == NULL) return NULL;
-	return szKeyString;
+    return szKeyString;
+#endif
+
+    if (sclib != NULL) {
+	char *r = _strdup(sclib->keystring);
+	return r;
+    }
+    return NULL;
 }
 #endif
 
@@ -2200,13 +2343,16 @@ void dump_msg(const void *msg)
 	debug("msg len=%d(0x%x)\n", length, length);
 	debug_memdump(p, 4 + 1, 1);
 	p += 5;
-//#define AGENT_MAX_MSGLEN  8192
-	if (length > 0x80) {
-	    debug("len is too large, clip 0x80\n");
-	    length = 0x80;
-	}
 	if (length > 1) {
-	    debug_memdump(p, length, 1);
+	    int dump_len = length;
+#if 0
+//#define AGENT_MAX_MSGLEN  8192
+	    if (dump_len > 0x80) {
+		debug("len is too large, clip 0x80\n");
+		dump_len = 0x80;
+	    }
+#endif
+	    debug_memdump(p, dump_len, 1);
 	    p += length;
 	}
 	break;
@@ -2251,16 +2397,6 @@ void *pageant_handle_msg_2(const void *msgv, int *_replylen)
         }
     }
 
-    /*
-     * Windows Pageant answers messages in place, by overwriting the
-     * input message buffer.
-     */
-#if 0
-    memcpy(msg, reply, replylen);
-    smemclr(reply, replylen);
-    sfree(reply);
-#endif
-    
     dump_msg(reply);
     debug("answer_msg leave --\n");
 
@@ -2268,6 +2404,17 @@ void *pageant_handle_msg_2(const void *msgv, int *_replylen)
     return reply;
 }
 
+void set_confirm_any_request(int _bool)
+{
+    confirm_any_request = _bool == 0 ? 0 : 1;
+}
+
+int get_confirm_any_request(void)
+{
+    return confirm_any_request;
+}
+
 // Local Variables:
 // coding: utf-8-with-signature
+// tab-width: 8
 // End:

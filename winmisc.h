@@ -6,8 +6,8 @@
 #include <Shlobj.h>	// for CSIDL_ constant
 
 #include <string>
+#include <vector>
 
-std::string _GetModuleFileNameA(HMODULE hModule);
 std::wstring _GetModuleFileName(HMODULE hModule);
 std::string _GetCurrentDirectoryA();
 std::wstring _GetCurrentDirectory();
@@ -21,19 +21,30 @@ bool _WritePrivateProfileString(
 bool _GetPrivateProfileString(
 	const wchar_t *section, const wchar_t *key, const wchar_t *ini,
 	std::wstring &str);
+bool _GetPrivateProfileSectionNames(
+	const wchar_t *ini,
+	std::vector<std::wstring> &strAry);
 
 bool reg_read_cur_user(const wchar_t *subkey, const wchar_t *valuename,
 					   std::wstring &str);
-bool reg_write_cur_user(const wchar_t *subkey, const wchar_t *valuename,
-						const std::string &str);
-bool reg_write_cur_user(const wchar_t *subkey, const wchar_t *valuename,
-						const std::wstring &str);
 bool reg_read_cur_user(const wchar_t *subkey, const wchar_t *valuename,
 					   DWORD &dword);
 bool reg_read_cur_user(const wchar_t *subkey, const wchar_t *valuename,
 					   int &_int);
+bool reg_write_cur_user(const wchar_t *subkey, const wchar_t *valuename,
+						const wchar_t *str);
+bool reg_write_cur_user(const wchar_t *subkey, const wchar_t *valuename,
+						DWORD dword);
+bool reg_write_cur_user(const wchar_t *subkey, const wchar_t *valuename,
+						int _int);
 bool reg_delete(HKEY hKey, const wchar_t *subkey, const wchar_t *valuename);
+bool reg_delete(HKEY hKey, const wchar_t *subkey);
 bool reg_delete_cur_user(const wchar_t *subkey, const wchar_t *valuename);
+bool reg_delete_cur_user(const wchar_t *key);
+bool reg_enum_key(
+	HKEY _hKey,
+	const wchar_t *subkey,
+	std::vector<std::wstring> &keys);
 void exec(const wchar_t *file, const wchar_t *param = NULL);
 void exec_regedit(const wchar_t *open_path);
 

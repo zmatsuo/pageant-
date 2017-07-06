@@ -21,41 +21,46 @@ static void getKeylist_sub(void *ctx,
 			   const char *comment,
 			   struct pageant_pubkey *key)
 {
-    getkeylist_ctx *p = (getkeylist_ctx *)ctx;
-    std::string s;
-    s += fingerprint;
-    s += " ";
-    s += comment;
-    p->keylist->push_back(s);
+	getkeylist_ctx *p = (getkeylist_ctx *)ctx;
+	std::string s;
+	s += fingerprint;
+	s += " ";
+	s += comment;
+	p->keylist->push_back(s);
 }
 
 void getKeylist(std::vector<std::string> &keylist)
 {
-    char *retstr;
-    getkeylist_ctx ctx;
-    ctx.keylist = &keylist;
-    pageant_enum_keys(getKeylist_sub, &ctx, &retstr);
+	char *retstr;
+	getkeylist_ctx ctx;
+	ctx.keylist = &keylist;
+	int r = pageant_enum_keys(getKeylist_sub, &ctx, &retstr);
+	if (r != PAGEANT_ACTION_OK) {
+		debug_printf("%s\n", retstr);
+		sfree(retstr);
+		keylist.clear();
+	}
 }
 
 std::vector<KeyListItem> keylist_update2()
 {
-    std::vector<std::string> keylistSimple;
-    getKeylist(keylistSimple);
+	std::vector<std::string> keylistSimple;
+	getKeylist(keylistSimple);
 
-    std::vector<KeyListItem> keylist;
-    for(size_t i=0; i< keylistSimple.size(); i++) {
-	KeyListItem item;
-	item.no = i;
-	item.name = keylistSimple[i];
-	item.comment = "comment!";
-	keylist.push_back(item);
-    }
+	std::vector<KeyListItem> keylist;
+	for(size_t i=0; i< keylistSimple.size(); i++) {
+		KeyListItem item;
+		item.no = i;
+		item.name = keylistSimple[i];
+		item.comment = "comment!";
+		keylist.push_back(item);
+	}
 
-    return keylist;
+	return keylist;
 }
 
 // Local Variables:
 // mode: c++
 // coding: utf-8
-// tab-width: 8
+// tab-width: 4
 // End:

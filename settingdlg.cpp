@@ -15,35 +15,30 @@
 #include "ssh-agent_emu.h"
 #include "winmisc.h"
 #include "gui_stuff.h"
+#include "pageant.h"
+#include "misc_cpp.h"
+#include "misc.h"
 
 void SettingDlg::dispSetting()
 {
 	QString text;
 	QString s1;
-	text += u8"pagent+ 設定保存場所:\n";
-	text += QString::fromStdWString(setting_get_inifile()) + "\n";
-	text += u8"putty path:\n";
-	std::wstring ss = get_putty_path();
-	if (ss.empty()) {
-		text += "putty not found";
-	} else {
-		// putty有り
-		text += QString::fromStdWString(ss);
-		text += "\n";
-		text += u8"putty 設定保存場所:\n";
-		if (get_use_inifile()) {
-			text += get_putty_ini().c_str();
-		} else {
-			text += "registry";
-		}
-		text += "\n";
-	}
-
 	text += u8"Qt コンパイルバージョン\n";
 	text += QT_VERSION_STR;
 	text += "\n";
 	text += u8"Qt ライブラリ(DLL)バージョン\n";
 	text += qVersion();
+	text += "\n";
+
+#if defined(_DEBUG)
+	{
+		char *buildinfo_text = buildinfo("\n");
+		s1 = buildinfo_text;
+		sfree(buildinfo_text);
+	}
+#endif
+
+	text += s1;
 	
 	ui->plainTextEdit->insertPlainText(text);
 }
@@ -52,7 +47,7 @@ static QString get_recommended_ssh_sock_path()
 {
 	std::vector<QString> path_list;
 	QString s;
-	s =  QDir(qgetenv("HOME").constData()).absolutePath() + "\\.ssh";
+	s =  QDir(QString::fromStdWString(_getenv(L"HOME"))).absolutePath() + "\\.ssh";
 	s.replace("/","\\");
 	path_list.push_back(s);
 	s = QString::fromStdWString(_SHGetKnownFolderPath(FOLDERID_Profile))
@@ -130,10 +125,38 @@ SettingDlg::SettingDlg(QWidget *parent) :
 	ui->checkBox_5->setChecked(setting_get_bool("general/minimize_to_notification_area"));
 	ui->checkBox_6->setChecked(setting_get_bool("general/close_to_notification_area"));
 
-	ui->label_6->setText(setting_get_my_fullpath());
+	ui->label_6->setText(QString::fromStdWString(setting_get_my_fullpath()));
 
 	ui->label_4->setText(QString::fromStdWString(setting_get_inifile()));
-    ui->label_5->setText(QString::fromStdString(get_putty_ini()));
+
+	// putty
+	QString qs = QString::fromStdWString(get_putty_path());
+    if (qs.isEmpty()) {
+		qs = u8"putty.exeは見つかりませんでした";
+		ui->label_7->setText(qs);
+		ui->label_5->setText(qs);
+	} else {
+		ui->label_7->setText(qs);
+		ui->label_5->setText(QString::fromStdWString(get_putty_ini()));
+	}
+
+	// passphrase系
+	{
+        const bool enable = setting_get_bool("Passphrase/save_enable", false);
+        ui->checkBox_7->setChecked(enable);
+		ui->checkBox_9->setChecked(
+			setting_get_bool("Passphrase/enable_loading_when_startup", false));
+		ui->checkBox_8->setChecked(
+			setting_get_bool("Passphrase/forget_when_terminal_locked", false));
+		arrengePassphraseUI(enable);
+	}
+
+	// confirm系
+	{
+		ui->checkBox_10->setChecked(
+			get_confirm_any_request());
+	}
+
 }
 
 SettingDlg::~SettingDlg()
@@ -205,6 +228,21 @@ void SettingDlg::on_buttonBox_accepted()
 	setting_set_bool("general/close_to_notification_area",
 					 ui->checkBox_6->isChecked());
 
+	// passphrase系
+	setting_set_bool("Passphrase/save_enable",
+					 ui->checkBox_7->isChecked());
+	setting_set_bool("Passphrase/enable_loading_when_startup",
+					 ui->checkBox_9->isChecked());
+	setting_set_bool("Passphrase/forget_when_terminal_locked",
+					 ui->checkBox_8->isChecked());
+
+	// confirm系
+	{
+		const bool confirm_any_request = ui->checkBox_10->isChecked();
+		setting_set_bool("confirm/confirm_any_request", confirm_any_request);
+		set_confirm_any_request(confirm_any_request);
+	}
+	
 	//const char *ssh_auth_sock = getenv("SSH_AUTH_SOCK");
     std::wstring ssh_auth_sock;
     reg_read_cur_user(L"Environment", L"SSH_AUTH_SOCK", ssh_auth_sock);
@@ -215,7 +253,7 @@ void SettingDlg::on_buttonBox_accepted()
 		std::wstring env = L"SSH_AUTH_SOCK=";
 		env += ui_ssh_auth_sock;
 		_wputenv(env.c_str());
-		reg_write_cur_user(L"Environment", L"SSH_AUTH_SOCK", ui_ssh_auth_sock);
+		reg_write_cur_user(L"Environment", L"SSH_AUTH_SOCK", ui_ssh_auth_sock.c_str());
 
 		const wchar_t *expandedInformation =
 			L"環境変数は各プログラムごとに管理されていて、\n"
@@ -311,8 +349,9 @@ void SettingDlg::setStartup(int action)
 			result = false;
 		} else {
 			// 登録する
-			str = setting_get_my_fullpath().toStdWString();
-			reg_write_cur_user(subkey, valuename, str);
+			str = setting_get_my_fullpath();
+			str += L" --hide";
+			reg_write_cur_user(subkey, valuename, str.c_str());
 			result = true;
 		}
 		break;
@@ -337,12 +376,12 @@ void SettingDlg::on_pushButton_5_clicked()
 // exeフォルダをexplorerで開く
 void SettingDlg::on_pushButton_8_clicked()
 {
-	QString s = setting_get_my_fullpath();
-	QString dir = s.left(s.lastIndexOf("\\"));
-	::exec(dir.toStdWString().c_str());
+	std::wstring s = setting_get_my_fullpath();
+	s = s.substr(0, s.rfind(L'\\')+1);
+	::exec(s.c_str());
 }
 
-// 自分の設定
+// pageant+自身の設定
 void SettingDlg::on_pushButton_6_clicked()
 {
 	if (setting_get_use_inifile() == true) {
@@ -359,12 +398,11 @@ void SettingDlg::on_pushButton_6_clicked()
 void SettingDlg::on_pushButton_7_clicked()
 {
 	if (get_use_inifile() != 0) {
-		QString ini = get_putty_ini().c_str();
-        std::wstring ini_ws = ini.toStdWString();
+        std::wstring ini_ws = get_putty_ini();
         ::exec(ini_ws.c_str());
 	} else {
-        const wchar_t *reg_path = L"HKEY_CURRENT_USER\\Software\\SimonTatham\\PuTTY\\Pageant";
-		exec_regedit(reg_path);
+        std::wstring reg_path = get_putty_ini();
+		exec_regedit(reg_path.c_str());
 	}
 }
 
@@ -396,10 +434,57 @@ void SettingDlg::on_pushButton_10_clicked()
 	}
 }
 
+void SettingDlg::arrengePassphraseUI(bool enable)
+{
+    ui->checkBox_8->setEnabled(enable);
+    ui->checkBox_9->setEnabled(enable);
+	ui->pushButton_12->setEnabled(enable);
+}
+
+// passphrase save enable
+void SettingDlg::on_checkBox_7_clicked()
+{
+	const bool check = ui->checkBox_7->isChecked();
+	arrengePassphraseUI(check);
+}
+
+void SettingDlg::on_pushButton_12_clicked()
+{
+#if defined(_DEBUG)
+	if ((GetAsyncKeyState(VK_LSHIFT) & 0x8000) != 0) {
+		// shiftキーが押されている
+		std::vector<std::string> passphraseAry;
+		setting_get_passphrases(passphraseAry);
+
+		std::string text;
+		int n = 0;
+		for(auto &pp : passphraseAry) {
+			n++;
+			text += std::to_string(n);
+			text += ":";
+			text += pp;
+			text += "\n";
+		}
+		text = "count " + std::to_string(n) + "\n" + text;
+		message_box(text.c_str(), "secret pp", MB_OK | MB_ICONERROR, 0);
+	} else
+#endif
+	{
+		int r = message_box(
+			"forgot passphrases OK?", "ok?",
+			MB_OKCANCEL | MB_ICONERROR, 0);
+		if (r == IDOK) {
+			pageant_forget_passphrases();
+			setting_remove_passphrases();
+		}
+	}
+}
+
 // Local Variables:
 // mode: c++
 // coding: utf-8-with-signature
 // tab-width: 4
 // End:
+
 
 

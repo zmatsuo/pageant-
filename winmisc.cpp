@@ -19,6 +19,7 @@
 
 #define DEBUG
 
+#if 0
 void platform_get_x11_auth(char *display, int *proto,
                            unsigned char *data, int *datalen)
 {
@@ -35,6 +36,7 @@ char *platform_get_x_display(void) {
     /* We may as well check for DISPLAY in case it's useful. */
     return dupstr(getenv("DISPLAY"));
 }
+#endif
 
 #if 0
 Filename filename_from_str(const char *str)
@@ -92,34 +94,13 @@ std::wstring _GetModuleFileName(HMODULE hModule)
 
 	for(;;) {
 		DWORD r = ::GetModuleFileNameW(hModule, &buf[0], (DWORD)buf.size());
-		if (r < buf.size() - 1) {
+		if (r == 0) {
+			// 関数が失敗
 			break;
-		} else if (r == 0) {
-			// ?
+		} else if (r < buf.size() - 1) {
 			break;
 		} else { 
 			buf.resize(buf.size()*2);
-		}
-    }
-	return &buf[0];
-}
-
-// TODO: 削除する
-std::string _GetModuleFileNameA(HMODULE hModule)
-{
-	size_t buf_size = MAX_PATH;
-	std::vector<char> buf(buf_size);
-
-	for(;;) {
-		DWORD r = ::GetModuleFileNameA(hModule, &buf[0], (DWORD)buf_size);
-		if (r < buf_size - 1) {
-			break;
-		} else if (r == 0) {
-			// ?
-			break;
-		} else { 
-			buf_size *= 2;
-			buf.resize(buf_size);
 		}
     }
 	return &buf[0];
@@ -134,26 +115,20 @@ std::wstring _GetCurrentDirectory()
 	return &buf[0];
 }
 
-// TODO: 削除する
-std::string _GetCurrentDirectoryA()
-{
-    std::string dir;
-    size_t buf_size = GetCurrentDirectoryA(0, NULL);  // getting path length
-	std::vector<char> buf(buf_size);
-	GetCurrentDirectory((DWORD)buf_size, &buf[0]);
-	return &buf[0];
-}
-
 static std::wstring _SearchPath(const wchar_t *filename)
 {
+	std::vector<wchar_t> buf(256);
 	const wchar_t *ext = NULL;
-	DWORD r = ::SearchPathW(NULL, filename, ext, 0, NULL, NULL);
+	DWORD r = ::SearchPathW(NULL, filename, ext, (DWORD)buf.size(), &buf[0], NULL);
 	if (r == 0) {
-		return L"";	// not found
+		// not found
+		return L"";
 	}
-	DWORD buf_size = r;
-	std::vector<wchar_t> buf(buf_size);
-	::SearchPathW(NULL, filename, ext, (DWORD)buf_size, &buf[0], NULL);
+	if (r < buf.size()) {
+		return &buf[0];
+	}
+	buf.resize(r);
+	r = ::SearchPathW(NULL, filename, ext, (DWORD)buf.size(), &buf[0], NULL);
 	return &buf[0];
 }
 
@@ -164,7 +139,7 @@ static std::wstring _SearchPath(const wchar_t *filename)
 bool _SHGetKnownFolderPath(REFKNOWNFOLDERID rfid, std::wstring &path)
 {
 	PWSTR pszPath = NULL;
-	HRESULT r = SHGetKnownFolderPath(rfid, KF_FLAG_DEFAULT, NULL, &pszPath);
+	HRESULT r = ::SHGetKnownFolderPath(rfid, KF_FLAG_DEFAULT, NULL, &pszPath);
 	if (r != S_OK) {
 		return false;
 	}
@@ -195,6 +170,12 @@ std::wstring get_full_path(const wchar_t *filename, bool search_path)
 {
 	std::wstring f;
 
+    f = _GetCurrentDirectory();
+	f = f + L"\\" + filename;
+	if (_waccess(f.c_str(), 0) == 0) {
+		return f;
+    }
+
     f = _GetModuleFileName(NULL);
 	size_t pos = f.rfind(L'\\');
 	if (pos != std::string::npos) {
@@ -205,20 +186,15 @@ std::wstring get_full_path(const wchar_t *filename, bool search_path)
 		return f;
     }
 
-    f = _GetCurrentDirectory();
-	f = f + L"\\" + filename;
-	if (_waccess(f.c_str(), 0) == 0) {
-		return f;
-    }
-
 	if (search_path) {
 		f = _SearchPath(filename);
 		if (!f.empty()) {
 			return f;
 		}
 	}
-	
-	return L"";
+
+	f.clear();
+	return f;
 }
 
 std::wstring _ExpandEnvironmentStrings(const wchar_t *str)
@@ -247,22 +223,24 @@ bool reg_read(
 	std::vector<uint8_t> &data)
 {
 	HKEY hRegKey;
-	LSTATUS r;
-	r = RegOpenKeyExW(hKey, subkey,  0, KEY_ALL_ACCESS, &hRegKey);
+	LONG r;
+	r = RegOpenKeyExW(hKey, subkey, 0, KEY_ALL_ACCESS, &hRegKey);
 	if (r != ERROR_SUCCESS) {
+		// ERROR_FILE_NOT_FOUND -> not found
 		data.clear();
 		return false;
 	}
 	bool ret_value = true;
-	DWORD size;
+	data.resize(256);
+	DWORD size = (DWORD)data.size();
     r = RegQueryValueExW(hRegKey, valuename, 0, &dwType,
-						 NULL, &size);
-	if (r != ERROR_SUCCESS) {
-		// no entry
+						 &data[0], &size);
+	if (r == ERROR_SUCCESS) {
+		data.resize(size);
+	} else if (r == ERROR_FILE_NOT_FOUND) {
 		data.clear();
 		ret_value = false;
-	}
-	if (ret_value == true) {
+	} else {
 		data.resize(size);
 		if (size > 0) {
 			r = RegQueryValueExW(hRegKey, valuename, 0, &dwType,
@@ -324,7 +302,12 @@ bool reg_write(HKEY hKey, const wchar_t *subkey, const wchar_t *valuename,
 			   DWORD dwType, const void *data_ptr, size_t data_size)
 {
 	HKEY hRegKey;
-	LONG r = RegOpenKeyExW(hKey, subkey,  0, KEY_ALL_ACCESS, &hRegKey);
+	LONG r;
+#if 0
+	r = RegOpenKeyExW(hKey, subkey,  0, KEY_ALL_ACCESS, &hRegKey);
+#endif
+    r = RegCreateKeyExW(hKey, subkey, 0, NULL, REG_OPTION_NON_VOLATILE,
+					    KEY_ALL_ACCESS, NULL, &hRegKey, NULL);
 	if (r != ERROR_SUCCESS) {
 		return false;
 	}
@@ -339,24 +322,39 @@ bool reg_write(HKEY hKey, const wchar_t *subkey, const wchar_t *valuename,
 }
 
 bool reg_write_cur_user(const wchar_t *subkey, const wchar_t *valuename,
-						const std::string &str)
+						const wchar_t *str)
 {
+	if (valuename == NULL) {
+		HKEY hKey = HKEY_CURRENT_USER;
+		return reg_delete(hKey, subkey);
+	}
+	if (str == NULL) {
+		HKEY hKey = HKEY_CURRENT_USER;
+		return reg_delete(hKey, subkey, valuename);
+	}
+	size_t len = wcslen(str);
 	return reg_write(HKEY_CURRENT_USER, subkey, valuename,
-					 REG_SZ, (void *)str.c_str(), (str.size()+1));
+					 REG_SZ, (void *)str, (len+1) * sizeof(wchar_t));
 }
 
 bool reg_write_cur_user(const wchar_t *subkey, const wchar_t *valuename,
-						const std::wstring &str)
+						DWORD dword)
 {
-	return reg_write(HKEY_CURRENT_USER, subkey, valuename,
-					 REG_SZ, (void *)str.c_str(), (str.size()+1) * sizeof(wchar_t));
+	return reg_write(
+		HKEY_CURRENT_USER, subkey, valuename, REG_DWORD, &dword, sizeof(dword));
+}
+
+bool reg_write_cur_user(const wchar_t *subkey, const wchar_t *valuename,
+						int _int)
+{
+	return reg_write_cur_user(subkey, valuename, (DWORD)_int);
 }
 
 bool reg_delete(HKEY hKey, const wchar_t *subkey, const wchar_t *valuename)
 {
 	HKEY hRegKey;
 	LSTATUS r;
-	r = RegOpenKeyExW(hKey, subkey,  0, KEY_ALL_ACCESS, &hRegKey);
+	r = RegOpenKeyExW(hKey, subkey, 0, KEY_ALL_ACCESS, &hRegKey);
 	if (r != ERROR_SUCCESS) {
 		return false;
 	}
@@ -369,9 +367,70 @@ bool reg_delete(HKEY hKey, const wchar_t *subkey, const wchar_t *valuename)
 	return ret_value;
 }
 
+bool reg_delete(HKEY hKey, const wchar_t *_subkey)
+{
+	const wchar_t *sep = wcsrchr(_subkey, L'\\');
+	if (sep == NULL) {
+		return false;
+	}
+	std::wstring key(_subkey, sep);
+	std::wstring subkey(sep+1);
+
+	HKEY hRegKey;
+	LSTATUS r;
+	r = RegOpenKeyExW(hKey, key.c_str(),  0, KEY_ALL_ACCESS, &hRegKey);
+	if (r != ERROR_SUCCESS) {
+		return false;
+	}
+	bool ret_value = true;
+    r = RegDeleteKeyW(hRegKey, subkey.c_str());
+	if (r != ERROR_SUCCESS) {
+		ret_value = false;
+	}
+	RegCloseKey(hRegKey);
+	return ret_value;
+}
+
 bool reg_delete_cur_user(const wchar_t *subkey, const wchar_t *valuename)
 {
+	if (valuename == NULL) {
+		return reg_delete(HKEY_CURRENT_USER, subkey);
+	}
 	return reg_delete(HKEY_CURRENT_USER, subkey, valuename);
+}
+
+bool reg_delete_cur_user(const wchar_t *subkey)
+{
+	return reg_delete(HKEY_CURRENT_USER, subkey);
+}
+
+bool reg_enum_key(
+	HKEY _hKey,
+	const wchar_t *subkey,
+	std::vector<std::wstring> &keys)
+{
+	keys.clear();
+
+	HKEY hRegKey;
+	LONG r;
+	r = RegOpenKeyW(_hKey, subkey, &hRegKey);
+	if (r != ERROR_SUCCESS) {
+		return false;
+	}
+
+	int index_key = 0;
+	for(;;) {
+		wchar_t buf[MAX_PATH + 1];
+		r = RegEnumKeyW(hRegKey, index_key, buf, _countof(buf));
+		if (r != ERROR_SUCCESS) {
+			break;
+		}
+		keys.push_back(buf);
+		index_key++;
+	}
+
+	RegCloseKey(hRegKey);
+	return true;
 }
 
 bool _WritePrivateProfileString(
@@ -392,7 +451,7 @@ bool _GetPrivateProfileString(
 	while(1) {
 		DWORD r = ::GetPrivateProfileStringW(section, key, L"", &buf[0], (DWORD)buf.size(), ini);
 		if (buf[0] == L'\0') {
-			// エントリがない
+			// エントリがない(または key= )
 			str.clear();
 			return false;
 		}
@@ -402,6 +461,34 @@ bool _GetPrivateProfileString(
 		buf.resize(buf.size()*2);
 	}
 	str = &buf[0];
+	return true;
+}
+
+bool _GetPrivateProfileSectionNames(
+	const wchar_t *ini,
+	std::vector<std::wstring> &strAry)
+{
+	std::vector<wchar_t> buf(256);
+	for(;;) {
+		DWORD r = ::GetPrivateProfileSectionNamesW(&buf[0], (DWORD)buf.size(), ini);
+		if (r == 0) {
+			// no entry
+			strAry.clear();
+			return false;
+			break;
+		} else if ( r< (DWORD)buf.size() - 2) {
+			// ok
+			break;
+		} else {
+			buf.resize(buf.size()*2);
+		}
+	}
+	strAry.clear();
+	wchar_t *p = &buf[0];
+	while(*p != '\0') {
+		strAry.push_back(p);
+		p += wcslen(p) + 1;
+	}
 	return true;
 }
 
@@ -515,13 +602,24 @@ void debug_console_open()
 		ShowWindow(debug_console_hwnd, SW_HIDE);
 	}
 
+#if 1
+	{
+		static FILE *stdin_new;
+		static FILE *stderr_new;
+		static FILE *stdout_new;
+		freopen_s(&stdin_new, "CON", "r", stdin);
+		freopen_s(&stdout_new, "CON", "w", stdout);
+		freopen_s(&stderr_new, "CON", "r", stderr);
+	}
+#endif
+#if 0
 	FILE *fp = freopen("con", "w", stdout);
 	if (fp == NULL)
 		for (;;);
 	fp = freopen("con", "w", stderr);
 	if (fp == NULL)
 		for (;;);
-
+#endif
 	debug_console_opend = true;
 }
 
@@ -533,14 +631,9 @@ void debug_console_init()
 
 	if (debug_console_enabled == 0) {
 		const char *key = "debug/console_enable";
-		if (setting_isempty(key)) {
-			debug_console_enabled = 1;
+		debug_console_enabled = setting_get_bool(key, false) == false ? 1 : 2;
+		if (debug_console_enabled == 1) {
 			return;
-		} else {
-			debug_console_enabled = setting_get_bool(key) == false ? 1 : 2;
-			if (debug_console_enabled == 1) {
-				return;
-			}
 		}
 	}
 	

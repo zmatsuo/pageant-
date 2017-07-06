@@ -1,10 +1,12 @@
-﻿#include <QApplication>
+﻿
+#include <QApplication>
 #include <QtCore/QCommandLineParser>
 
 #include "mainwindow.h"
 #include "winpgnt.h"
 #include "pageant.h"
 #include "misc.h"
+#include "misc_cpp.h"
 #include "setting.h"
 #include "ssh-agent_ms.h"
 #include "ssh-agent_emu.h"
@@ -30,33 +32,62 @@ int main(int argc, char *argv[])
 {
 #ifdef _DEBUG
 	crt_set_debugflag();
+//	_CrtSetBreakAlloc(251204);
 #endif
 	QApplication a(argc, argv);
+	a.setQuitOnLastWindowClosed(false);
+    a.setApplicationName("pagent+");
+    a.setApplicationVersion("1.0");
 
-	setting_init();
+	QCommandLineParser parser;
+	const QCommandLineOption helpOption =
+		parser.addHelpOption();
+	QCommandLineOption iniOption(
+		QStringLiteral("ini"),
+		QStringLiteral("use inifile."), "ini_file");
+	parser.addOption(iniOption);
+	QCommandLineOption hideOption(
+		QStringLiteral("hide"),
+		QStringLiteral("hide window when startup."));
+	parser.addOption(hideOption);
+	parser.addPositionalArgument("path1 path2 ...","keyfile");
+	
+	QStringList qargv = QCoreApplication::arguments();
+	if(!parser.parse(qargv)){
+		// まだmessage_box()が使用できない
+		QString msg = parser.errorText();
+		msg += "\n----------\n";
+		msg += parser.helpText();
+//		::MessageBoxW(NULL, msg.toStdWString().c_str(), L"pageant+", MB_OK | MB_ICONERROR);
+		::MessageBoxW(NULL, msg.toStdWString().c_str(), L"pageant+", MB_OK | MB_ICONERROR);
+		return 0;
+	}
+
+	if (parser.isSet(helpOption)) {
+		const QString msg = parser.helpText();
+		::MessageBoxW(NULL, msg.toStdWString().c_str(), L"pageant+", MB_OK | MB_ICONERROR);
+		return 0;
+	}
+
+	bool use_inifile = parser.isSet(iniOption);
+	QString inifile;
+	if (use_inifile) {
+		inifile = parser.value(iniOption);
+	}
+	bool hide = parser.isSet(hideOption);
+
+	setting_init(use_inifile, inifile.isEmpty() ? nullptr : inifile.toStdWString().c_str());
 
 	debug_printf("main() start\n");
 
-	QCommandLineParser parser;
-	parser.setApplicationDescription(QStringLiteral("setApplicationDescription"));
-	parser.addHelpOption();
 
-	QCommandLineOption ini(QStringLiteral("ini"), QStringLiteral("use inifile"));
-	parser.addOption(ini);
-
-	parser.process(a);
-
-	QString inifile;
-	if(parser.isSet(ini)){
-		inifile = parser.value(ini);
+	std::vector<std::wstring> keyfileAry;
+	{
+		const QStringList args = parser.positionalArguments();
+		for (QString s : args) {
+			keyfileAry.push_back(s.toStdWString());
+		}
 	}
-	
-
-    /*
-     * Forget any passphrase that we retained while going over
-     * command line keyfiles.
-     */
-//    forget_passphrases();
 
 #if 0
     /*
@@ -74,23 +105,12 @@ int main(int argc, char *argv[])
 #endif
 
 	pageant_init();
+
+	if (setting_get_bool("Passphrase/save_enable", false) &&
+		setting_get_bool("Passphrase/enable_loading_when_startup", false))
 	{
-		/*
-		 * Initialise storage for RSA keys.
-		 */
-#if 0
-		rsakeys = newtree234(cmpkeys_rsa);
-		ssh2keys = newtree234(cmpkeys_ssh2);
-#endif
-
-		/*
-		 * Initialise storage for short-term passphrase cache.
-		 */
-		passphrases = newtree234(NULL);
-
 		load_passphrases();
 	}
-
 
 	if (setting_get_bool("ssh-agent/pageant")) {
 		bool r = winpgnt_start();
@@ -99,44 +119,46 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	QString sock_path = getenv("SSH_AUTH_SOCK");
-	if (!sock_path.isEmpty())
+	std::wstring sock_path = _getenv(L"SSH_AUTH_SOCK");
+	if (!sock_path.empty())
 	{
 		if (setting_get_bool("ssh-agent/cygwin_sock")) {
-			bool r = ssh_agent_server_start(sock_path.toStdWString().c_str());
+			bool r = ssh_agent_server_start(sock_path.c_str());
 			if (r == false) {
 				setting_set_bool("ssh-agent/cygwin_sock", false);
 			}
 		}
 		if (setting_get_bool("ssh-agent/ms_ssh")) {
-			bool r = pipe_th_start(sock_path.toStdWString().c_str());
+			bool r = pipe_th_start(sock_path.c_str());
 			if (r == false) {
 				setting_set_bool("ssh-agent/ms_ssh", false);
 			}
 		}
 	}
 	
+	set_confirm_any_request(setting_get_bool("confirm/confirm_any_request", false));
 
 	MainWindow w;
 	a.installNativeEventFilter(&w);
-	w.show();
-
-	{
-		std::vector<std::wstring> list;
-		setting_get_keyfiles(list);
-		for(auto f: list) {
-			add_keyfile(f.c_str());
-		}
-		keylist_update();
+	if (!hide) {
+		w.show();
 	}
 
-	int r = a.exec();
+	// 鍵ファイル一覧を設定より取得
+	setting_get_keyfiles(keyfileAry);
 
+	// 鍵ファイル読み込み
+	add_keyfile(keyfileAry);
+//	keylist_update();
+
+
+	int r = a.exec();
 	debug_printf("main leave %d\n", r);
 
 	winpgnt_stop();
 	ssh_agent_server_stop();
-//	pipe_th_stop();			// TODO fix
+	pipe_th_stop();			// TODO fix
+	pageant_exit();
 	setting_exit();
 
 	return r;

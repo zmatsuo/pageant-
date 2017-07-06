@@ -13,21 +13,20 @@ typedef enum {
 } DIALOG_RESULT_T;
 
 struct ConfirmAcceptDlgInfo {
-    int type;
 	const char *title;
-    const char* fingerprint;
-    int dont_ask_again;			// 0/1 = そのまま/今後問い合わせ不要
-    unsigned long tickCount;
-    int timeout;
-	DIALOG_RESULT_T result;		// same as return value
+    const char *fingerprint;
+    int dont_ask_again;			// 問い合わせする?初期値 0/1 = そのまま/今後問い合わせ不要
+	int dont_ask_again_available;
+    int timeout;				// 秒,0でタイムアウトなし
 };
 
 DIALOG_RESULT_T confirmAcceptDlg(struct ConfirmAcceptDlgInfo *info);
 
 struct PassphraseDlgInfo {
-    char **passphrase;
+    char **passphrase;			// 入力されたパスフレーズへのポインタ 利用したらfree()すること
     const char *comment;
     int save;
+	int saveAvailable;
 };
 
 DIALOG_RESULT_T passphraseDlg(struct PassphraseDlgInfo *info);

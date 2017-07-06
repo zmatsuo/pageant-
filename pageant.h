@@ -23,6 +23,7 @@ typedef void (*pageant_logfn_t)(void *logctx, const char *fmt, va_list ap);
  * Initial setup.
  */
 void pageant_init(void);
+void pageant_exit(void);
 
 /*
  * The main agent function that answers messages.
@@ -127,6 +128,7 @@ enum {
 int pageant_add_keyfile(const Filename *filename, const char *passphrase,
                         char **retstr);
 void pageant_forget_passphrases(void);
+void add_passphrase(const char *passphrase);
 
 struct pageant_pubkey {
     /* Everything needed to identify a public key found by
@@ -155,6 +157,17 @@ void *pageant_handle_msg_2(const void *msgv, int *replylen);
 
 void add_keyfile(const wchar_t *filename);
 
+void set_confirm_any_request(int _bool);
+int get_confirm_any_request(void);
+
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
+
+#ifdef __cplusplus
+
+#include <string>
+#include <vector>
+void add_keyfile(const std::vector<std::wstring> &keyfileAry);
+
+#endif

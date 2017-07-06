@@ -116,6 +116,8 @@ int get_ssh_uint32(int *datalen, const void **data, unsigned *ret);
  * form, check if it equals an ordinary C zero-terminated string. */
 int match_ssh_id(int stringlen, const void *string, const char *id);
 
+char *buildinfo(const char *newline);
+
 #include "debug.h"
 
 #ifndef lenof

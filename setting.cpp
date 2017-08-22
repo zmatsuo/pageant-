@@ -499,7 +499,7 @@ void setting_init(int _use_ini, const wchar_t *_ini_file)
 		} else {
 			ini_file_w = _ini_file;
 		}
-		_WritePrivateProfileString(L"Generic", L"UseIniFile", L"true", ini_file_w.c_str());
+		_WritePrivateProfileString(L"Generic", L"UseIniFile", ini_file_w.c_str(), L"true");
 		ok = true;
 		ini_ = new settings(ini_file_w.c_str(), settings::TYPE_INI);
 	}

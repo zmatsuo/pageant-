@@ -324,9 +324,6 @@
     <ClInclude Include="winpgnt.h">
       <Filter>winpgnt</Filter>
     </ClInclude>
-    <ClInclude Include="confirmacceptdlg_.h">
-      <Filter>gui</Filter>
-    </ClInclude>
     <ClInclude Include="misc_cpp.h">
       <Filter>Source Files</Filter>
     </ClInclude>

@@ -2183,6 +2183,7 @@ char *pageant_get_pubkey(const char *fingerprint)
 /**
  * dump
  */
+#if defined(_DEBUG)
 void dump_msg(const void *msg)
 {
     const unsigned char *top = msg;
@@ -2342,6 +2343,9 @@ void dump_msg(const void *msg)
 	}
     }
 }
+#else
+#define	dump_msg(p)
+#endif
 
 // replyは smemclr(), sfree() すること
 void *pageant_handle_msg_2(const void *msgv, int *_replylen)

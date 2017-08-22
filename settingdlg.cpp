@@ -124,7 +124,12 @@ SettingDlg::SettingDlg(QWidget *parent) :
 		ui->label->setText(u8"SSH_AUTH_SOCKの値はおすすめの値です");
 	}
 
+#if defined(_DEBUG)
 	ui->checkBox_4->setChecked(setting_get_bool("debug/console_enable"));
+#else
+    ui->checkBox_4->setChecked(false);
+    ui->checkBox_4->setEnabled(false);
+#endif
 	ui->checkBox_5->setChecked(setting_get_bool("general/minimize_to_notification_area"));
 	ui->checkBox_6->setChecked(setting_get_bool("general/close_to_notification_area"));
 
@@ -220,11 +225,6 @@ void SettingDlg::on_lineEdit_textChanged(const QString &arg1)
 {
     std::string path = arg1.toStdString();
     dispSockPath(path);
-}
-
-void SettingDlg::on_checkBox_clicked(bool checked)
-{
-    debug("checkbox %s\n", checked ? "ON" : "OFF");
 }
 
 void SettingDlg::on_buttonBox_accepted()
@@ -509,8 +509,3 @@ void SettingDlg::on_pushButton_14_clicked()
 // coding: utf-8-with-signature
 // tab-width: 4
 // End:
-
-
-
-
-

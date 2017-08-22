@@ -473,7 +473,7 @@ bool _WritePrivateProfileString(
 	const wchar_t *str)
 {
 	if (_waccess(ini, 0) != 0) {
-		// create utf16be ini file
+		// create utf16le ini file
 		FILE *fp = _wfopen(ini, L"wb");
 		if (fp != NULL) {
 			const static uint8_t bom_utf16_le[] = {0xff, 0xfe};

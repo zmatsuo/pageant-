@@ -15,7 +15,9 @@
 extern "C" {
 #endif
 
-#define DEBUG	/// @@@@
+#if defined(_DEBUG)
+#define DEBUG
+#endif
 
 #ifdef DEBUG
 
@@ -27,8 +29,7 @@ void debug_memdump(const void *buf, int len, int L);
 #define dmemdumpl(buf,len)	debug_memdump(buf, len, 1);
 #else
 
-//#define debug_printf(const char *fmt, ...)	debug_printf(fmt, __VA_ARGS__)
-#define debug_printf(const char *fmt, ...)
+#define debug_printf(...)
 #define debug(...)
 #define dmemdump(buf,len)
 #define dmemdumpl(buf,len)
@@ -45,6 +46,6 @@ void debug_console_show(int show);
 // Local Variables:
 // mode: c++
 // coding: utf-8
-// tab-width: 8
+// tab-width: 4
 // End:
 

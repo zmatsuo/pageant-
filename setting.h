@@ -15,6 +15,7 @@ bool setting_get_bool(const char *key, bool _default);
 void setting_set_bool(const char *key, bool _bool);
 std::wstring setting_get_my_fullpath();
 void setting_get_keyfiles(std::vector<std::wstring> &list);
+void setting_add_keyfile(const wchar_t *_file);
 
 std::wstring get_putty_path();
 std::wstring get_putty_ini();
@@ -35,6 +36,7 @@ void forget_passphrases(void);
 void save_passphrases(const char* passphrase);
 void load_passphrases();
 void setting_remove_passphrases();
+void setting_remove_confirm_info();
 
 #ifdef __cplusplus
 }

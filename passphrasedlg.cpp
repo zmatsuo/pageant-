@@ -1,13 +1,14 @@
-﻿#include "passphrase.h"
+﻿#include "passphrasedlg.h"
 
 passphrase::passphrase(QWidget *parent, PassphraseDlgInfo *ptr)
 	: QDialog(parent)
 {
     ui.setupUi(this);
 
+	setWindowTitle(ptr->caption);
     ui.lineEdit->setEchoMode(QLineEdit::Password);
     ui.lineEdit->setInputMethodHints(Qt::ImhHiddenText|Qt::ImhNoPredictiveText|Qt::ImhNoAutoUppercase);
-    ui.label_2->setText(ptr->comment);
+    ui.label_2->setText(ptr->text);
 	if (!ptr->saveAvailable) {
 		ui.checkBox->setChecked(false);
 		ui.checkBox->setEnabled(false);
@@ -37,6 +38,38 @@ void passphrase::reject()
 {
 	*infoPtr_->passphrase = NULL;
 	QDialog::reject();
+}
+
+extern "C"
+char *pin_dlg(const wchar_t *text, const wchar_t *caption, HWND hWnd, BOOL *pSavePassword)
+{
+	char *_passphrase;
+	struct PassphraseDlgInfo pps;
+	pps.passphrase = &_passphrase;
+	std::string sText = QString::fromStdWString(text).toStdString();
+	std::string sCaption = QString::fromStdWString(caption).toStdString();
+	pps.caption = sCaption.c_str();
+	pps.text = sText.c_str();
+	if (pSavePassword == NULL) {
+		pps.save = 0;
+		pps.saveAvailable = false;
+	} else {
+		pps.save = *pSavePassword;
+		pps.saveAvailable = true;
+	}
+
+	DIALOG_RESULT_T r = passphraseDlg(&pps);
+	if (r == DIALOG_RESULT_CANCEL) {
+		if (pSavePassword != NULL) {
+			*pSavePassword = FALSE;
+		}
+		return NULL;
+	}
+
+	if (pSavePassword != NULL) {
+		*pSavePassword = pps.save;
+	}
+	return _passphrase;
 }
 
 // Local Variables:

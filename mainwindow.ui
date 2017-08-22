@@ -20,6 +20,9 @@
       <property name="editTriggers">
        <set>QAbstractItemView::NoEditTriggers</set>
       </property>
+      <property name="alternatingRowColors">
+       <bool>true</bool>
+      </property>
       <property name="selectionMode">
        <enum>QAbstractItemView::ExtendedSelection</enum>
       </property>
@@ -28,41 +31,14 @@
     <item>
      <layout class="QVBoxLayout" name="verticalLayout_2">
       <item>
-       <layout class="QHBoxLayout" name="horizontalLayout">
+       <layout class="QHBoxLayout" name="horizontalLayout_2">
         <item>
          <widget class="QPushButton" name="pushButtonAddKey">
           <property name="text">
-           <string>Add Key</string>
+           <string>Add Key File</string>
           </property>
          </widget>
         </item>
-        <item>
-         <spacer name="horizontalSpacer_2">
-          <property name="orientation">
-           <enum>Qt::Horizontal</enum>
-          </property>
-          <property name="sizeHint" stdset="0">
-           <size>
-            <width>40</width>
-            <height>20</height>
-           </size>
-          </property>
-         </spacer>
-        </item>
-        <item>
-         <widget class="QPushButton" name="pushButtonRemoveKey">
-          <property name="toolTip">
-           <string/>
-          </property>
-          <property name="text">
-           <string>Remove Key</string>
-          </property>
-         </widget>
-        </item>
-       </layout>
-      </item>
-      <item>
-       <layout class="QHBoxLayout" name="horizontalLayout_2">
         <item>
          <widget class="QPushButton" name="pushButton">
           <property name="text">
@@ -81,6 +57,16 @@
          <widget class="QPushButton" name="pushButton_3">
           <property name="text">
            <string>公開鍵</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="pushButtonRemoveKey">
+          <property name="toolTip">
+           <string/>
+          </property>
+          <property name="text">
+           <string>Remove Key</string>
           </property>
          </widget>
         </item>
@@ -112,7 +98,7 @@
            </size>
           </property>
           <property name="text">
-           <string>Close</string>
+           <string>OK</string>
           </property>
          </widget>
         </item>
@@ -139,42 +125,23 @@
     <addaction name="separator"/>
     <addaction name="actionabout"/>
    </widget>
-   <widget class="QMenu" name="menufile">
-    <property name="title">
-     <string>file</string>
-    </property>
-    <addaction name="actionquit"/>
-   </widget>
    <widget class="QMenu" name="menutool">
     <property name="title">
      <string>tools</string>
     </property>
     <addaction name="actionsetting"/>
-    <addaction name="actionregedit"/>
    </widget>
-   <addaction name="menufile"/>
    <addaction name="menutool"/>
    <addaction name="menuhelp"/>
   </widget>
-  <widget class="QStatusBar" name="statusBar"/>
   <action name="actionabout">
    <property name="text">
     <string>about</string>
    </property>
   </action>
-  <action name="actionquit">
-   <property name="text">
-    <string>quit</string>
-   </property>
-  </action>
   <action name="actionhelp">
    <property name="text">
     <string>help</string>
-   </property>
-  </action>
-  <action name="actionregedit">
-   <property name="text">
-    <string>regedit</string>
    </property>
   </action>
   <action name="actionsetting">

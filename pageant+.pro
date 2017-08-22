@@ -48,7 +48,7 @@ SOURCES += main.cpp\
     winmisc.cpp \
     winutils.c \
     winutils_qt.cpp \
-    passphrase.cpp \
+    passphrasedlg.cpp \
     aboutdlg.cpp \
     confirmacceptdlg.cpp \
     db.cpp \
@@ -68,10 +68,10 @@ SOURCES += main.cpp\
     settingdlg.cpp \
     setting.cpp \
     ssh-agent_ms.cpp \
-    sc.c
+    cert/pkcs_helper.c
 
 HEADERS  += mainwindow.h \
-    passphrase.h \
+    passphrasedlg.h \
     aboutdlg.h \
     confirmacceptdlg.h \
     cert/cert_capi.h \
@@ -79,13 +79,12 @@ HEADERS  += mainwindow.h \
     cert/cert_pkcs.h \
     settingdlg.h \
     setting.h \
-    sc.h
 
 FORMS    += mainwindow.ui \
-    passphrase.ui \
+    passphrasedlg.ui \
     aboutdlg.ui \
     confirmacceptdlg.ui \
-    settingdlg.ui
+    settingdlg.ui \
 
 RESOURCES += \
     pageant+.qrc

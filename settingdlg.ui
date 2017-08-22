@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1026</width>
-    <height>757</height>
+    <width>990</width>
+    <height>608</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -16,9 +16,9 @@
   <widget class="QDialogButtonBox" name="buttonBox">
    <property name="geometry">
     <rect>
-     <x>420</x>
-     <y>640</y>
-     <width>341</width>
+     <x>820</x>
+     <y>570</y>
+     <width>161</width>
      <height>32</height>
     </rect>
    </property>
@@ -32,10 +32,10 @@
   <widget class="QPlainTextEdit" name="plainTextEdit">
    <property name="geometry">
     <rect>
-     <x>400</x>
-     <y>530</y>
-     <width>361</width>
-     <height>91</height>
+     <x>360</x>
+     <y>450</y>
+     <width>391</width>
+     <height>141</height>
     </rect>
    </property>
    <property name="readOnly">
@@ -73,9 +73,9 @@
    <widget class="QPushButton" name="pushButton_4">
     <property name="geometry">
      <rect>
-      <x>140</x>
+      <x>160</x>
       <y>90</y>
-      <width>121</width>
+      <width>141</width>
       <height>23</height>
      </rect>
     </property>
@@ -88,12 +88,12 @@
      <rect>
       <x>10</x>
       <y>120</y>
-      <width>111</width>
+      <width>141</width>
       <height>23</height>
      </rect>
     </property>
     <property name="text">
-     <string>regedit(user)</string>
+     <string>registory(user)</string>
     </property>
    </widget>
    <widget class="QLabel" name="label_6">
@@ -123,7 +123,7 @@
      <rect>
       <x>10</x>
       <y>90</y>
-      <width>131</width>
+      <width>141</width>
       <height>23</height>
      </rect>
     </property>
@@ -136,7 +136,7 @@
      <rect>
       <x>10</x>
       <y>150</y>
-      <width>121</width>
+      <width>141</width>
       <height>23</height>
      </rect>
     </property>
@@ -147,7 +147,7 @@
    <widget class="QPushButton" name="pushButton_10">
     <property name="geometry">
      <rect>
-      <x>140</x>
+      <x>160</x>
       <y>150</y>
       <width>141</width>
       <height>23</height>
@@ -160,9 +160,9 @@
    <widget class="QPushButton" name="pushButton_11">
     <property name="geometry">
      <rect>
-      <x>150</x>
+      <x>160</x>
       <y>120</y>
-      <width>111</width>
+      <width>141</width>
       <height>23</height>
      </rect>
     </property>
@@ -246,12 +246,12 @@
      <rect>
       <x>10</x>
       <y>380</y>
-      <width>121</width>
+      <width>131</width>
       <height>23</height>
      </rect>
     </property>
     <property name="text">
-     <string>regedit</string>
+     <string>registry(環境変数)</string>
     </property>
    </widget>
    <widget class="QCheckBox" name="checkBox">
@@ -403,7 +403,7 @@
       <x>10</x>
       <y>20</y>
       <width>321</width>
-      <height>31</height>
+      <height>21</height>
      </rect>
     </property>
     <property name="text">
@@ -430,9 +430,9 @@
     <property name="geometry">
      <rect>
       <x>10</x>
-      <y>50</y>
+      <y>40</y>
       <width>321</width>
-      <height>31</height>
+      <height>21</height>
      </rect>
     </property>
     <property name="text">
@@ -531,7 +531,7 @@
    <property name="geometry">
     <rect>
      <x>760</x>
-     <y>220</y>
+     <y>330</y>
      <width>221</width>
      <height>191</height>
     </rect>
@@ -568,6 +568,77 @@
      <bool>true</bool>
     </property>
    </widget>
+   <widget class="QPushButton" name="pushButton_13">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>130</y>
+      <width>101</width>
+      <height>23</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>記録をクリアする</string>
+    </property>
+   </widget>
+  </widget>
+  <widget class="QGroupBox" name="groupBox_7">
+   <property name="geometry">
+    <rect>
+     <x>760</x>
+     <y>210</y>
+     <width>221</width>
+     <height>111</height>
+    </rect>
+   </property>
+   <property name="title">
+    <string>pin(SmartCard)</string>
+   </property>
+   <widget class="QCheckBox" name="checkBox_11">
+    <property name="enabled">
+     <bool>false</bool>
+    </property>
+    <property name="geometry">
+     <rect>
+      <x>10</x>
+      <y>20</y>
+      <width>131</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>記憶する</string>
+    </property>
+    <property name="checked">
+     <bool>true</bool>
+    </property>
+   </widget>
+   <widget class="QCheckBox" name="checkBox_12">
+    <property name="geometry">
+     <rect>
+      <x>10</x>
+      <y>40</y>
+      <width>181</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>端末ロックで忘れる</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="pushButton_14">
+    <property name="geometry">
+     <rect>
+      <x>10</x>
+      <y>60</y>
+      <width>121</width>
+      <height>23</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>pinを忘れる</string>
+    </property>
+   </widget>
   </widget>
   <zorder>groupBox_2</zorder>
   <zorder>groupBox</zorder>
@@ -577,6 +648,7 @@
   <zorder>groupBox_4</zorder>
   <zorder>groupBox_5</zorder>
   <zorder>groupBox_6</zorder>
+  <zorder>groupBox_7</zorder>
  </widget>
  <resources/>
  <connections>

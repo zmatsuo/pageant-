@@ -3,7 +3,7 @@
  */
 
 #include <stdarg.h>
-#include "filename_.h"		// for Filename
+#include "filename.h"		// for Filename
 
 #ifdef __cplusplus
 extern "C" {
@@ -160,14 +160,21 @@ void add_keyfile(const wchar_t *filename);
 void set_confirm_any_request(int _bool);
 int get_confirm_any_request(void);
 
+void pageant_del_key(const char *fingerprint);
+char *pageant_get_pubkey(const char *fingerprint);
+
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
 
+//
+// in pageant_cpp.cpp
+//
 #ifdef __cplusplus
 
 #include <string>
 #include <vector>
 void add_keyfile(const std::vector<std::wstring> &keyfileAry);
+void removeKey(const char *fingerprint);
 
 #endif

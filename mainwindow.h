@@ -35,40 +35,27 @@ private slots:
     void on_pushButtonRemoveKey_clicked();
     void on_pushButtonAddKey_clicked();
     void on_actionAboutDlg();
-    void on_pushButtonTest_clicked();
-    void on_help_clicked();
     void on_actionabout_triggered();
     void on_session(QAction *action);
     void on_actionquit_triggered();
     void on_actionhelp_triggered();
-    void on_actionregedit_triggered();
     void on_pushButton_clicked();
     void on_pushButton_2_clicked();
     void on_actionsetting_triggered();
     void on_actionsetting2_triggered();
     void on_pushButton_3_clicked();
-    void on_close();
-
+	
 private:
     void createTrayIcon();
-    void createActions();
 	void changeEvent(QEvent *e);
     void closeEvent(QCloseEvent *event);
     void createTrayIconMenu();
 
     Ui::MainWindow *ui;
 
-    QAction *minimizeAction;
-    QAction *restoreAction;		// view key
-    QAction *addKeyAction;
-    QAction *confirmAnyAction;		
-    QAction *aboutAction;		
-    QAction *quitAction;
-    QAction *helpAction;
     QSystemTrayIcon *trayIcon;
     bool quitGurad_;
     std::vector<QAction *> sessionActionAry;
-	QStandardItemModel *model;
 
 public:
     int passphraseDlg(struct PassphraseDlgInfo *info);

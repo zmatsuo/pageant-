@@ -2,6 +2,7 @@
  * Platform-independent routines shared between all PuTTY programs.
  */
 #undef UNICODE
+#define _CRT_SECURE_NO_WARNINGS
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -12,8 +13,9 @@
 #include <crtdbg.h>
 
 #include "misc.h"
-#include "filename_.h"
+#include "filename.h"
 #include "winutils.h"
+#include "version.h"
 
 
 /*
@@ -741,7 +743,6 @@ void safefree(void *ptr)
  * Debugging routines.
  */
 
-static FILE *debug_fp = NULL;
 
 #ifdef DEBUG
 void debug_printf(const char *fmt, ...)
@@ -752,12 +753,11 @@ void debug_printf(const char *fmt, ...)
     va_start(ap, fmt);
     buf = dupvprintf(fmt, ap);
 
-    if (debug_fp == NULL) {
-	debug_fp = fopen("debug.log", "w");
-    }
-    if (debug_fp != NULL) {
-	fputs(buf, debug_fp);	// \n is not output
-	fflush(debug_fp);
+    FILE *fp = fopen("debug.log", "a+");
+    if (fp != NULL) {
+	fputs(buf, fp);	// \n is not output
+	fflush(fp);
+	fclose(fp);
     }
 
     dputs(buf);
@@ -1030,7 +1030,6 @@ int strendswith(const char *s, const char *t)
 char *buildinfo(const char *newline)
 {
     strbuf *buf = strbuf_new();
-    extern const char commitid[];      /* in commitid.c */
 
     strbuf_catf(buf, "Build platform: %d-bit %s",
                 (int)(CHAR_BIT * sizeof(void *)),
@@ -1065,10 +1064,9 @@ char *buildinfo(const char *newline)
 #elif  _MSC_VER == 1310
     strbuf_catf(buf, " 2003 / MSVC++ 7.1");
 #else
-    strbuf_catf(buf, ", unrecognised version");
+    strbuf_catf(buf, ", unrecognised version(_MSC_VER=%d)", (int)_MSC_VER);
 #endif
-    strbuf_catf(buf, " (_MSC_VER=%d)", (int)_MSC_VER);
-#endif
+#endif	// _MSC_VER
 
 #ifdef BUILDINFO_GTK
     {
@@ -1111,16 +1109,18 @@ char *buildinfo(const char *newline)
     return strbuf_to_str(buf);
 }
 
+Filename *filename_from_wstr(const wchar_t *str)
+{
+    Filename *ret = snew(Filename);
+    ret->path = _wcsdup(str);
+    return ret;
+}
+
 Filename *filename_from_str(const char *str)
 {
-    _CrtCheckMemory();
-    Filename *ret = snew(Filename);
-#if defined(_MSC_VER)
-    ret->path = dup_mb_to_wc(CP_ACP, 0, str);
-#else
-    ret->path = dupstr(str);
-#endif
-    _CrtCheckMemory();
+    wchar_t *wstr = dup_mb_to_wc(CP_ACP, 0, str);
+    Filename *ret = filename_from_wstr(wstr);
+    free(wstr);
     return ret;
 }
 

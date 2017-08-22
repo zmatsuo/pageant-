@@ -42,6 +42,36 @@ void getKeylist(std::vector<std::string> &keylist)
 	}
 }
 
+// todo 不要かも
+typedef struct {
+	const char *fingerprint;
+} removekeylist_ctx;
+
+static void removeKey_sub(void *ctx,
+			   const char *fingerprint,
+			   const char *comment,
+			   struct pageant_pubkey *key)
+{
+	removekeylist_ctx *p = (removekeylist_ctx *)ctx;
+	if (strcmp(fingerprint, p->fingerprint) == 0) {
+		// ここで削除
+		int a = 0;
+	}
+}
+
+void removeKey(const char *fingerprint)
+{
+	char *retstr;
+	removekeylist_ctx ctx;
+	ctx.fingerprint = fingerprint;
+	int r = pageant_enum_keys(removeKey_sub, &ctx, &retstr);
+	if (r != PAGEANT_ACTION_OK) {
+		debug_printf("%s\n", retstr);
+		sfree(retstr);
+	}
+}
+
+
 std::vector<KeyListItem> keylist_update2()
 {
 	std::vector<std::string> keylistSimple;

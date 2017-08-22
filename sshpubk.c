@@ -9,7 +9,7 @@
 #include <stdlib.h>
 #include <assert.h>
 
-#include "filename_.h"
+#include "filename.h"
 //#include "putty.h"
 #include "ssh.h"
 #include "misc.h"
@@ -1670,11 +1670,11 @@ char *ssh2_fingerprint(const struct ssh_signkey *alg, void *data)
 static int key_type_fp(FILE *fp)
 {
     char buf[1024];
-    const char public_std_sig[] = "---- BEGIN SSH2 PUBLIC KEY";
-    const char putty2_sig[] = "PuTTY-User-Key-File-";
-    const char sshcom_sig[] = "---- BEGIN SSH2 ENCRYPTED PRIVAT";
-    const char openssh_new_sig[] = "-----BEGIN OPENSSH PRIVATE KEY";
-    const char openssh_sig[] = "-----BEGIN ";
+    const static char public_std_sig[] = "---- BEGIN SSH2 PUBLIC KEY";
+    const static char putty2_sig[] = "PuTTY-User-Key-File-";
+    const static char sshcom_sig[] = "---- BEGIN SSH2 ENCRYPTED PRIVAT";
+    const static char openssh_new_sig[] = "-----BEGIN OPENSSH PRIVATE KEY";
+    const static char openssh_sig[] = "-----BEGIN ";
     int i;
     char *p;
 

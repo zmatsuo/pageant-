@@ -719,6 +719,28 @@ void setting_get_keyfiles(std::vector<std::wstring> &list)
 	}
 }
 
+void setting_add_keyfile(const wchar_t *_file)
+{
+	std::vector<std::wstring> list;
+	setting_get_keyfiles(list);
+
+	std::wstring file(_file);
+	for (auto &f: list) {
+		if (f == file) {
+			// すでにあった
+			return;
+		}
+	}
+	list.push_back(file);
+
+	int n = 1;
+	for (auto &f: list) {
+		std::string key = "Keyfile/file" + std::to_string(n);
+		ini_->setting_set_str(key.c_str(), f.c_str());
+		n++;
+	}
+}
+
 /* Un-munge session names out of the registry. */
 static void unmungestr(const wchar_t *in, wchar_t *out, int outlen)
 {
@@ -891,6 +913,12 @@ void setting_get_passphrases(std::vector<std::string> &passphraseAry)
 void setting_remove_passphrases()
 {
 	std::string key = "Passphrases";
+	bool r = ini_->setting_set_str(key.c_str(), nullptr);
+}
+
+void setting_remove_confirm_info()
+{
+	std::string key = "ssh-agent_confirm";
 	bool r = ini_->setting_set_str(key.c_str(), nullptr);
 }
 

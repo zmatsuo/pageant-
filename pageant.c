@@ -16,24 +16,9 @@
 #include "gui_stuff.h"
 #include "setting.h"
 
-#if 1
-#include "pkcs11.h"
-#include "sc.h"
-#endif
-
 #ifdef PUTTY_CAC
 #include "cert/cert_common.h"
 #endif // PUTTY_CAC
-
-#if 1
-#define PASSPHRASE_MAXLEN 64
-static int init=0;
-static sc_lib *sclib = NULL;
-static char pkcs11_token_label[70];
-static char pkcs11_cert_label[70];
-static char sc_save_passphrase[PASSPHRASE_MAXLEN];
-static int sc_activate_pwd_cache = 0;
-#endif
 
 /*
  * We need this to link with the RSA code, because rsaencrypt()
@@ -71,51 +56,6 @@ struct blob {
     int len;
 };
 static int cmpkeys_ssh2_asymm(void *av, void *bv);
-
-#if 1
-static void sc_init()
-{
-    if (init==0) {
-	Filename pkcs11_libfile;
-	int ln = sizeof(pkcs11_token_label);
-	strcpy(pkcs11_token_label, "User Authentication PIN (JPKI)");
-	strcpy(pkcs11_cert_label, "User Authentication Certificate");
-	pkcs11_libfile.path = L"C:\\Windows\\System32\\opensc-pkcs11.dll";
-
-	{
-	    sclib = calloc(sizeof(sc_lib), 1);
-	    if(sc_init_library(NULL, 1, sclib, &pkcs11_libfile)) {
-		int bloblen;
-		char *algorithm;		// TODO free?
-		unsigned char *blob = (unsigned char *)sc_get_pub(NULL, 0, sclib,
-								  pkcs11_token_label,
-								  pkcs11_cert_label,
-								  &algorithm,
-								  &bloblen);
-		if(blob == NULL) {
-		    sc_free_sclib(sclib);
-		    sclib = NULL;
-		} else {
-		    struct RSAKey *rkey = snew(struct RSAKey);
-		    struct ssh2_userkey *newKey = snew(struct ssh2_userkey);
-
-		    rkey->exponent = sclib->rsakey->exponent;
-		    rkey->modulus = sclib->rsakey->modulus;
-		    newKey->data = rkey;
-		    newKey->comment = pkcs11_cert_label;
-		    newKey->alg = find_pubkey_alg("ssh-rsa");
-
-		    if(add234(ssh2keys, newKey) != newKey) {
-			MessageBoxA(NULL, "Failed to add token key", "Pageant Error",
-				    MB_ICONERROR | MB_OK);
-		    }
-		}
-	    }
-	}
-	init = 1;
-    }
-}
-#endif
 
 /*
  * Key comparison function for the 2-3-4 tree of RSA keys.
@@ -430,7 +370,7 @@ static int accept_agent_request(int type, const void* key)
     int accept = -1;
     if (keyname != NULL) {
         char value[8];
-	setting_get_confirm_info(keyname, value, sizeof(value));
+        setting_get_confirm_info(keyname, value, sizeof(value));
         if (strcmp(value, VALUE_ACCEPT) == 0)
             accept = 1;
         else if (strcmp(value, VALUE_REFUSE) == 0)
@@ -739,25 +679,6 @@ void *pageant_handle_msg(const void *msg, int msglen, int *outlen,
 	    if (cert_is_certpath(key->comment))
 	    {
 		signature = cert_sign(key, (const char *)data, datalen, &siglen, NULL);
-	    }
-	    else
-#endif
-#if 1
-	    if((sclib != NULL) && (strcmp(key->comment, pkcs11_cert_label) == 0)) {
-		const char *passphrase;
-		struct PassphraseDlgInfo info = {0};
-		info.comment = "pkcs11";
-		info.passphrase = &passphrase;
-		info.save = 0;
-		info.saveAvailable = 0;
-		DIALOG_RESULT_T r = passphraseDlg(&info);
-		if (r == DIALOG_RESULT_OK) {
-		    signature = sc_sig(NULL, 0, sclib, pkcs11_token_label, passphrase, data, datalen, &siglen);
-		    free(passphrase);
-		} else {
-		    signature = 0;
-		    siglen = 0;
-		}
 	    }
 	    else
 #endif
@@ -1180,7 +1101,6 @@ void pageant_init(void)
     pageant_local = TRUE;
     rsakeys = newtree234(cmpkeys_rsa);
     ssh2keys = newtree234(cmpkeys_ssh2);
-    sc_init();
 }
 
 static void free_mem(tree234 *tree)
@@ -2192,23 +2112,73 @@ void pageant_delete_key2(int selectedCount, const int *selectedArray)
     }
 }
 
-// 公開鍵を何とかする
-#ifdef PUTTY_CAC
-char *test_0606(const char *comment)
+static int pageant_search_fingerprint(void *av, void *bv)
 {
-#if 0
-    char * szKeyString = cert_key_string(comment);
-    if (szKeyString == NULL) return NULL;
-    return szKeyString;
-#endif
-
-    if (sclib != NULL) {
-	char *r = _strdup(sclib->keystring);
-	return r;
+    const char *search_fingerprint = (const char *)av;
+    struct ssh2_userkey *key = (struct ssh2_userkey *) bv;
+    char *fingerprint = ssh2_fingerprint(key->alg, key->data);
+    int c = 1;
+    if (strcmp(search_fingerprint, fingerprint) == 0) {
+	c = 0;
     }
-    return NULL;
+    sfree(fingerprint);
+    return c;
 }
-#endif
+
+//int pageant_delete_key(struct pageant_pubkey *key, char **retstr)
+//int pageant_delete_ssh2_key(struct ssh2_userkey *skey)
+
+void pageant_del_key(const char *fingerprint)
+{
+    struct ssh2_userkey *key;
+    key = find234(ssh2keys, fingerprint, pageant_search_fingerprint);
+    if (key == NULL) {
+	return;		// ?
+    }
+
+    char *fingerprint2 = ssh2_fingerprint(key->alg, key->data);
+    printf("f %s %s\n", fingerprint, fingerprint2);
+    sfree(fingerprint2);
+
+    pageant_delete_ssh2_key(key);
+}
+
+char *pageant_get_pubkey(const char *fingerprint)
+{
+    struct ssh2_userkey *key;
+    key = find234(ssh2keys, fingerprint, pageant_search_fingerprint);
+    if (key == NULL) {
+	return NULL;
+    }
+
+    char *fingerprint2 = ssh2_fingerprint(key->alg, key->data);
+    printf("f %s %s\n", fingerprint, fingerprint2);
+    sfree(fingerprint2);
+
+    int blob_len;
+    char *blob = key->alg->public_blob(key->data, &blob_len);
+    const int comment_len = strlen(key->comment);
+    const int base64_len = 8 + blob_len * 4 / 3 + 1 + comment_len + 2 + 1;
+    char *base64_ptr = malloc(base64_len);
+
+    char *p = base64_ptr;
+    memcpy(p, "ssh-rsa ", 8);
+    p += 8;
+    int i = 0;
+    while (i < blob_len) {
+	int n = (blob_len - i < 3 ? blob_len - i : 3);
+	base64_encode_atom(blob + i, n, p);
+	p += 4;
+	i += n;
+    }
+    *p++ = ' ';
+    memcpy(p, key->comment, comment_len);
+    p += comment_len;
+    *p++ = '\r';
+    *p++ = '\n';
+    *p   = '\0';
+    return base64_ptr;
+}
 
 /**
  * dump

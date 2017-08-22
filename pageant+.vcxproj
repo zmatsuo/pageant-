@@ -142,6 +142,7 @@
     </ResourceCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="cert\pkcs_helper.c" />
     <ClCompile Include="libunixdomain\sock_server.c" />
     <ClCompile Include="libunixdomain\ud_socket.c" />
     <ClCompile Include="aboutdlg.cpp" />
@@ -182,8 +183,7 @@
     <ClCompile Include="misc_cpp.cpp" />
     <ClCompile Include="pageant.c" />
     <ClCompile Include="pageant_cpp.cpp" />
-    <ClCompile Include="passphrase.cpp" />
-    <ClCompile Include="sc.c" />
+    <ClCompile Include="passphrasedlg.cpp" />
     <ClCompile Include="setting.cpp" />
     <ClCompile Include="settingdlg.cpp" />
     <ClCompile Include="ssh-agent_emu.cpp" />
@@ -285,7 +285,7 @@
       <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Rcc%27ing %(Identity)...</Message>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">.\GeneratedFiles\qrc_%(Filename).cpp;%(Outputs)</Outputs>
     </CustomBuild>
-    <CustomBuild Include="passphrase.ui">
+    <CustomBuild Include="passphrasedlg.ui">
       <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(QTDIR)\bin\uic.exe;%(AdditionalInputs)</AdditionalInputs>
       <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Uic%27ing %(Identity)...</Message>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">.\GeneratedFiles\ui_%(Filename).h;%(Outputs)</Outputs>
@@ -326,7 +326,6 @@
     <ClInclude Include="pageant.h" />
     <ClInclude Include="pageant_.h" />
     <ClInclude Include="pageant_msg.h" />
-    <ClInclude Include="passphrase_.h" />
     <ClInclude Include="pgpkey.h" />
     <ClInclude Include="puttymem.h" />
     <CustomBuild Include="settingdlg.h">
@@ -344,6 +343,7 @@
     <ClInclude Include="ssh-agent_ms.h" />
     <ClInclude Include="ssh.h" />
     <ClInclude Include="sshbn.h" />
+    <ClInclude Include="version.h" />
     <ClInclude Include="winhelp.h" />
     <ClInclude Include="winhelp_.h" />
     <ClInclude Include="winpgnt.h" />
@@ -375,9 +375,9 @@
     <ClInclude Include="confirmacceptdlg_.h" />
     <ClInclude Include="GeneratedFiles\ui_aboutdlg.h" />
     <ClInclude Include="GeneratedFiles\ui_confirmacceptdlg.h" />
-    <ClInclude Include="passphrase.h" />
+    <ClInclude Include="passphrasedlg.h" />
     <ClInclude Include="GeneratedFiles\ui_mainwindow.h" />
-    <ClInclude Include="GeneratedFiles\ui_passphrase.h" />
+    <ClInclude Include="GeneratedFiles\ui_passphrasedlg.h" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="copyright.txt" />

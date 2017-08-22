@@ -2,6 +2,7 @@
  * winmisc.c: miscellaneous Windows-specific things
  */
 #undef UNICODE
+#define _CRT_SECURE_NO_WARNINGS
 #include <algorithm>
 #include <vector>
 #include <stdio.h>
@@ -433,23 +434,73 @@ bool reg_enum_key(
 	return true;
 }
 
+static std::wstring escape_str(const wchar_t *_org)
+{
+	const wchar_t *dead_char = L"=";
+	const wchar_t *encode_str = L"%3d";
+	std::wstring encode(_org);
+	std::wstring::size_type pos = 0;
+	while(1) {
+		pos = encode.find(dead_char, pos);
+		if (pos == std::wstring::npos) {
+			break;
+		}
+		encode.replace(pos, 1, encode_str);
+		pos += 3;
+	}
+	return encode;
+}
+
+static std::wstring unescape_str(const wchar_t *encode)
+{
+	const wchar_t *dead_char = L"=";
+	const wchar_t *encode_str = L"%3d";
+	std::wstring decode(encode);
+	std::wstring::size_type pos = 0;
+	while(1) {
+		pos = decode.find(encode_str, pos);
+		if (pos == std::wstring::npos) {
+			break;
+		}
+		decode.replace(pos, 1, dead_char);
+		pos += 1;
+	}
+	return decode;
+}
+
 bool _WritePrivateProfileString(
 	const wchar_t *section, const wchar_t *key, const wchar_t *ini,
 	const wchar_t *str)
 {
-	DWORD r = ::WritePrivateProfileStringW(section, key, str, ini);
-	(void)r;
-	return true;
+	if (_waccess(ini, 0) != 0) {
+		// create utf16be ini file
+		FILE *fp = _wfopen(ini, L"wb");
+		if (fp != NULL) {
+			const static uint8_t bom_utf16_le[] = {0xff, 0xfe};
+			fwrite(bom_utf16_le, sizeof(bom_utf16_le), 1, fp);
+			fclose(fp);
+		}
+	}
+
+	BOOL r;
+	if (key == nullptr) {
+		r = ::WritePrivateProfileStringW(section, NULL, str, ini);
+	} else {
+		const std::wstring key_encode = escape_str(key);
+		r = ::WritePrivateProfileStringW(section, key_encode.c_str(), str, ini);
+	}
+	return r == FALSE ? false : true;
 }
 
 bool _GetPrivateProfileString(
 	const wchar_t *section, const wchar_t *key, const wchar_t *ini,
 	std::wstring &str)
 {
+	const std::wstring key_encode = escape_str(key);
 	std::vector<wchar_t> buf(1024);
 	buf[0] = 0;
 	while(1) {
-		DWORD r = ::GetPrivateProfileStringW(section, key, L"", &buf[0], (DWORD)buf.size(), ini);
+		DWORD r = ::GetPrivateProfileStringW(section, key_encode.c_str(), L"", &buf[0], (DWORD)buf.size(), ini);
 		if (buf[0] == L'\0') {
 			// エントリがない(または key= )
 			str.clear();

@@ -2,7 +2,7 @@
 
 #include <QDialog>
 #include "gui_stuff.h"
-#include "ui_passphrase.h"
+#include "ui_passphrasedlg.h"
 
 class passphrase : public QDialog
 {

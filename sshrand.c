@@ -1,7 +1,7 @@
 /*
  * cryptographic random number generator for PuTTY's ssh client
  */
-#include "filename_.h"
+#include "filename.h"
 #include "ssh.h"
 
 /* Collect environmental noise every 5 minutes */

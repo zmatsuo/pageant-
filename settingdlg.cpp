@@ -18,12 +18,15 @@
 #include "pageant.h"
 #include "misc_cpp.h"
 #include "misc.h"
+extern "C" {
+#include "cert_common.h"
+}
 
 void SettingDlg::dispSetting()
 {
 	QString text;
 	QString s1;
-	text += u8"Qt コンパイルバージョン\n";
+	text += u8"Qt バージョン\n";
 	text += QT_VERSION_STR;
 	text += "\n";
 	text += u8"Qt ライブラリ(DLL)バージョン\n";
@@ -151,6 +154,12 @@ SettingDlg::SettingDlg(QWidget *parent) :
 		arrengePassphraseUI(enable);
 	}
 
+	// pin系
+	{
+		ui->checkBox_12->setChecked(
+			setting_get_bool("SmartCardPin/forget_when_terminal_locked", false));
+	}
+
 	// confirm系
 	{
 		ui->checkBox_10->setChecked(
@@ -235,6 +244,10 @@ void SettingDlg::on_buttonBox_accepted()
 					 ui->checkBox_9->isChecked());
 	setting_set_bool("Passphrase/forget_when_terminal_locked",
 					 ui->checkBox_8->isChecked());
+
+	// pin系
+	setting_set_bool("SmartCardPin/forget_when_terminal_locked",
+					 ui->checkBox_12->isChecked());
 
 	// confirm系
 	{
@@ -476,8 +489,19 @@ void SettingDlg::on_pushButton_12_clicked()
 		if (r == IDOK) {
 			pageant_forget_passphrases();
 			setting_remove_passphrases();
+			cert_forget_pin();
 		}
 	}
+}
+
+void SettingDlg::on_pushButton_13_clicked()
+{
+	setting_remove_confirm_info();
+}
+
+void SettingDlg::on_pushButton_14_clicked()
+{
+    cert_forget_pin();
 }
 
 // Local Variables:
@@ -485,6 +509,8 @@ void SettingDlg::on_pushButton_12_clicked()
 // coding: utf-8-with-signature
 // tab-width: 4
 // End:
+
+
 
 
 

@@ -10,6 +10,10 @@
 #include "setting.h"
 #include "ssh-agent_ms.h"
 #include "ssh-agent_emu.h"
+#include "gui_stuff.h"
+extern "C" {
+#include "cert/cert_common.h"
+}
 
 #ifdef _DEBUG
 static void crt_set_debugflag(void)
@@ -104,6 +108,7 @@ int main(int argc, char *argv[])
     }
 #endif
 
+    cert_set_pin_dlg(pin_dlg);
 	pageant_init();
 
 	if (setting_get_bool("Passphrase/save_enable", false) &&
@@ -149,8 +154,6 @@ int main(int argc, char *argv[])
 
 	// 鍵ファイル読み込み
 	add_keyfile(keyfileAry);
-//	keylist_update();
-
 
 	int r = a.exec();
 	debug_printf("main leave %d\n", r);

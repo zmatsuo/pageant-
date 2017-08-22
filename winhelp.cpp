@@ -128,6 +128,11 @@ static const struct ctxListSt *help_get_ctx_from_ctxid(DWORD_PTR dwContextId)
 
 void launch_help_id(HWND hwnd, DWORD id)
 {
+	if (!has_help()) {
+		message_box("ヘルプがありません", APP_NAME, MB_OK, 0);
+		return;
+	}
+
 	const struct ctxListSt *p = help_get_ctx_from_ctxid(id);
 	if (help_path.empty() || chm_path.empty()) {
 		const char *topic = p == NULL ? NULL : p->ContextId;
@@ -140,7 +145,6 @@ void launch_help_id(HWND hwnd, DWORD id)
 		exec(url, NULL);
 	}
 }
-
 
 void quit_help(HWND hwnd)
 {

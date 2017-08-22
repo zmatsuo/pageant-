@@ -5,6 +5,7 @@
 
 #include <windows.h>
 #include <Wtsapi32.h>
+#include <Dbt.h>
 
 #include <QIcon>
 #include <QFileDialog>
@@ -21,9 +22,9 @@
 #include "misc.h"
 #include "misc_cpp.h"
 #include "winmisc.h"
-#include "filename_.h"
+#include "filename.h"
 #include "setting.h"
-#include "passphrase.h"
+#include "passphrasedlg.h"
 #include "aboutdlg.h"
 #include "settingdlg.h"
 #include "confirmacceptdlg.h"
@@ -49,13 +50,14 @@ extern "C" {
 #define APPNAME			APP_NAME	// in pageant+.h
 
 static MainWindow *win;
+void add_keyfile(const Filename *fn);
+extern "C" void test_wm_devicechange(void);
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow)
 {
 	quitGurad_ = true;
-    createActions();
     createTrayIcon();
     trayIcon->show();
     ui->setupUi(this);
@@ -69,14 +71,12 @@ MainWindow::MainWindow(QWidget *parent) :
 			Qt::BlockingQueuedConnection);
 
     //
-    ui->treeView->setRootIsDecorated(false);
-    ui->treeView->setAlternatingRowColors(true);
+//    ui->treeView->setRootIsDecorated(false);
+//    ui->treeView->setAlternatingRowColors(true);
 	setWindowFlags( (windowFlags() | Qt::CustomizeWindowHint) & ~Qt::WindowMaximizeButtonHint);
 
 	setWindowIcon(QIcon(":/images/pageant.png"));
 	setWindowTitle(APP_NAME " - Key List");
-
-//    trayIconMenu = NULL;
 
 #if defined(__MINGW32__)
     BOOL r = WTSRegisterSessionNotification(
@@ -96,30 +96,6 @@ MainWindow::~MainWindow()
 	trayIcon = NULL;
 
     delete ui;
-#if 0
-    if (trayIconMenu != NULL) {
-		delete trayIconMenu;
-		trayIconMenu = NULL;
-	}
-#endif
-}
-
-void MainWindow::createActions()
-{
-//	if (QSystemTrayIcon::isSystemTrayAvailable()) {
-		//connect(this, SIGNAL(closed()), this, &QWidget::hide);
-		//connect(this, SIGNAL(closed()), this, SLOT(hide()));
-//ok	connect(this, SIGNAL(closed()), this, SLOT(hide()));
-//		connect(this, SIGNAL(closed()), this, SLOT(on_close()));
-
-	// うまくいかない
-#if 0
-	connect(this, SIGNAL(onMinimize()), this, SLOT(on_close()), Qt::QueuedConnection);
-	connect(this, SIGNAL(onMaximize()), this, SLOT(on_close()), Qt::QueuedConnection);
-	connect(this, SIGNAL(onClose()), this, SLOT(on_close()), Qt::QueuedConnection);
-	connect(this, SIGNAL(close()), this, SLOT(on_close()), Qt::QueuedConnection);
-#endif
-	
 }
 
 void MainWindow::createTrayIcon()
@@ -141,13 +117,11 @@ void MainWindow::createTrayIcon()
 
 void MainWindow::createTrayIconMenu()
 {
-    QMenu *trayIconMenu;
-	trayIconMenu = new QMenu(this);
+    QMenu *trayIconMenu = new QMenu(this);
 	if (!get_putty_path().empty()) {
 		// putty
 		QMenu *session_menu = trayIconMenu->addMenu( "putty" );
 		std::vector<std::wstring> session_info = setting_get_putty_sessions();
-
 		for (size_t i=0; i< session_info.size() + 1; i++) {
 			QString s = i == 0 ? "&New session" : QString::fromStdWString(session_info[i - 1]);
 			QAction *action = new QAction(s, this);
@@ -161,40 +135,37 @@ void MainWindow::createTrayIconMenu()
 		
 		connect(session_menu, SIGNAL(triggered(QAction*)),
 				this, SLOT(on_session(QAction*)));
+
+		trayIconMenu->addSeparator();
 	}
 
-	trayIconMenu->addSeparator();
-
-    restoreAction = new QAction("&View Keys(Restor)", this);
+    QAction *restoreAction = new QAction("&View Keys", this);
     connect(restoreAction, &QAction::triggered, this, &QWidget::showNormal);
     trayIconMenu->addAction(restoreAction);
 
-    addKeyAction = new QAction("Add &Key", this);
+    QAction *addKeyAction = new QAction("Add &Key", this);
 	connect(addKeyAction, SIGNAL(triggered()), this, SLOT(on_pushButtonAddKey_clicked()));
     trayIconMenu->addAction(addKeyAction);
 
-    confirmAnyAction = new QAction("&Confirm Any Request", this);
-    trayIconMenu->addAction(confirmAnyAction);
+    QAction *settingAction = new QAction("&Setting", this);
+	connect(settingAction, SIGNAL(triggered()), this, SLOT(on_actionsetting_triggered()));
+    trayIconMenu->addAction(settingAction);
 
 	if (has_help()) {
-		helpAction = new QAction(tr("help"), this);
+		QAction *helpAction = new QAction(tr("help"), this);
 		connect(helpAction, SIGNAL(triggered()), this, SLOT(on_help_clicked()));
 		trayIconMenu->addAction(helpAction);
 	}
 
     trayIconMenu->addSeparator();
 
-    aboutAction = new QAction(tr("about"), this);
+    QAction *aboutAction = new QAction(tr("About"), this);
 	connect(aboutAction, SIGNAL(triggered()), this, SLOT(on_actionAboutDlg()));
     trayIconMenu->addAction(aboutAction);
 
     trayIconMenu->addSeparator();
 
-	minimizeAction = new QAction(tr("Mi&nimize"), this);
-	connect(minimizeAction, &QAction::triggered, this, &QWidget::hide);
-    trayIconMenu->addAction(minimizeAction);
-
-    quitAction = new QAction(tr("&Quit"), this);
+	QAction *quitAction = new QAction(tr("&Quit"), this);
     connect(quitAction, &QAction::triggered, qApp, &QCoreApplication::quit);
     trayIconMenu->addAction(quitAction);
 
@@ -219,21 +190,20 @@ static QString get_ssh_folder()
     return QStandardPaths::writableLocation(QStandardPaths::HomeLocation);
 }
 
-#define printf	debug_printf
-
 void MainWindow::keylist_update()
 {
 	std::vector<KeyListItem> k = keylist_update2();
+	QStandardItemModel *model;
 
 	const int colum = 1;
-	model = new QStandardItemModel(k.size(), colum, this);
-	for (size_t i=0; i<k.size(); i++) {
+	model = new QStandardItemModel((int)k.size(), colum, this);
+	for (int i=0; i<(int)k.size(); i++) {
 		QStandardItem *item;
 #if 0
 		item = new QStandardItem(QString("%0").arg(i));
 		model->setItem(i, 0, item);
 #endif
-		item = new QStandardItem(QString::fromUtf8(k[i].name.c_str()));
+		item = new QStandardItem(QString::fromStdString(k[i].name));
 		model->setItem(i, 0, item);
 #if 0
 		item = new QStandardItem(QString("comment"));
@@ -257,70 +227,10 @@ void MainWindow::keylist_update()
 /*
  * This function loads a key from a file and adds it.
  */
- void MainWindow::add_keyfile(const QString &filename)
+void MainWindow::add_keyfile(const QString &filename)
 {
 	Filename *fn = filename_from_str(filename.toStdString().c_str());
-	std::string comment;
-
-    /*
-     * Try loading the key without a passphrase. (Or rather, without a
-     * _new_ passphrase; pageant_add_keyfile will take care of trying
-     * all the passphrases we've already stored.)
-     */
-    char *err;
-    int ret = pageant_add_keyfile(fn, NULL, &err);
-    if (ret == PAGEANT_ACTION_OK) {
-        goto done;
-    } else if (ret == PAGEANT_ACTION_FAILURE) {
-		goto error;
-    }
-	// PAGEANT_ACTION_NEED_PP
-
-    /*
-     * OK, a passphrase is needed, and we've been given the key
-     * comment to use in the passphrase prompt.
-     */
-	comment = err;
-	comment += "\n";
-	comment += filename.toStdString();
-    while (1) {
-		char *passphrase;
-        struct PassphraseDlgInfo pps;
-		pps.passphrase = &passphrase;
-		pps.comment = comment.c_str();
-		pps.save = 0;
-		pps.saveAvailable = setting_get_bool("Passphrase/save_enable", false);
-		int dlgret = slot_passphraseDlg(&pps);
-        if (dlgret != QDialog::Accepted) {
-			// cancell	
-            goto done;
-		}
-
-        sfree(err);
-		err = NULL;
-
-        assert(passphrase != NULL);
-
-        ret = pageant_add_keyfile(fn, passphrase, &err);
-        if (ret == PAGEANT_ACTION_OK) {
-			if (pps.save != 0) {
-				add_passphrase(passphrase);
-				save_passphrases(passphrase);
-			}
-			goto done;
-        } else if (ret == PAGEANT_ACTION_FAILURE) {
-			goto error;
-        }
-
-        smemclr(passphrase, strlen(passphrase));
-        sfree(passphrase);
-        passphrase = NULL;
-    }
-
-error:
-    message_box(err, APPNAME, MB_OK | MB_ICONERROR, 0);
-done:
-    sfree(err);
+	::add_keyfile(fn);
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -330,24 +240,30 @@ void MainWindow::on_pushButtonAddKey_clicked()
 	debug_printf("add\n");
 
     QString folder = get_ssh_folder();
-    QString cap =
-		//QString::fromUtf8(u8"プライベートキーを開く(複数ok)")
-		"Select Private Key File"
-		;
+    QString caption = "Select Private Key File";
     QString filter = QString::fromUtf8(
 		u8""
 		"ppk (*.ppk);;"
 		"All Files (*.*)"
 		);
 
-    QStringList files = QFileDialog::getOpenFileNames( this, cap, folder, filter );
+    QStringList files = QFileDialog::getOpenFileNames(this, caption, folder, filter);
 
     debug_printf("select count %d\n", files.size());
-	for (int i = 0; i < files.size(); i++) {
-		add_keyfile(files[i]);
+	for (auto &f: files) {
+		add_keyfile(f);
     }
 
 	keylist_update();
+
+	if (files.size() > 0) {
+		int r = message_boxW(L"次回起動時に読み込みますか?", L"pagent+", MB_YESNO, 0);
+		if (r == IDYES) {
+			for (auto &f: files) {
+				setting_add_keyfile(f.toStdWString().c_str());
+			}
+		}
+	}
 }
 
 void MainWindow::changeEvent(QEvent *e)
@@ -434,32 +350,30 @@ void MainWindow::trayClicked(QSystemTrayIcon::ActivationReason e)
 void MainWindow::on_pushButtonRemoveKey_clicked()
 {
     debug_printf("remove\n");
-	const QModelIndex index = ui->treeView->selectionModel()->currentIndex();
 
-	std::vector<int> selectedArray;
 	QItemSelectionModel *selection = ui->treeView->selectionModel();
 	QModelIndexList indexes = selection->selectedRows();
-	if (indexes.count() > 0) {
-		qSort(indexes);
-		for (int i = 0; i < indexes.count(); i++) {
+	const int count = indexes.count();
+	if (count == 0) {
+		message_boxW(L"鍵が選択されていません", L"pagent+", MB_OK, 0);
+	} else {
+		std::vector<int> selectedArray;
+		for (int i = 0; i < count; i++) {
 			selectedArray.push_back(indexes[i].row());
 		}
+		std::sort(selectedArray.begin(), selectedArray.end());
 
-		pageant_delete_key2(selectedArray.size(), &selectedArray[0]);
+		pageant_delete_key2((int)selectedArray.size(), &selectedArray[0]);
 	}
 	keylist_update();
-}
-
-void MainWindow::on_close()
-{
-	debug_printf("close button?\n");
 }
 
 void MainWindow::on_pushButton_close_clicked()
 {
     debug_printf("quit button\n");
-	quitGurad_ = false;
-    this->close();
+	quitGurad_ = true;
+    close();
+//	qApp->QCoreApplication::quit();
 }
 
 void MainWindow::on_actionAboutDlg()
@@ -489,25 +403,10 @@ int MainWindow::slot_passphraseDlg(struct PassphraseDlgInfo *info)
 	return r;
 }
 
-void MainWindow::on_pushButtonTest_clicked()
-{
-#if 0
-	static bool sw = false;
-	debug_console_show(sw);
-	sw = !sw;
-#endif
-}
-
-void MainWindow::on_help_clicked()
-{
-	debug_printf("on_help_clicked()\n");
-	launch_help(NULL, NULL);
-}
-
 void MainWindow::on_actionhelp_triggered()
 {
 	debug_printf("on_help_triggerd()\n");
-	launch_help(NULL, WINHELP_CTX_pageant_general);
+    launch_help_id(NULL, WINHELP_CTXID_errors_hostkey_absent);
 }
 
 void MainWindow::on_actionabout_triggered()
@@ -519,9 +418,8 @@ void MainWindow::on_actionabout_triggered()
 void MainWindow::on_actionquit_triggered()
 {
     debug_printf("quit button\n");
-//    qApp->QCoreApplication::quit();
 	quitGurad_ = false;
-    this->close();
+    close();
 }
 
 void MainWindow::on_session(QAction *action)
@@ -544,46 +442,56 @@ void MainWindow::on_session(QAction *action)
 // CAPI Cert
 void MainWindow::on_pushButton_clicked()
 {
-	printf("CAPI Cert\n");
+	debug_printf("CAPI Cert\n");
 #ifdef PUTTY_CAC
 	//HWND hwnd = (HWND)winId();
 	HWND hwnd = NULL;
 	char * szCert = cert_prompt(IDEN_CAPI, hwnd);
 	if (szCert == NULL)
 		return;
-	QString fn = szCert;
-	add_keyfile(fn);		// TODO!!!
+	Filename *fn = filename_from_str(szCert);
+	::add_keyfile(fn);
 	keylist_update();
+
+	int r = message_boxW(L"次回起動時に読み込みますか?", L"pagent+", MB_YESNO, 0);
+	if (r == IDYES) {
+		setting_add_keyfile(fn->path);
+	}
+
+	filename_free(fn);
 #else
     MessageBoxA((HWND)winId(), "not support", "(^_^)",
 				MB_OK | MB_ICONEXCLAMATION);
 #endif
 }
 
-// PKCS Cert
+// PKCS Cert @@
 void MainWindow::on_pushButton_2_clicked()
 {
-	printf("PKCS Cert\n");
-#ifdef PUTTY_CAC
-	//HWND hwnd = (HWND)winId();
-	HWND hwnd = NULL;
-	char * szCert = cert_prompt(IDEN_PKCS, hwnd);
-	if (szCert == NULL)
-		return;
-	QString fn = szCert;
-	add_keyfile(fn);		// TODO!!!
-	keylist_update();
-#else
+	debug_printf("PKCS Cert\n");
+#if 1
+	{
+		//HWND hwnd = (HWND)winId();
+		HWND hwnd = NULL;
+		char * szCert = cert_prompt(IDEN_PKCS, hwnd);
+		if (szCert == NULL)
+			return;
+		Filename *fn = filename_from_str(szCert);
+		::add_keyfile(fn);
+		keylist_update();
+
+		int r = message_boxW(L"次回起動時に読み込みますか?", L"pagent+", MB_YESNO, 0);
+		if (r == IDYES) {
+			setting_add_keyfile(fn->path);
+		}
+
+		filename_free(fn);
+	}
+#endif
+#if 0
     MessageBoxA((HWND)winId(), "not support", "(^_^)",
 				MB_OK | MB_ICONEXCLAMATION);
 #endif
-}
-
-void MainWindow::on_actionregedit_triggered()
-{
-	const wchar_t *path =
-		L"HKEY_CURRENT_USER\\SOFTWARE\\SimonTatham\\PuTTY\\Pageant";
-	exec_regedit(path);
 }
 
 void MainWindow::on_actionsetting_triggered()
@@ -597,7 +505,7 @@ void MainWindow::on_actionsetting_triggered()
     dlg.exec();
 
 	// サービス再起動が必要
-	bool reboot_services = (unixdomain_path != _getenv(L"SSH_AUTH_SOCK"));
+	const bool reboot_services = (unixdomain_path != _getenv(L"SSH_AUTH_SOCK"));
     if (reboot_services) {
 		// すべて止める
 		winpgnt_stop();
@@ -664,6 +572,9 @@ bool MainWindow::nativeEventFilter(const QByteArray &eventType, void *message, l
 					pageant_forget_passphrases();
 					setting_remove_passphrases();
 				}
+				if (setting_get_bool("SmartCardPin/forget_when_terminal_locked", false)) {
+					cert_forget_pin();
+				}
 			}
 			break;
 		case WM_WTSSESSION_CHANGE:
@@ -687,44 +598,60 @@ bool MainWindow::nativeEventFilter(const QByteArray &eventType, void *message, l
 					pageant_forget_passphrases();
 					setting_remove_passphrases();
 				}
+				if (setting_get_bool("SmartCardPin/forget_when_terminal_locked", false)) {
+					cert_forget_pin();
+				}
 			}
+			break;
+		case WM_DEVICECHANGE:
+			debug_printf("WM_DEVICECHANGE(%d) wParam=%s(0x%04x)\n",
+						 msg->message,
+						 w == DBT_DEVICEREMOVECOMPLETE ? "DBT_DEVICEREMOVECOMPLETE" :
+						 "??",
+						 w);
+			test_wm_devicechange();
 			break;
 		}
 	}
 	return false;
 }
 
-#ifdef PUTTY_CAC
-extern "C" char *test_0606(const char *comment);
-#endif
-
 // clipboard
 void MainWindow::on_pushButton_3_clicked()
 {
     debug_printf("pubkey to clipboard\n");
-#if 1
-#ifdef PUTTY_CAC
-	const char *comment = "CAPI:dfaflafjlaseifaliejf83u98q4usdlkjfla33bf";
-	char *keyString = test_0606(comment);
-	if (keyString == NULL) {
-		message_box("コメントから公開鍵を作れるはず", APPNAME, MB_OK | MB_ICONERROR, 0);
-		return;
-	}
-	QApplication::clipboard()->setText(QString(keyString));
-    sfree(keyString);
-#endif
-#endif
 
-#if 0
+	const QStandardItemModel *model = (QStandardItemModel *)ui->treeView->model();
+	QItemSelectionModel *selection = ui->treeView->selectionModel();
+	QModelIndexList indexes = selection->selectedRows();
+	switch (indexes.count()) {
+	case 0:
+		message_boxW(L"鍵が選択されていません", L"pagent+", MB_OK, 0);
+		break;
+	case 1:
 	{
-		std::vector<std::wstring> list;
-		setting_get_keyfiles(list);
-		for(auto f: list) {
-			QString qf = QString::fromStdWString(f);
-			add_keyfile(qf);
-		}
+		const QModelIndex index = selection->currentIndex();
+		QStandardItem *item = model->itemFromIndex(index);
+		if (item == nullptr)
+			return;
+		QString qs = item->text();
+
+		std::string s = qs.toStdString();
+		std::string::size_type p = s.find_last_of(' ');
+		s = s.substr(0, p);
+
+		char *pubkey = pageant_get_pubkey(s.c_str());
+		QApplication::clipboard()->setText(QString(pubkey));
+		free(pubkey);
+
+		message_boxW(L"OpenSSH形式の公開鍵をクリップボードにコピーしました", L"pagent+", MB_OK, 0);
+
+		break;
 	}
-#endif
+	default:
+		message_boxW(L"1つだけ選択してください", L"pagent+", MB_OK, 0);
+		break;
+	}
 }
 
 int MainWindow::confirmAcceptDlg(struct ConfirmAcceptDlgInfo *info)
@@ -771,16 +698,98 @@ HWND get_hwnd()
 	return (HWND)win->winId();
 }
 
+void add_keyfile(const Filename *fn)
+{
+	std::string comment;
+	/*
+     * Try loading the key without a passphrase. (Or rather, without a
+     * _new_ passphrase; pageant_add_keyfile will take care of trying
+     * all the passphrases we've already stored.)
+     */
+    char *err;
+    int ret = pageant_add_keyfile(fn, NULL, &err);
+    if (ret == PAGEANT_ACTION_OK) {
+        goto done;
+    } else if (ret == PAGEANT_ACTION_FAILURE) {
+		goto error;
+    }
+	// PAGEANT_ACTION_NEED_PP
+
+    /*
+     * OK, a passphrase is needed, and we've been given the key
+     * comment to use in the passphrase prompt.
+     */
+	comment = err;
+	comment += "\n";
+	comment += wc_to_mb(std::wstring(fn->path));
+    while (1) {
+		char *_passphrase;
+        struct PassphraseDlgInfo pps;
+		pps.passphrase = &_passphrase;
+		pps.caption = "pageant+";
+		pps.text = comment.c_str();
+		pps.save = 0;
+		pps.saveAvailable = setting_get_bool("Passphrase/save_enable", false);
+		DIALOG_RESULT_T r;
+#if 0
+		{
+			r = passphraseDlg(&pps);
+		}
+#else
+		{
+			passphrase dlg(win, &pps);
+			showAndBringFront(&dlg);
+			int r2 = dlg.exec();
+			r = r2 == QDialog::Accepted ? DIALOG_RESULT_OK : DIALOG_RESULT_CANCEL;
+		}
+		
+#endif
+		if (r == DIALOG_RESULT_CANCEL) {
+			// cancell	
+			goto done;
+		}
+
+        sfree(err);
+		err = NULL;
+
+        assert(_passphrase != NULL);
+
+        ret = pageant_add_keyfile(fn, _passphrase, &err);
+        if (ret == PAGEANT_ACTION_OK) {
+			if (pps.save != 0) {
+				add_passphrase(_passphrase);
+				save_passphrases(_passphrase);
+			}
+			goto done;
+        } else if (ret == PAGEANT_ACTION_FAILURE) {
+			goto error;
+        }
+
+        smemclr(_passphrase, strlen(_passphrase));
+        sfree(_passphrase);
+        _passphrase = NULL;
+    }
+
+error:
+    message_box(err, APPNAME, MB_OK | MB_ICONERROR, 0);
+done:
+    sfree(err);
+}
+
 void add_keyfile(const wchar_t *filename)
 {
-	win->add_keyfile(QString::fromStdWString(filename));
+	Filename *fn = filename_from_wstr(filename);
+	add_keyfile(fn);
+	filename_free(fn);
 	keylist_update();
 }
 
 void add_keyfile(const std::vector<std::wstring> &keyfileAry)
 {
 	for(auto &f: keyfileAry) {
-		win->add_keyfile(QString::fromStdWString(f));
+		Filename *fn = filename_from_wstr(f.c_str());
+		add_keyfile(fn);
+		filename_free(fn);
 	}
 	keylist_update();
 }

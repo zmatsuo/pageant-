@@ -4,10 +4,14 @@
 #define UMDF_USING_NTSTATUS
 #include <ntstatus.h>
 
+#define _CRT_SECURE_NO_WARNINGS
 #include <windows.h>
 #include <wincrypt.h>
 #include <cryptdlg.h>
+#pragma warning(push)
+#pragma warning(disable: 4201)
 #include <cryptuiapi.h>
+#pragma warning(pop)
 #include <wincred.h>
 
 #include "cert_pkcs.h"
@@ -20,6 +24,33 @@
 #ifndef SSH_AGENT_SUCCESS
 #include "ssh.h"
 #endif
+
+#define strlwr(p)	_strlwr(p)
+#define wcsdup(p)	_wcsdup(p)
+#define strdup(p)	_strdup(p)
+
+static char *cert_pin_dlg_default(const wchar_t *text, const wchar_t *caption, HWND hWnd, BOOL *pSavePassword);
+static pCertPinDlgFnT pCertPinDlgFn = &cert_pin_dlg_default;
+
+static char *wc_to_mb_simple(const wchar_t *wstr)
+{
+    const UINT cp = CP_ACP;
+    int len = WideCharToMultiByte(cp, 0, wstr, -1, NULL, 0, NULL, NULL);
+	len++;
+	char *buf = malloc(len);
+    WideCharToMultiByte(cp, 0, wstr, -1, buf, len, NULL,NULL);
+    return buf;
+}
+
+static wchar_t *mb_to_wc_simple(const char *str)
+{
+    const UINT cp = CP_UTF8;
+    int len = MultiByteToWideChar(cp, 0, str, -1, NULL, 0);
+	len++;
+	wchar_t *buf = malloc(sizeof(wchar_t)*len);
+    MultiByteToWideChar(cp, 0, str, -1, buf, len);
+    return buf;
+}
 
 void cert_reverse_array(LPBYTE pb, DWORD cb)
 {
@@ -492,21 +523,100 @@ LPBYTE cert_get_hash(LPCSTR szAlgo, LPCBYTE pDataToHash, DWORD iDataToHashSize, 
 	return pHashData;
 }
 
-PVOID cert_pin(LPSTR szCert, BOOL bUnicode, LPVOID szPin, HWND hWnd)
+// prompt the user to enter the pin
+static char *cert_pin_dlg_default(const wchar_t *text, const wchar_t *caption, HWND hWnd, BOOL *pSavePassword)
 {
-	typedef struct CACHE_ITEM
-	{
-		struct CACHE_ITEM * NextItem;
-		LPSTR szCert;
-		VOID * szPin;
-		DWORD iLength;
-		BOOL bUnicode;
-		DWORD iSize;
+	// prompt the user to enter the pin
+	CREDUI_INFOW tCredInfo;
+	ZeroMemory(&tCredInfo, sizeof(CREDUI_INFO));
+	tCredInfo.hwndParent = hWnd;
+	tCredInfo.cbSize = sizeof(tCredInfo);
+	tCredInfo.pszMessageText = text;
+	tCredInfo.pszCaptionText = caption;
+	WCHAR szUserName[CREDUI_MAX_USERNAME_LENGTH + 1] = L"<Using Smart Card>";
+	WCHAR szPassword[CREDUI_MAX_PASSWORD_LENGTH + 1] = L"";
+	DWORD dwFlags =
+		CREDUI_FLAGS_GENERIC_CREDENTIALS |
+		CREDUI_FLAGS_KEEP_USERNAME |				// Do not show "save password" when set this flag
+		0;
+	if (pSavePassword != NULL) {
+		dwFlags |= CREDUI_FLAGS_SHOW_SAVE_CHECK_BOX;
 	}
-	CACHE_ITEM;
+	DWORD r = CredUIPromptForCredentialsW(
+		&tCredInfo, L"target", NULL, 0,
+		szUserName, _countof(szUserName),
+		szPassword, _countof(szPassword),
+		pSavePassword,
+		dwFlags);
+	if (r != ERROR_SUCCESS)
+	{
+		if (pSavePassword != NULL)
+		{
+			*pSavePassword = FALSE;
+		}
+		return NULL;
+	}
 
-	static CACHE_ITEM * PinCacheList = NULL;
+	if (pSavePassword != NULL)
+	{
+		UINT type = MB_YESNO;
+		if (*pSavePassword == FALSE)
+		{
+			type |= MB_DEFBUTTON2;
+		}
+		r = MessageBoxW(hWnd, L"Save Pin?", caption, type);
+		if (r == IDYES)
+		{
+			*pSavePassword = TRUE;
+		}
+	}
 
+	char *szPasswordA = wc_to_mb_simple(szPassword);
+	SecureZeroMemory(szPassword, sizeof(szPassword));
+	return szPasswordA;
+}
+
+void cert_set_pin_dlg(pCertPinDlgFnT fn)
+{
+	pCertPinDlgFn = fn;
+}
+
+typedef struct CACHE_ITEM
+{
+	struct CACHE_ITEM * NextItem;
+	LPSTR szCert;
+	VOID * szPin;
+	DWORD iLength;
+//	BOOL bUnicode;
+	DWORD iSize;
+} CACHE_ITEM;
+
+static CACHE_ITEM * PinCacheList = NULL;
+
+void cert_pin_save_cache(LPSTR szCert, LPVOID szPin, DWORD iPinSize)
+{
+	// determine length of storage (round up to block size)
+	DWORD iLength = iPinSize;
+	DWORD iCryptLength = CRYPTPROTECTMEMORY_BLOCK_SIZE *
+		((iLength / CRYPTPROTECTMEMORY_BLOCK_SIZE) + 1);
+	VOID * pEncrypted = memcpy(malloc(iCryptLength), szPin, iLength);
+
+	// encrypt memory
+	CryptProtectMemory(pEncrypted, iCryptLength,
+					   CRYPTPROTECTMEMORY_SAME_PROCESS);
+
+	// allocate new item in cache and commit the change
+	CACHE_ITEM * hItem = (CACHE_ITEM *)calloc(1, sizeof(struct CACHE_ITEM));
+	hItem->szCert = strdup(szCert);
+	hItem->szPin = pEncrypted;
+	hItem->iLength = iCryptLength;
+//	hItem->bUnicode = bUnicode;
+	hItem->NextItem = PinCacheList;
+	PinCacheList = hItem;
+}
+
+VOID *cert_pin_load_cache(LPSTR szCert)
+{
 	// attempt to locate the item in the pin cache
 	for (CACHE_ITEM * hCurItem = PinCacheList; hCurItem != NULL; hCurItem = hCurItem->NextItem)
 	{
@@ -517,61 +627,42 @@ PVOID cert_pin(LPSTR szCert, BOOL bUnicode, LPVOID szPin, HWND hWnd)
 			return pEncrypted;
 		}
 	}
+	return NULL;
+}
+
+PVOID cert_pin(LPSTR szCert, BOOL bUnicode, LPVOID szPin, HWND hWnd)
+{
+	VOID *cache = cert_pin_load_cache(szCert);
+	if (cache != NULL)
+	{
+		return cache;
+	}
 
 	// request to add item to pin cache
 	if (szPin != NULL)
 	{
-		// determine length of storage (round up to block size)
 		DWORD iLength = ((bUnicode) ? sizeof(WCHAR) : sizeof(CHAR)) *
 			(1 + ((bUnicode) ? wcslen(szPin) : strlen(szPin)));
-		DWORD iCryptLength = CRYPTPROTECTMEMORY_BLOCK_SIZE *
-			((iLength / CRYPTPROTECTMEMORY_BLOCK_SIZE) + 1);
-		VOID * pEncrypted = memcpy(malloc(iCryptLength), szPin, iLength);
-
-		// encrypt memory
-		CryptProtectMemory(pEncrypted, iCryptLength,
-			CRYPTPROTECTMEMORY_SAME_PROCESS);
-
-		// allocate new item in cache and commit the change
-		CACHE_ITEM * hItem = (CACHE_ITEM *)calloc(1, sizeof(struct CACHE_ITEM));
-		hItem->szCert = strdup(szCert);
-		hItem->szPin = pEncrypted;
-		hItem->iLength = iCryptLength;
-		hItem->bUnicode = bUnicode;
-		hItem->NextItem = PinCacheList;
-		PinCacheList = hItem;
+		cert_pin_save_cache(szCert, szPin, iLength);
 		return NULL;
 	}
 
-	// prompt the user to enter the pin
-	CREDUI_INFOW tCredInfo;
-	ZeroMemory(&tCredInfo, sizeof(CREDUI_INFO));
-	tCredInfo.hwndParent = hWnd;
-	tCredInfo.cbSize = sizeof(tCredInfo);
-	tCredInfo.pszCaptionText = L"PuTTY Authentication";
-	tCredInfo.pszMessageText = L"Please Enter Your Smart Card Credentials";
-	WCHAR szUserName[CREDUI_MAX_USERNAME_LENGTH + 1] = L"<Using Smart Card>";
-	WCHAR szPassword[CREDUI_MAX_PASSWORD_LENGTH + 1] = L"";
-	if (CredUIPromptForCredentialsW(&tCredInfo, L"Smart Card", NULL, 0, szUserName,
-		_countof(szUserName), szPassword, _countof(szPassword), NULL,
-		CREDUI_FLAGS_GENERIC_CREDENTIALS | CREDUI_FLAGS_KEEP_USERNAME) != ERROR_SUCCESS)
-	{
-		return NULL;
-	}
-
+	char *szPassword = pCertPinDlgFn(
+		L"Please Enter Your Smart Card Credentials",
+		L"PuTTY Authentication",
+		hWnd, NULL);
 	PVOID szReturn = NULL;
 	if (bUnicode)
 	{
-		szReturn = wcsdup(szPassword);
+		szReturn = mb_to_wc_simple(szPassword);
+		SecureZeroMemory(szPassword, strlen(szPassword));
+		free(szPassword);
 	}
 	else
 	{
-		CHAR szPasswordAscii[CREDUI_MAX_PASSWORD_LENGTH + 1] = "";
-		WideCharToMultiByte(CP_ACP, 0, szPassword, -1, szPasswordAscii, sizeof(szPasswordAscii), NULL, NULL);
-		szReturn = strdup(szPasswordAscii);
+		szReturn = szPassword;
 	}
 
-	SecureZeroMemory(szPassword, sizeof(szPassword));
 	return szReturn;
 }
 
@@ -580,6 +671,26 @@ EXTERN BOOL cert_cache_enabled(DWORD bEnable)
 	static BOOL bCacheEnabled = FALSE;
 	if (bEnable != -1) bCacheEnabled = bEnable;
 	return bCacheEnabled;
+}
+
+void cert_forget_pin(void)
+{
+	if (PinCacheList == NULL) {
+		return;
+	}
+	CACHE_ITEM *p = PinCacheList;
+	while(1)
+	{
+		CACHE_ITEM *next = p->NextItem;
+		free(p->szCert);
+		free(p->szPin);
+		free(p);
+		if (next == NULL) {
+			break;
+		}
+		p = next;
+	}
+	PinCacheList = NULL;
 }
 
 #endif // PUTTY_CAC

@@ -4,7 +4,10 @@
 #include <windows.h>
 #include <stdio.h>
 #include <malloc.h>
+#pragma warning(push)
+#pragma warning(disable: 4201)
 #include <cryptuiapi.h>
+#pragma warning(pop)
 #include <cryptdlg.h>
 #include <wincred.h>
 
@@ -38,16 +41,56 @@
 #include "pkcs\pkcs11.h"
 #pragma pack(pop, cryptoki)
 
+#define strdup(p)		_strdup(p)
+#define	stricmp(p1,p2)	_stricmp(p1,p2)
+#pragma warning(once: 4204 4244)
+#pragma warning(once: 4221)
+
 // functions used within the capi module
 PCCERT_CONTEXT pkcs_get_cert_from_token(CK_FUNCTION_LIST_PTR FunctionList, CK_SESSION_HANDLE hSession, CK_OBJECT_HANDLE hObject);
-CK_FUNCTION_LIST_PTR cert_pkcs_load_library(LPSTR szLibrary);
+CK_FUNCTION_LIST_PTR cert_pkcs_load_library(LPCSTR szLibrary);
 void * pkcs_get_attribute_value(CK_FUNCTION_LIST_PTR FunctionList, CK_SESSION_HANDLE hSession,
 	CK_OBJECT_HANDLE hObject, CK_ATTRIBUTE_TYPE iAttribute, CK_ULONG_PTR iValueSize);
-void pkcs_lookup_token_cert(LPCSTR szCert, CK_SESSION_HANDLE_PTR phSession, CK_OBJECT_HANDLE_PTR phObject,
+static void pkcs_lookup_token_cert(LPCSTR szCert, CK_SESSION_HANDLE_PTR phSession, CK_OBJECT_HANDLE_PTR phObject,
 	CK_ATTRIBUTE aFindCriteria[], CK_ULONG iFindCriteria, BOOL bReturnFirst);
+
+static CK_RV pkcs_lookup_privatekey(
+	CK_FUNCTION_LIST_PTR pFunctionList,
+	CK_SESSION_HANDLE hSession,
+	LPCBYTE pSharedKeyId, CK_ULONG iSharedKeyIdSize,
+	CK_OBJECT_HANDLE_PTR phPrivateKey)
+{
+	*phPrivateKey = CK_INVALID_HANDLE;	
+	CK_RV rv;
+
+	// setup the find structure to identiy the private key on the token
+	CK_OBJECT_HANDLE iPrivateType = CKO_PRIVATE_KEY;
+	CK_ATTRIBUTE aFindPrivateCriteria[] = {
+		{ CKA_CLASS,    &iPrivateType,				sizeof(CK_OBJECT_CLASS) },
+		{ CKA_ID,		(CK_VOID_PTR)pSharedKeyId,	iSharedKeyIdSize },
+	};
+
+	// attempt to lookup the private key without logging in
+	CK_ULONG iCertListSize = 0;
+	rv = pFunctionList->C_FindObjectsInit(hSession, aFindPrivateCriteria, _countof(aFindPrivateCriteria));
+	if (rv != CKR_OK) return rv;
+	rv = pFunctionList->C_FindObjects(hSession, phPrivateKey, 1, &iCertListSize);
+	if (rv != CKR_OK) return rv;
+	rv = pFunctionList->C_FindObjectsFinal(hSession);
+	if (rv != CKR_OK) return rv;
+
+	if (iCertListSize == 0)
+	{
+		*phPrivateKey = CK_INVALID_HANDLE;	
+	}
+	return CKR_OK;
+}
 
 BYTE * cert_pkcs_sign(struct ssh2_userkey * userkey, LPCBYTE pDataToSign, int iDataToSignLen, int * iSigLen, HWND hWnd)
 {
+	BYTE *retval = NULL;
+	*iSigLen = 0;
+
 	// get the library to load from based on comment
 	LPSTR szLibrary = strrchr(userkey->comment, '=') + 1;
 	CK_FUNCTION_LIST_PTR pFunctionList = cert_pkcs_load_library(szLibrary);
@@ -106,11 +149,16 @@ BYTE * cert_pkcs_sign(struct ssh2_userkey * userkey, LPCBYTE pDataToSign, int iD
 		struct RSAKey * rsa = userkey->data;
 		iLookupSize = rsa->bytes;
 		pLookupValue = malloc(iLookupSize);
-		for (int i = 0; i < iLookupSize; i++)
+		for (CK_ULONG i = 0; i < iLookupSize; i++)
 		{
 			pLookupValue[iLookupSize - i - 1] = bignum_byte(rsa->modulus, i);
 		}
 	}
+
+	// the message to send contains the static sha1 oid header
+	// followed by a sha1 hash of the data sent from the host
+	DWORD iHashSize = 0;
+	LPBYTE pHashData = cert_get_hash(userkey->alg->name, pDataToSign, iDataToSignLen, &iHashSize, TRUE);
 
 	// setup the find structure to identiy the public key on the token
 	CK_OBJECT_CLASS iPublicType = CKO_PUBLIC_KEY;
@@ -125,9 +173,6 @@ BYTE * cert_pkcs_sign(struct ssh2_userkey * userkey, LPCBYTE pDataToSign, int iD
 	CK_OBJECT_HANDLE hPublicKey = 0;
 	pkcs_lookup_token_cert(userkey->comment, &hSession,
 		&hPublicKey, aFindPubCriteria, _countof(aFindPubCriteria), TRUE);
-
-	// cleanup the modulus since we no longer need it
-	free(pLookupValue);
 
 	// check for error
 	if (hSession == 0 || hPublicKey == 0)
@@ -146,51 +191,34 @@ BYTE * cert_pkcs_sign(struct ssh2_userkey * userkey, LPCBYTE pDataToSign, int iD
 	if (pSharedKeyId == NULL)
 	{
 		// error
-		pFunctionList->C_CloseSession(hSession);
-		return NULL;
+		goto error;
 	}
-
-	// setup the find structure to identiy the private key on the token
-	CK_OBJECT_HANDLE iPrivateType = CKO_PRIVATE_KEY;
-	CK_ATTRIBUTE aFindPrivateCriteria[] = {
-		{ CKA_CLASS,    &iPrivateType,	sizeof(CK_OBJECT_CLASS) },
-		{ CKA_ID,		pSharedKeyId,	iSize },
-	};
 
 	// attempt to lookup the private key without logging in
 	CK_OBJECT_HANDLE hPrivateKey;
-	CK_ULONG iCertListSize = 0;
-	if ((pFunctionList->C_FindObjectsInit(hSession, aFindPrivateCriteria, _countof(aFindPrivateCriteria))) != CKR_OK ||
-		pFunctionList->C_FindObjects(hSession, &hPrivateKey, 1, &iCertListSize) != CKR_OK ||
-		pFunctionList->C_FindObjectsFinal(hSession) != CKR_OK)
+	if (pkcs_lookup_privatekey(pFunctionList, hSession, pSharedKeyId, iSize, &hPrivateKey) != CKR_OK)
 	{
 		// error
-		free(pSharedKeyId);
-		pFunctionList->C_CloseSession(hSession);
-		return NULL;
+		goto error;
 	}
 
 	// if could not find the key, prompt the user for the pin
-	if (iCertListSize == 0)
+	if (hPrivateKey == CK_INVALID_HANDLE)
 	{
 		LPSTR szPin = cert_pin(userkey->comment, FALSE, NULL, hWnd);
 		if (szPin == NULL)
 		{
 			// error
-			free(pSharedKeyId);
-			pFunctionList->C_CloseSession(hSession);
-			return NULL;
+			goto error;
 		}
 
 		// login to the card to unlock the private key
-		if (pFunctionList->C_Login(hSession, CKU_USER, (CK_UTF8CHAR_PTR)szPin, strlen(szPin)) != CKR_OK)
+		if (pFunctionList->C_Login(hSession, CKU_USER, (CK_UTF8CHAR_PTR)szPin, (CK_ULONG)strlen(szPin)) != CKR_OK)
 		{
 			// error
 			SecureZeroMemory(szPin, strlen(szPin));
 			free(szPin);
-			free(pSharedKeyId);
-			pFunctionList->C_CloseSession(hSession);
-			return NULL;
+			goto error;
 		}
 
 		// cleanup creds
@@ -199,34 +227,23 @@ BYTE * cert_pkcs_sign(struct ssh2_userkey * userkey, LPCBYTE pDataToSign, int iD
 		free(szPin);
 
 		// attempt to lookup the private key
-		iCertListSize = 0;
-		if ((pFunctionList->C_FindObjectsInit(hSession, aFindPrivateCriteria, _countof(aFindPrivateCriteria))) != CKR_OK ||
-			pFunctionList->C_FindObjects(hSession, &hPrivateKey, 1, &iCertListSize) != CKR_OK ||
-			pFunctionList->C_FindObjectsFinal(hSession) != CKR_OK)
+		if (pkcs_lookup_privatekey(pFunctionList, hSession, pSharedKeyId, iSize, &hPrivateKey) != CKR_OK)
 		{
 			// error
-			free(pSharedKeyId);
-			pFunctionList->C_CloseSession(hSession);
-			return FALSE;
+			goto error;
 		}
 
 		// check for error
-		if (iCertListSize == 0)
+		if (hPrivateKey == CK_INVALID_HANDLE)
 		{
 			// error
-			free(pSharedKeyId);
-			pFunctionList->C_CloseSession(hSession);
-			return NULL;
+			goto error;
 		}
 	}
 
 	// no longer need the shared key identifier
 	free(pSharedKeyId);
-
-	// the message to send contains the static sha1 oid header
-	// followed by a sha1 hash of the data sent from the host
-	DWORD iHashSize = 0;
-	LPBYTE pHashData = cert_get_hash(userkey->alg->name, pDataToSign, iDataToSignLen, &iHashSize, TRUE);
+	pSharedKeyId = NULL;
 
 	// setup the signature process to sign using the rsa private key on the card 
 	CK_MECHANISM tSignMech;
@@ -237,24 +254,46 @@ BYTE * cert_pkcs_sign(struct ssh2_userkey * userkey, LPCBYTE pDataToSign, int iD
 	// create the hash value
 	CK_BYTE_PTR pSignature = NULL;
 	CK_ULONG iSignatureLen = 0;
-	if (pFunctionList->C_SignInit(hSession, &tSignMech, hPrivateKey) != CKR_OK ||
-		pFunctionList->C_Sign(hSession, pHashData, iHashSize, NULL, &iSignatureLen) != CKR_OK ||
-		pFunctionList->C_Sign(hSession, pHashData, iHashSize,
-			pSignature = snewn(iSignatureLen, CK_BYTE), &iSignatureLen) != CKR_OK)
+	CK_RV rv;
+	rv = pFunctionList->C_SignInit(hSession, &tSignMech, hPrivateKey);
+	if (rv == CKR_OK)
+		rv = pFunctionList->C_Sign(hSession, pHashData, iHashSize, NULL, &iSignatureLen);
+	if (rv == CKR_OK)
+	{
+		pSignature = snewn(iSignatureLen, CK_BYTE);
+		rv = pFunctionList->C_Sign(hSession, pHashData, iHashSize, pSignature, &iSignatureLen);
+	}
+	if (rv != CKR_OK)
 	{
 		// something failed so cleanup signature
 		if (pSignature != NULL)
 		{
 			sfree(pSignature);
-			pSignature = NULL;
+			goto error;
 		}
 	}
 
 	// return the signature to the caller
-	sfree(pHashData);
 	*iSigLen = iSignatureLen;
-	pFunctionList->C_CloseSession(hSession);
-	return pSignature;
+	retval = pSignature;
+	goto cleanup;
+error:
+	retval = NULL;
+cleanup:
+	sfree(pHashData);
+	if (pLookupValue != NULL)
+	{
+		free(pLookupValue);
+	}
+	if (pSharedKeyId != NULL)
+	{
+		free(pSharedKeyId);
+	}
+	if (hSession != CK_INVALID_HANDLE)
+	{
+		pFunctionList->C_CloseSession(hSession);
+	}
+	return retval;
 }
 
 void cert_pkcs_load_cert(LPCSTR szCert, PCCERT_CONTEXT* ppCertCtx, HCERTSTORE* phStore)
@@ -289,12 +328,14 @@ void cert_pkcs_load_cert(LPCSTR szCert, PCCERT_CONTEXT* ppCertCtx, HCERTSTORE* p
 	free(szThumb);
 }
 
-CK_FUNCTION_LIST_PTR cert_pkcs_load_library(LPSTR szLibrary)
+#if 0
+CK_FUNCTION_LIST_PTR cert_pkcs_load_library(LPCSTR szLibrary)
 {
 	typedef struct PROGRAM_ITEM
 	{
 		struct PROGRAM_ITEM * NextItem;
-		LPSTR * Path;
+		//LPSTR * Path;
+		LPCSTR Path;
 		HMODULE Library;
 		CK_FUNCTION_LIST_PTR FunctionList;
 	} PROGRAM_ITEM;
@@ -312,7 +353,7 @@ CK_FUNCTION_LIST_PTR cert_pkcs_load_library(LPSTR szLibrary)
 
 	// load the library and allow the loader to search the directory the dll is 
 	// being loaded in and the system directory
-	HMODULE hModule = LoadLibraryEx(szLibrary, 
+	HMODULE hModule = LoadLibraryExA(szLibrary, 
 		NULL, LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_SYSTEM32);
 
 	// validate library was loaded
@@ -362,6 +403,7 @@ CK_FUNCTION_LIST_PTR cert_pkcs_load_library(LPSTR szLibrary)
 	LibraryList = hItem;
 	return hItem->FunctionList;
 }
+#endif
 
 HCERTSTORE cert_pkcs_get_cert_store(LPCSTR * szHint, HWND hWnd)
 {
@@ -404,8 +446,10 @@ HCERTSTORE cert_pkcs_get_cert_store(LPCSTR * szHint, HWND hWnd)
 		}
 
 		CK_SESSION_HANDLE hSession;
-		if (pFunctionList->C_OpenSession(pSlotList[iSlot],
-			CKF_SERIAL_SESSION | CKR_SESSION_READ_ONLY, NULL_PTR, NULL_PTR, &hSession) != CKR_OK)
+		CK_RV r = pFunctionList->C_OpenSession(pSlotList[iSlot],
+//			CKF_SERIAL_SESSION | CKR_SESSION_READ_ONLY, NULL_PTR, NULL_PTR, &hSession);
+			CKF_SERIAL_SESSION                        , NULL_PTR, NULL_PTR, &hSession);
+		if (r != CKR_OK)
 		{
 			continue;
 		}
@@ -514,7 +558,7 @@ PCCERT_CONTEXT pkcs_get_cert_from_token(CK_FUNCTION_LIST_PTR FunctionList, CK_SE
 	return pCertObject;
 }
 
-void pkcs_lookup_token_cert(LPCSTR szCert, CK_SESSION_HANDLE_PTR phSession, CK_OBJECT_HANDLE_PTR phObject,
+static void pkcs_lookup_token_cert(LPCSTR szCert, CK_SESSION_HANDLE_PTR phSession, CK_OBJECT_HANDLE_PTR phObject,
 	CK_ATTRIBUTE aFindCriteria[], CK_ULONG iFindCriteria, BOOL bReturnFirst)
 {
 	LPSTR szLibrary = strrchr(szCert, '=') + 1;

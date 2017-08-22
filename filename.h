@@ -22,6 +22,7 @@ typedef struct Filename Filename;
 #endif
 
 Filename *filename_from_str(const char *string);
+Filename *filename_from_wstr(const wchar_t *string);
 const char *filename_to_str(const Filename *fn);
 int filename_equal(const Filename *f1, const Filename *f2);
 int filename_is_null(const Filename *fn);

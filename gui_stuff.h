@@ -24,7 +24,8 @@ DIALOG_RESULT_T confirmAcceptDlg(struct ConfirmAcceptDlgInfo *info);
 
 struct PassphraseDlgInfo {
     char **passphrase;			// 入力されたパスフレーズへのポインタ 利用したらfree()すること
-    const char *comment;
+	const char *caption;
+    const char *text;
     int save;
 	int saveAvailable;
 };
@@ -32,7 +33,7 @@ struct PassphraseDlgInfo {
 DIALOG_RESULT_T passphraseDlg(struct PassphraseDlgInfo *info);
 
 int message_box(const char *text, const char *caption, DWORD style, DWORD helpctxid);
-//int message_box(const wchar_t *text, const wchar_t *caption, DWORD style, DWORD helpctxid);
+int message_boxW(const wchar_t *text, const wchar_t *caption, DWORD style, DWORD helpctxid);
 
 int task_dialog(
 	const wchar_t *WindowTitle,
@@ -45,6 +46,8 @@ int task_dialog(
 	int defaultButton,
 	int helpid);
 
+char *pin_dlg(const wchar_t *text, const wchar_t *caption, HWND hWnd, BOOL *pSavePassword);
+	
 #ifdef __cplusplus
 }
 #endif

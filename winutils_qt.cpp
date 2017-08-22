@@ -51,7 +51,28 @@ int message_box(LPCTSTR text, LPCTSTR caption, DWORD style, DWORD helpctxid)
 		mbox.dwStyle |= MB_HELP;
 		mbox.lpfnMsgBoxCallback = &message_box_help_callback;
 	}
-    return MessageBoxIndirectA(&mbox);
+    return ::MessageBoxIndirectA(&mbox);
+}
+
+int message_boxW(const wchar_t *text, const wchar_t *caption, DWORD style, DWORD helpctxid)
+{
+	MSGBOXPARAMSW mbox = {
+		sizeof(mbox)
+	};
+    mbox.hInstance = (HINSTANCE)::GetModuleHandle(NULL);
+    mbox.hwndOwner = get_hwnd();
+    mbox.dwLanguageId = LANG_NEUTRAL;
+    mbox.lpszText = text;
+    mbox.lpszCaption = caption;
+    mbox.dwContextHelpId = helpctxid;
+    mbox.dwStyle = style;
+    if (helpctxid != WINHELP_CTXID_no_help &&	// WINHELP_CTXID_no_help == 0
+		has_help())
+	{
+		mbox.dwStyle |= MB_HELP;
+		mbox.lpfnMsgBoxCallback = &message_box_help_callback;
+	}
+    return ::MessageBoxIndirectW(&mbox);
 }
 
 //////////////////////////////////////////////////////////////////////////////

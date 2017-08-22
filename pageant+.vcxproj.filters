@@ -19,10 +19,6 @@
       <UniqueIdentifier>{71ED8ED8-ACB9-4CE9-BBE1-E00B30144E11}</UniqueIdentifier>
       <Extensions>cpp;c;cxx;moc;h;def;odl;idl;res;</Extensions>
     </Filter>
-    <Filter Include="Header Files">
-      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
-      <Extensions>h;hpp;hxx;hm;inl;inc;xsd</Extensions>
-    </Filter>
     <Filter Include="Resource Files">
       <UniqueIdentifier>{D9D6E242-F8AF-46E4-B9FD-80ECBC20BA3E}</UniqueIdentifier>
       <Extensions>qrc;*</Extensions>
@@ -188,9 +184,6 @@
     <ClCompile Include="settingdlg.cpp">
       <Filter>gui</Filter>
     </ClCompile>
-    <ClCompile Include="passphrase.cpp">
-      <Filter>gui</Filter>
-    </ClCompile>
     <ClCompile Include="mainwindow.cpp">
       <Filter>gui</Filter>
     </ClCompile>
@@ -218,14 +211,14 @@
     <ClCompile Include="winhelp.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="sc.c">
+    <ClCompile Include="cert\pkcs_helper.c">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="passphrasedlg.cpp">
+      <Filter>Generated Files\Debug</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <CustomBuild Include="passphrase.ui">
-      <Filter>Form Files</Filter>
-    </CustomBuild>
     <CustomBuild Include="aboutdlg.ui">
       <Filter>Form Files</Filter>
     </CustomBuild>
@@ -250,6 +243,9 @@
     <CustomBuild Include="pageant+.qrc">
       <Filter>Resource Files</Filter>
     </CustomBuild>
+    <CustomBuild Include="passphrasedlg.ui">
+      <Filter>Form Files</Filter>
+    </CustomBuild>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="debug\moc_predefs.h.cbt">
@@ -266,9 +262,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GeneratedFiles\ui_mainwindow.h">
-      <Filter>Generated Files</Filter>
-    </ClInclude>
-    <ClInclude Include="GeneratedFiles\ui_passphrase.h">
       <Filter>Generated Files</Filter>
     </ClInclude>
     <ClInclude Include="GeneratedFiles\ui_aboutdlg.h">
@@ -334,12 +327,6 @@
     <ClInclude Include="confirmacceptdlg_.h">
       <Filter>gui</Filter>
     </ClInclude>
-    <ClInclude Include="passphrase.h">
-      <Filter>gui</Filter>
-    </ClInclude>
-    <ClInclude Include="passphrase_.h">
-      <Filter>gui</Filter>
-    </ClInclude>
     <ClInclude Include="misc_cpp.h">
       <Filter>Source Files</Filter>
     </ClInclude>
@@ -374,6 +361,15 @@
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="winhelp_.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="passphrasedlg.h">
+      <Filter>Generated Files</Filter>
+    </ClInclude>
+    <ClInclude Include="GeneratedFiles\ui_passphrasedlg.h">
+      <Filter>Generated Files</Filter>
+    </ClInclude>
+    <ClInclude Include="version.h">
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>533</width>
-    <height>300</height>
+    <height>317</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -67,11 +67,11 @@
      <x>20</x>
      <y>90</y>
      <width>441</width>
-     <height>191</height>
+     <height>211</height>
     </rect>
    </property>
    <property name="currentIndex">
-    <number>0</number>
+    <number>3</number>
    </property>
    <widget class="QWidget" name="tab_2">
     <attribute name="title">
@@ -83,7 +83,7 @@
        <x>10</x>
        <y>10</y>
        <width>401</width>
-       <height>151</height>
+       <height>161</height>
       </rect>
      </property>
      <property name="readOnly">
@@ -101,7 +101,7 @@
        <x>10</x>
        <y>40</y>
        <width>401</width>
-       <height>121</height>
+       <height>131</height>
       </rect>
      </property>
      <property name="readOnly">
@@ -193,8 +193,8 @@
       <rect>
        <x>20</x>
        <y>10</y>
-       <width>281</width>
-       <height>141</height>
+       <width>351</width>
+       <height>161</height>
       </rect>
      </property>
      <property name="text">

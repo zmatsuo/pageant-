@@ -51,13 +51,12 @@ extern "C" {
 
 static MainWindow *win;
 void add_keyfile(const Filename *fn);
-extern "C" void test_wm_devicechange(void);
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow)
 {
-	quitGurad_ = true;
+	quitGuard_ = true;
     createTrayIcon();
     trayIcon->show();
     ui->setupUi(this);
@@ -284,7 +283,7 @@ void MainWindow::changeEvent(QEvent *e)
 void MainWindow::closeEvent(QCloseEvent *event)
 {
 	if (setting_get_bool("general/close_to_notification_area") &&
-		quitGurad_)
+		quitGuard_)
 	{
 		event->ignore();
 		hide();
@@ -371,7 +370,7 @@ void MainWindow::on_pushButtonRemoveKey_clicked()
 void MainWindow::on_pushButton_close_clicked()
 {
     debug_printf("quit button\n");
-	quitGurad_ = true;
+	quitGuard_ = true;
     close();
 //	qApp->QCoreApplication::quit();
 }
@@ -413,13 +412,6 @@ void MainWindow::on_actionabout_triggered()
 {
 	debug_printf("on_actionabout_triggered()\n");
 	on_actionAboutDlg();
-}
-
-void MainWindow::on_actionquit_triggered()
-{
-    debug_printf("quit button\n");
-	quitGurad_ = false;
-    close();
 }
 
 void MainWindow::on_session(QAction *action)
@@ -542,14 +534,6 @@ void MainWindow::on_actionsetting_triggered()
 	}
 }
 
-void MainWindow::on_actionsetting2_triggered()
-{
-    debug_printf("setting\n");
-    SettingDlg dlg(this);
-    dlg.exec();
-
-}
-
 bool MainWindow::nativeEventFilter(const QByteArray &eventType, void *message, long *result)
 {
 	(void)result;
@@ -609,7 +593,7 @@ bool MainWindow::nativeEventFilter(const QByteArray &eventType, void *message, l
 						 w == DBT_DEVICEREMOVECOMPLETE ? "DBT_DEVICEREMOVECOMPLETE" :
 						 "??",
 						 w);
-			test_wm_devicechange();
+			cert_pkcs11dll_finalize();
 			break;
 		}
 	}

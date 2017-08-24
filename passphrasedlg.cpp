@@ -9,11 +9,8 @@ passphrase::passphrase(QWidget *parent, PassphraseDlgInfo *ptr)
     ui.lineEdit->setEchoMode(QLineEdit::Password);
     ui.lineEdit->setInputMethodHints(Qt::ImhHiddenText|Qt::ImhNoPredictiveText|Qt::ImhNoAutoUppercase);
     ui.label_2->setText(ptr->text);
-	if (!ptr->saveAvailable) {
-		ui.checkBox->setChecked(false);
-		ui.checkBox->setEnabled(false);
-	}
-
+	ui.checkBox->setEnabled(ptr->save == 0 ? false : true);
+	ui.checkBox->setEnabled(ptr->saveAvailable == 0 ? false : true);
     infoPtr_ = ptr;
 }
 

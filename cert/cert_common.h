@@ -38,6 +38,7 @@ EXTERN void cert_convert_legacy(LPSTR szCert);
 EXTERN LPBYTE cert_get_hash(LPCSTR szAlgo, LPCBYTE pDataToHash, DWORD iDataToHashSize, DWORD * iHashedDataSize, BOOL bPrependDigest);
 void cert_forget_pin(void);
 void cert_set_pin_dlg(pCertPinDlgFnT fn);
+void cert_pkcs11dll_finalize(void);
 
 #define SHA1_BINARY_SIZE (160 / 8)
 #define SHA1_HEX_SIZE (SHA1_BINARY_SIZE * 2)

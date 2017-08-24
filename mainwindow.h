@@ -37,12 +37,10 @@ private slots:
     void on_actionAboutDlg();
     void on_actionabout_triggered();
     void on_session(QAction *action);
-    void on_actionquit_triggered();
     void on_actionhelp_triggered();
     void on_pushButton_clicked();
     void on_pushButton_2_clicked();
     void on_actionsetting_triggered();
-    void on_actionsetting2_triggered();
     void on_pushButton_3_clicked();
 	
 private:
@@ -54,7 +52,7 @@ private:
     Ui::MainWindow *ui;
 
     QSystemTrayIcon *trayIcon;
-    bool quitGurad_;
+    bool quitGuard_;
     std::vector<QAction *> sessionActionAry;
 
 public:

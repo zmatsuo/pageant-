@@ -11,29 +11,43 @@ Windows用のssh-agentです。
 まだまだ気になるところはありますが、
 概ね動作します。
 
-## わかっている不具合/修正したい動作
+## 大雑把な使い方
 
-- pkcs#11のコントロールコードが今ひとつ
-	- putty-cac初期(putty-sc)と現在のコードが入り混じっている
-- カードリーダーの挿抜、スマートカードの挿抜
-	- スマートカードが利用できる状態で起動しないといけない
-	- pagent+が動作中に使用不能(カードを取り出すなど)になってはいけない
-- カードリーダー、スマートカードの選択UIの追加
+### インストール
 
-## スマートカード対応について
+- zipファイルを解いて適当なフォルダに置く
+
+### 鍵ファイル
+
+- 他のsshエージェントを止める
+	- pageant(putty)
+	- ssh-pageant(cygwinなど)
+- pageant+を起動する
+- 'Add Key file'ボタンを押してファイルを追加
+- `SSH_AUTH_SOCK`を調整する
+- `ssh-add -l -E md5`で鍵を表示できれば使用できる
+
+### マイナンバーカード(スマートカード)
+
+- 'Add PKCS Cert'ボタンを押す
+- `C:\Program Files\OpenSC Project\OpenSC\pkcs11\opensc-pkcs11.dll`を選ぶ
+- 証明書選択で次のものを選ぶ
+	- カード名が数字とアルファベット
+	- 発行者が Japan Agency for Local
+- 追加したスマートカードを選択して、`公開鍵`ボタンを押す
+- クリップボードにコピーされた文字列を、
+  サーバーの `~/.ssh/authorized_keys` に追加する
+- pinは、利用者証明用電子証明書(マイナポータルへのログインなどに使用)に設定したもの
+
+## 動作確認できたスマートカード
 
 putty-CACを元にしたCAPI(Cryptographic API)経由、pkcs#11経由で対応しています。
 手元に使えるハードウェアが限られているのでほとんどテストできていません。
-
-マイナンバーカード対応版OpenSCがインストールしてあれば
-マイナンバーカードが使えます。
 
 動作したリーダー+カード
 - SCR3310-NTTCom + マイナンバーカード
 - ACS ACR122 + マイナンバーカード
 - yubiko yubikey neo pivモード
-
-Windowsでスマートカードでsshできるようになります。
 
 # 通信できるプログラム
 
@@ -117,23 +131,6 @@ OpenSSH_7.5p1, OpenSSL 1.0.2d 9 Jul 2015
 
 reference.txt を参照してください。
 
-# プログラムの起動
-
-次のQTのdllがexeと同じフォルダにあれば起動します(Debug版の場合は各々のDebug版)
-- QtCore.dll
-- Qt5Gui.dll
-- Qt5Widgets.dll
-
-exeだけのときはパスを通しておくとokです(Qtをstatic linkにしてexe1つだけで起動するようにしたい :-)。
-次のようなバッチファイルで起動させる方法があります。
-
-```bat
-set QT_BIN=C:\Qt\5.9\msvc2015_64\bin
-set exe=debug\pageant+.exe
-path %QT_BIN%;%PATH%
-start "" %exe%
-```
-
 # ビルド
 
 - 準備
@@ -141,15 +138,9 @@ start "" %exe%
 	- Qt 5.9
 	- Visual Studo 2015を使用する場合
 		- msvc2015 64-bit ,32-bit をインストール
-	- MinGWを使用する場合
-		- MinGW 5.3.0 32 bit (Desktop Qt 5.9.0 MinGW) を使用する
 
 - Visual Studio 2015を使用する場合
 	- `pageant+.sln`をVisual Studio 2015で開く
-
-- mingwを使用する場合
-	- `pageant+.pro`からQtCreatorを開く
-	- Configure Projectでmingwを選ぶ
 
 # X11 Forwarding (Cygwin/X + ssh)
 
@@ -162,7 +153,7 @@ Cygwin/Xを使っていて、cygwin系の`ssh -Y`を使用するとX11 Forwardin
 
 # license
 
-- おおもとのPuttyがMIT
+- PuttyはMIT
 - このプロジェクトはそれにならって基本MIT
 - Putty-CACの元になったPutty SCがGNUのようなので、それに由来するソースはGNU
 - バイナリで配布するときはGNU

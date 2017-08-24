@@ -270,23 +270,25 @@ void SettingDlg::on_buttonBox_accepted()
 
 		const wchar_t *expandedInformation =
 			L"環境変数は各プログラムごとに管理されていて、\n"
-			"プログラムを起動した親プログラムの環境変数をひきつぎます。\n"
-			"bashなどのシェルプログラムは設定ファイルに従って環境変数を設定しますが、\n"
-			"初期値は親プログラムの値となります\n"
+			"他のプログラムからは変更することができません。\n"
+			"環境変数の最初の値はプログラムを起動した親プログラムのから引き継ぎます。\n"
+			"プログラムによっては自分の環境変数を設定しますが\n"
+			"(bashなどのシェルプログラムは設定ファイルに従って環境変数を設定します)\n"
+			"初期値(設定前)は親プログラムが渡した値となります。\n"
 			"そしてユーザーが起動するプログラムの大半の親プログラムは、\n"
 			"デスクトップやスタートボタンを管理しているexplorerです\n"
 			"\n"
 			"explorerを含む一部のプログラムは\n"
-			"Windowメッセージ(WM_SETTINGCHANGE)を処理することで\n"
-			"環境変数の再設定が可能です\n"
+			"他のプログラムからの環境変数変更通知(Windowメッセージ WM_SETTINGCHANGE)を処理することで、\n"
+			"環境変数の再設定が可能です。\n"
 			"\n"
 			"すべてのウィンドウにメッセージを送信して環境変数の再設定をリクエストします\n"
 			"\n"
 			"<A HREF=\"http://d.hatena.ne.jp/ganaware/20111102/1320222616\">win-ssh-agent</a>の説明";
 		int ret = task_dialog(
-			QString::fromUtf8(u8"pagent+").toStdWString().c_str(),
-			QString::fromUtf8(u8"環境変数の変更を全てのウィンドウに通知しますか?").toStdWString().c_str(),
-			QString::fromUtf8(u8"通知する場合は[yes]を押してください").toStdWString().c_str(),
+			L"pagent+",
+			L"環境変数の変更を全てのウィンドウに通知しますか?",
+			L"通知する場合は[yes]を押してください",
 			expandedInformation,
 			NULL,
 			TD_INFORMATION_ICON,

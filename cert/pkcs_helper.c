@@ -4,37 +4,7 @@
 #include <stdio.h>
 #include <malloc.h>
 
-#if 0
-#include "cert_common.h"
-
-#define DEFINE_VARIABLES
-#include "cert_pkcs.h"
-#undef DEFINE_VARIABLES
-
-#ifndef SSH_AGENT_SUCCESS
-#include "ssh.h"
-#endif
-
-// required to be defined by pkcs headers
-#define CK_PTR *
-#define NULL_PTR 0
-
-// required to be defined by pkcs headers
-#define CK_DECLARE_FUNCTION(returnType, name) \
-	returnType __declspec(dllimport) name
-#define CK_DECLARE_FUNCTION_POINTER(returnType, name) \
-	returnType __declspec(dllimport) (* name)
-#define CK_CALLBACK_FUNCTION(returnType, name) \
-    returnType (* name)
-
-// required to be defined by pkcs headers
-#pragma pack(push, cryptoki, 1)
-#include "pkcs\pkcs11.h"
-#pragma pack(pop, cryptoki)
-#endif
-
 #include "pkcs_helper.h"
-void test_wm_devicechange(void);
 
 #define strdup(p)		_strdup(p)
 #define	stricmp(p1,p2)	_stricmp(p1,p2)
@@ -126,7 +96,7 @@ CK_FUNCTION_LIST_PTR cert_pkcs_load_library(LPCSTR szLibrary)
 	return hItem->FunctionList;
 }
 
-void test_wm_devicechange(void)
+void cert_pkcs11dll_finalize(void)
 {
 	for (PROGRAM_ITEM * hCurItem = LibraryList; hCurItem != NULL; hCurItem = hCurItem->NextItem)
 	{

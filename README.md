@@ -1,6 +1,6 @@
 ﻿# このプログラムについて
 
-ssh ageant for windows
+ssh agent for windows
 
 Windows用のssh-agentです。
 次の通信を行うことができます。
@@ -10,6 +10,12 @@ Windows用のssh-agentです。
 
 まだまだ気になるところはありますが、
 概ね動作します。
+
+# できること
+
+- sshの秘密鍵のパスフレーズを記憶,適当なタイミングで忘れる
+- ほとんどのsshクライアントと通信できる
+- スマートキーを使うことができる
 
 ## 大雑把な使い方
 
@@ -24,7 +30,7 @@ Windows用のssh-agentです。
 	- ssh-pageant(cygwinなど)
 - pageant+を起動する
 - 'Add Key file'ボタンを押してファイルを追加
-- `SSH_AUTH_SOCK`を調整する
+- 環境変数`SSH_AUTH_SOCK`を調整する
 - `ssh-add -l -E md5`で鍵を表示できれば使用できる
 
 ### マイナンバーカード(スマートカード)
@@ -121,6 +127,13 @@ PS C:\Program Files\OpenSSH-Win64> .\ssh -V
 OpenSSH_7.5p1, OpenSSL 1.0.2d 9 Jul 2015
 .\ssh-add -l -E md5
 ```
+
+# 制限
+
+- addボタンで使用できる鍵ファイル種類
+	- putty形式の秘密鍵
+	- RSA 2048bit,4096bitのみテスト
+	- 他の形式も使えるかもしれない
 
 # 参照したプロジェクトなど
 

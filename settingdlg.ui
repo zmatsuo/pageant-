@@ -342,19 +342,6 @@
      <string>pagent+の設定を開く</string>
     </property>
    </widget>
-   <widget class="QCheckBox" name="checkBox_5">
-    <property name="geometry">
-     <rect>
-      <x>10</x>
-      <y>160</y>
-      <width>221</width>
-      <height>16</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>最小化ボタンでタスクトレイに入る</string>
-    </property>
-   </widget>
    <widget class="QLabel" name="label_4">
     <property name="geometry">
      <rect>
@@ -369,19 +356,6 @@
     </property>
     <property name="wordWrap">
      <bool>true</bool>
-    </property>
-   </widget>
-   <widget class="QCheckBox" name="checkBox_6">
-    <property name="geometry">
-     <rect>
-      <x>10</x>
-      <y>180</y>
-      <width>231</width>
-      <height>16</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>閉じるボタンでタスクトレイに入る</string>
     </property>
    </widget>
   </widget>

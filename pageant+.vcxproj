@@ -209,6 +209,7 @@
     </ClCompile>
     <ClCompile Include="winucs.c" />
     <ClCompile Include="winutils.c" />
+    <ClCompile Include="winutils_cpp.cpp" />
     <ClCompile Include="winutils_qt.cpp" />
   </ItemGroup>
   <ItemGroup>

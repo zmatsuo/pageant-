@@ -130,8 +130,6 @@ SettingDlg::SettingDlg(QWidget *parent) :
     ui->checkBox_4->setChecked(false);
     ui->checkBox_4->setEnabled(false);
 #endif
-	ui->checkBox_5->setChecked(setting_get_bool("general/minimize_to_notification_area"));
-	ui->checkBox_6->setChecked(setting_get_bool("general/close_to_notification_area"));
 
 	ui->label_6->setText(QString::fromStdWString(setting_get_my_fullpath()));
 
@@ -232,10 +230,6 @@ void SettingDlg::on_buttonBox_accepted()
     setting_set_bool("ssh-agent/cygwin_sock", ui->checkBox->isChecked());
 	setting_set_bool("ssh-agent/pageant", ui->checkBox_3->isChecked());
 	setting_set_bool("ssh-agent/ms_ssh", ui->checkBox_2->isChecked());
-	setting_set_bool("general/minimize_to_notification_area",
-					 ui->checkBox_5->isChecked());
-	setting_set_bool("general/close_to_notification_area",
-					 ui->checkBox_6->isChecked());
 
 	// passphrase系
 	setting_set_bool("Passphrase/save_enable",

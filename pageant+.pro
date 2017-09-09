@@ -68,7 +68,8 @@ SOURCES += main.cpp\
     settingdlg.cpp \
     setting.cpp \
     ssh-agent_ms.cpp \
-    cert/pkcs_helper.c
+    cert/pkcs_helper.c \
+    winutils_cpp.cpp
 
 HEADERS  += mainwindow.h \
     passphrasedlg.h \

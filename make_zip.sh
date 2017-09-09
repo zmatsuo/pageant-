@@ -8,6 +8,6 @@ if [ -e ${dest} ]; then
 fi
 mkdir -p ${dest}/pageant+
 cp Release/pageant+.exe ${dest}/pageant+
-${windeployqt} ${dest}/pageant+/pageant+.exe
+${windeployqt} -no-angle --no-opengl-sw --no-translations ${dest}/pageant+/pageant+.exe
 (cd ${dest} && /bin/find . -type f | xargs -I% zip ../${zip} %)
 rm -rf ${dest}

@@ -271,8 +271,7 @@ void MainWindow::changeEvent(QEvent *e)
 		QWindowStateChangeEvent* event = static_cast<QWindowStateChangeEvent*>(e);
 
 		if (event->oldState() == Qt::WindowNoState &&
-			windowState() == Qt::WindowMinimized &&
-			setting_get_bool("general/minimize_to_notification_area"))
+			windowState() == Qt::WindowMinimized)
 		{
 			hide();
 		}

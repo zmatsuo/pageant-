@@ -40,58 +40,65 @@ int main(int argc, char *argv[])
 #endif
 	QApplication a(argc, argv);
 	a.setQuitOnLastWindowClosed(false);
-    a.setApplicationName("pagent+");
-    a.setApplicationVersion("1.0");
 
-	QCommandLineParser parser;
-	const QCommandLineOption helpOption =
-		parser.addHelpOption();
-	QCommandLineOption iniOption(
-		QStringLiteral("ini"),
-		QStringLiteral("use inifile."), "ini_file");
-	parser.addOption(iniOption);
-	QCommandLineOption hideOption(
-		QStringLiteral("hide"),
-		QStringLiteral("hide window when startup."));
-	parser.addOption(hideOption);
-	parser.addPositionalArgument("path1 path2 ...","keyfile");
-	
-	QStringList qargv = QCoreApplication::arguments();
-	if(!parser.parse(qargv)){
-		// まだmessage_box()が使用できない
-		QString msg = parser.errorText();
-		msg += "\n----------\n";
-		msg += parser.helpText();
-//		::MessageBoxW(NULL, msg.toStdWString().c_str(), L"pageant+", MB_OK | MB_ICONERROR);
-		::MessageBoxW(NULL, msg.toStdWString().c_str(), L"pageant+", MB_OK | MB_ICONERROR);
-		return 0;
-	}
 
-	if (parser.isSet(helpOption)) {
-		const QString msg = parser.helpText();
-		::MessageBoxW(NULL, msg.toStdWString().c_str(), L"pageant+", MB_OK | MB_ICONERROR);
-		return 0;
-	}
-
-	bool use_inifile = parser.isSet(iniOption);
+	bool use_inifile = false;
 	QString inifile;
-	if (use_inifile) {
-		inifile = parser.value(iniOption);
+	bool hide = true;
+	std::vector<std::wstring> keyfileAry;
+#if 1
+	{
+		a.setApplicationName("pagent+");
+		a.setApplicationVersion("1.0");
+
+		QCommandLineParser parser;
+		const QCommandLineOption helpOption =
+			parser.addHelpOption();
+		QCommandLineOption iniOption(
+			QStringLiteral("ini"),
+			QStringLiteral("use inifile."), "ini_file");
+		parser.addOption(iniOption);
+		QCommandLineOption hideOption(
+			QStringLiteral("hide"),
+			QStringLiteral("hide window when startup."));
+		parser.addOption(hideOption);
+		parser.addPositionalArgument("path1 path2 ...","keyfile");
+	
+		QStringList qargv = QCoreApplication::arguments();
+		if(!parser.parse(qargv)){
+			// まだmessage_box()が使用できない
+			QString msg = parser.errorText();
+			msg += "\n----------\n";
+			msg += parser.helpText();
+//		::MessageBoxW(NULL, msg.toStdWString().c_str(), L"pageant+", MB_OK | MB_ICONERROR);
+			::MessageBoxW(NULL, msg.toStdWString().c_str(), L"pageant+", MB_OK | MB_ICONERROR);
+			return 0;
+		}
+
+		if (parser.isSet(helpOption)) {
+			const QString msg = parser.helpText();
+			::MessageBoxW(NULL, msg.toStdWString().c_str(), L"pageant+", MB_OK | MB_ICONERROR);
+			return 0;
+		}
+
+		use_inifile = parser.isSet(iniOption);
+		if (use_inifile) {
+			inifile = parser.value(iniOption);
+			hide = parser.isSet(hideOption);
+			{
+				const QStringList args = parser.positionalArguments();
+				for (QString s : args) {
+					keyfileAry.push_back(s.toStdWString());
+				}
+			}
+		}
 	}
-	bool hide = parser.isSet(hideOption);
+#endif
 
 	setting_init(use_inifile, inifile.isEmpty() ? nullptr : inifile.toStdWString().c_str());
 
 	debug_printf("main() start\n");
 
-
-	std::vector<std::wstring> keyfileAry;
-	{
-		const QStringList args = parser.positionalArguments();
-		for (QString s : args) {
-			keyfileAry.push_back(s.toStdWString());
-		}
-	}
 
 #if 0
     /*

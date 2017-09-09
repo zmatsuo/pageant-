@@ -400,14 +400,6 @@ static void set_default()
 	if (setting_isempty(key)) {
 		setting_set_bool(key, true);
 	}
-	key = "general/minimize_to_notification_area";
-	if (setting_isempty(key)) {
-		setting_set_bool(key, true);
-	}
-	key = "general/close_to_notification_area";
-	if (setting_isempty(key)) {
-		setting_set_bool(key, true);
-	}
 }
 
 static bool init_putty_ini_sub(const wchar_t *ini)

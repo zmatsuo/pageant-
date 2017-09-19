@@ -70,7 +70,6 @@ int main(int argc, char *argv[])
 			QString msg = parser.errorText();
 			msg += "\n----------\n";
 			msg += parser.helpText();
-//		::MessageBoxW(NULL, msg.toStdWString().c_str(), L"pageant+", MB_OK | MB_ICONERROR);
 			::MessageBoxW(NULL, msg.toStdWString().c_str(), L"pageant+", MB_OK | MB_ICONERROR);
 			return 0;
 		}

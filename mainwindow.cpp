@@ -10,9 +10,9 @@
 #include <QIcon>
 #include <QFileDialog>
 #include <QDesktopServices>
-#include <QCloseEvent>
 #include <QStringListModel>
-#include <QClipboard>
+#include <QStandardItemModel>
+#include <QMenu>
 
 #include "pageant+.h"
 #include "mainwindow.h"
@@ -33,7 +33,9 @@
 #include "ssh-agent_ms.h"
 #include "pageant.h"
 #include "winutils.h"
+#include "winutils_qt.h"
 #include "ssh.h"
+#include "keyviewdlg.h"
 
 #include "ui_mainwindow.h"
 
@@ -56,7 +58,6 @@ MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow)
 {
-	quitGuard_ = true;
     createTrayIcon();
     trayIcon->show();
     ui->setupUi(this);
@@ -68,14 +69,6 @@ MainWindow::MainWindow(QWidget *parent) :
 	connect(this, SIGNAL(signal_passphraseDlg(struct PassphraseDlgInfo *)),
 			this, SLOT(slot_passphraseDlg(struct PassphraseDlgInfo *)),
 			Qt::BlockingQueuedConnection);
-
-    //
-//    ui->treeView->setRootIsDecorated(false);
-//    ui->treeView->setAlternatingRowColors(true);
-	setWindowFlags( (windowFlags() | Qt::CustomizeWindowHint) & ~Qt::WindowMaximizeButtonHint);
-
-	setWindowIcon(QIcon(":/images/pageant.png"));
-	setWindowTitle(APP_NAME " - Key List");
 
 #if defined(__MINGW32__)
     BOOL r = WTSRegisterSessionNotification(
@@ -117,6 +110,7 @@ void MainWindow::createTrayIcon()
 void MainWindow::createTrayIconMenu()
 {
     QMenu *trayIconMenu = new QMenu(this);
+
 	if (!get_putty_path().empty()) {
 		// putty
 		QMenu *session_menu = trayIconMenu->addMenu( "putty" );
@@ -138,35 +132,35 @@ void MainWindow::createTrayIconMenu()
 		trayIconMenu->addSeparator();
 	}
 
-    QAction *restoreAction = new QAction("&View Keys", this);
-    connect(restoreAction, &QAction::triggered, this, &QWidget::showNormal);
-    trayIconMenu->addAction(restoreAction);
+    trayIconMenu->addAction(
+		tr("&View Keys"),
+		this, SLOT(on_viewKeys()));
 
-    QAction *addKeyAction = new QAction("Add &Key", this);
-	connect(addKeyAction, SIGNAL(triggered()), this, SLOT(on_pushButtonAddKey_clicked()));
-    trayIconMenu->addAction(addKeyAction);
+    trayIconMenu->addAction(
+		tr("Add &Key"),
+		this, SLOT(on_pushButtonAddKey_clicked()));
 
-    QAction *settingAction = new QAction("&Setting", this);
-	connect(settingAction, SIGNAL(triggered()), this, SLOT(on_actionsetting_triggered()));
-    trayIconMenu->addAction(settingAction);
+    trayIconMenu->addAction(
+		tr("&Setting"),
+		this, SLOT(on_actionsetting_triggered()));
 
 	if (has_help()) {
-		QAction *helpAction = new QAction(tr("help"), this);
-		connect(helpAction, SIGNAL(triggered()), this, SLOT(on_help_clicked()));
-		trayIconMenu->addAction(helpAction);
+		trayIconMenu->addAction(
+			tr("help"),
+			this, SLOT(on_help_clicked()));
 	}
 
     trayIconMenu->addSeparator();
 
-    QAction *aboutAction = new QAction(tr("About"), this);
-	connect(aboutAction, SIGNAL(triggered()), this, SLOT(on_actionAboutDlg()));
-    trayIconMenu->addAction(aboutAction);
+	trayIconMenu->addAction(
+		tr("About"),
+		this, SLOT(on_actionAboutDlg()));
 
     trayIconMenu->addSeparator();
 
-	QAction *quitAction = new QAction(tr("&Quit"), this);
-    connect(quitAction, &QAction::triggered, qApp, &QCoreApplication::quit);
-    trayIconMenu->addAction(quitAction);
+	trayIconMenu->addAction(
+		tr("&Quit"),
+		qApp, &QCoreApplication::quit);
 
 	QAction *ret = trayIconMenu->exec(QCursor::pos());
 	(void)ret;
@@ -187,38 +181,6 @@ static QString get_ssh_folder()
 		return home_ssh_dir.absolutePath();
     }
     return QStandardPaths::writableLocation(QStandardPaths::HomeLocation);
-}
-
-void MainWindow::keylist_update()
-{
-	std::vector<KeyListItem> k = keylist_update2();
-	QStandardItemModel *model;
-
-	const int colum = 1;
-	model = new QStandardItemModel((int)k.size(), colum, this);
-	for (int i=0; i<(int)k.size(); i++) {
-		QStandardItem *item;
-#if 0
-		item = new QStandardItem(QString("%0").arg(i));
-		model->setItem(i, 0, item);
-#endif
-		item = new QStandardItem(QString::fromStdString(k[i].name));
-		model->setItem(i, 0, item);
-#if 0
-		item = new QStandardItem(QString("comment"));
-		model->setItem(i, 2, item);
-#endif
-	}
-
-
-#if 0
-	model->setHeaderData(0, Qt::Horizontal, QObject::tr("no"));
-#endif
-    model->setHeaderData(0, Qt::Horizontal, QObject::tr("key"));
-#if 0
-    model->setHeaderData(2, Qt::Horizontal, QObject::tr("test"));
-#endif
-    ui->treeView->setModel(model);
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -252,9 +214,9 @@ void MainWindow::on_pushButtonAddKey_clicked()
 	for (auto &f: files) {
 		add_keyfile(f);
     }
-
+#if 0
 	keylist_update();
-
+#endif
 	if (files.size() > 0) {
 		int r = message_boxW(L"次回起動時に読み込みますか?", L"pagent+", MB_YESNO, 0);
 		if (r == IDYES) {
@@ -263,56 +225,6 @@ void MainWindow::on_pushButtonAddKey_clicked()
 			}
 		}
 	}
-}
-
-void MainWindow::changeEvent(QEvent *e)
-{
-	if(e->type() == QEvent::WindowStateChange) {
-		QWindowStateChangeEvent* event = static_cast<QWindowStateChangeEvent*>(e);
-
-		if (event->oldState() == Qt::WindowNoState &&
-			windowState() == Qt::WindowMinimized)
-		{
-			hide();
-		}
-	}
-	e->accept();
-}
-
-void MainWindow::closeEvent(QCloseEvent *event)
-{
-	if (setting_get_bool("general/close_to_notification_area") &&
-		quitGuard_)
-	{
-		event->ignore();
-		hide();
-#if 0
-		{	// TODO: ちょっとした説明
-			static bool message_once = false;
-			if (!message_once) {
-				message_once = true;
-				trayIcon->showMessage(tr(u8"title here"), tr(u8"つついたら戻るよ"));
-			}
-		}
-#endif
-	}
-}
-
-static void showAndBringFront(QWidget *win)
-{
-#if 1
-	Qt::WindowFlags eFlags = win->windowFlags();
-	eFlags |= Qt::WindowStaysOnTopHint;
-	win->setWindowFlags(eFlags);
-	win->show();
-	eFlags &= ~Qt::WindowStaysOnTopHint;
-	win->setWindowFlags(eFlags);
-#endif
-#if 0
-    win->show();
-    win->activateWindow();
-    win->raise();
-#endif
 }
 
 void MainWindow::trayClicked(QSystemTrayIcon::ActivationReason e)
@@ -326,50 +238,16 @@ void MainWindow::trayClicked(QSystemTrayIcon::ActivationReason e)
 		break;
 	}
 	case QSystemTrayIcon::Trigger:
-		if(isVisible() == true)
-			hide();
-		else {
-#if 0
-			showAndBringFront(this);
-#endif
-#if 1
-			showNormal();
-			show();
-			raise();
-			activateWindow();
-#endif
-		}
+		on_viewKeys();
 		break;
 	default:
 		break;
 	}
 }
 
-void MainWindow::on_pushButtonRemoveKey_clicked()
-{
-    debug_printf("remove\n");
-
-	QItemSelectionModel *selection = ui->treeView->selectionModel();
-	QModelIndexList indexes = selection->selectedRows();
-	const int count = indexes.count();
-	if (count == 0) {
-		message_boxW(L"鍵が選択されていません", L"pagent+", MB_OK, 0);
-	} else {
-		std::vector<int> selectedArray;
-		for (int i = 0; i < count; i++) {
-			selectedArray.push_back(indexes[i].row());
-		}
-		std::sort(selectedArray.begin(), selectedArray.end());
-
-		pageant_delete_key2((int)selectedArray.size(), &selectedArray[0]);
-	}
-	keylist_update();
-}
-
 void MainWindow::on_pushButton_close_clicked()
 {
     debug_printf("quit button\n");
-	quitGuard_ = true;
     close();
 //	qApp->QCoreApplication::quit();
 }
@@ -413,6 +291,15 @@ void MainWindow::on_actionabout_triggered()
 	on_actionAboutDlg();
 }
 
+void MainWindow::on_viewKeys()
+{
+	debug_printf("on_viewKeys()\n");
+    keyviewdlg dlg(this);
+	showAndBringFront(&dlg);
+    int r = dlg.exec();
+    (void)r;
+}
+
 void MainWindow::on_session(QAction *action)
 {
 	debug_printf("on_session enter\n");
@@ -442,8 +329,9 @@ void MainWindow::on_pushButton_clicked()
 		return;
 	Filename *fn = filename_from_str(szCert);
 	::add_keyfile(fn);
+#if 0
 	keylist_update();
-
+#endif
 	int r = message_boxW(L"次回起動時に読み込みますか?", L"pagent+", MB_YESNO, 0);
 	if (r == IDYES) {
 		setting_add_keyfile(fn->path);
@@ -469,7 +357,9 @@ void MainWindow::on_pushButton_2_clicked()
 			return;
 		Filename *fn = filename_from_str(szCert);
 		::add_keyfile(fn);
+#if 0
 		keylist_update();
+#endif
 
 		int r = message_boxW(L"次回起動時に読み込みますか?", L"pagent+", MB_YESNO, 0);
 		if (r == IDYES) {
@@ -599,44 +489,6 @@ bool MainWindow::nativeEventFilter(const QByteArray &eventType, void *message, l
 	return false;
 }
 
-// clipboard
-void MainWindow::on_pushButton_3_clicked()
-{
-    debug_printf("pubkey to clipboard\n");
-
-	const QStandardItemModel *model = (QStandardItemModel *)ui->treeView->model();
-	QItemSelectionModel *selection = ui->treeView->selectionModel();
-	QModelIndexList indexes = selection->selectedRows();
-	switch (indexes.count()) {
-	case 0:
-		message_boxW(L"鍵が選択されていません", L"pagent+", MB_OK, 0);
-		break;
-	case 1:
-	{
-		const QModelIndex index = selection->currentIndex();
-		QStandardItem *item = model->itemFromIndex(index);
-		if (item == nullptr)
-			return;
-		QString qs = item->text();
-
-		std::string s = qs.toStdString();
-		std::string::size_type p = s.find_last_of(' ');
-		s = s.substr(0, p);
-
-		char *pubkey = pageant_get_pubkey(s.c_str());
-		QApplication::clipboard()->setText(QString(pubkey));
-		free(pubkey);
-
-		message_boxW(L"OpenSSH形式の公開鍵をクリップボードにコピーしました", L"pagent+", MB_OK, 0);
-
-		break;
-	}
-	default:
-		message_boxW(L"1つだけ選択してください", L"pagent+", MB_OK, 0);
-		break;
-	}
-}
-
 int MainWindow::confirmAcceptDlg(struct ConfirmAcceptDlgInfo *info)
 {
 	int r = emit signal_confirmAcceptDlg(info);
@@ -663,6 +515,24 @@ DIALOG_RESULT_T confirmAcceptDlg(struct ConfirmAcceptDlgInfo *info)
 	return retval;
 }
 
+//////////////////////////////////////////////////////////////////////////////
+
+void addCAPICert()
+{
+	win->on_pushButton_clicked();
+}
+
+void addPKCSCert()
+{
+	win->on_pushButton_2_clicked();
+}
+
+void addFileCert()
+{
+	win->on_pushButtonAddKey_clicked();
+}
+
+
 // return
 DIALOG_RESULT_T passphraseDlg(struct PassphraseDlgInfo *info)
 {
@@ -670,10 +540,12 @@ DIALOG_RESULT_T passphraseDlg(struct PassphraseDlgInfo *info)
 	return r == QDialog::Accepted ? DIALOG_RESULT_OK : DIALOG_RESULT_CANCEL;
 }
 
-
 void keylist_update(void)
 {
+	// TODO key listが開いているとき、内容の更新を行う
+#if 0
 	win->keylist_update();
+#endif
 }
 
 HWND get_hwnd()
@@ -764,7 +636,9 @@ void add_keyfile(const wchar_t *filename)
 	Filename *fn = filename_from_wstr(filename);
 	add_keyfile(fn);
 	filename_free(fn);
+#if 0
 	keylist_update();
+#endif
 }
 
 void add_keyfile(const std::vector<std::wstring> &keyfileAry)
@@ -774,7 +648,9 @@ void add_keyfile(const std::vector<std::wstring> &keyfileAry)
 		add_keyfile(fn);
 		filename_free(fn);
 	}
+#if 0
 	keylist_update();
+#endif
 }
 
 

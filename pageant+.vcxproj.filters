@@ -220,6 +220,15 @@
     <ClCompile Include="winutils_cpp.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="GeneratedFiles\Debug\moc_keyviewdlg.cpp">
+      <Filter>Generated Files\Debug</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Release\moc_keyviewdlg.cpp">
+      <Filter>Generated Files\Release</Filter>
+    </ClCompile>
+    <ClCompile Include="keyviewdlg.cpp">
+      <Filter>gui</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="aboutdlg.ui">
@@ -248,6 +257,12 @@
     </CustomBuild>
     <CustomBuild Include="passphrasedlg.ui">
       <Filter>Form Files</Filter>
+    </CustomBuild>
+    <CustomBuild Include="keyviewdlg.ui">
+      <Filter>Form Files</Filter>
+    </CustomBuild>
+    <CustomBuild Include="keyviewdlg.h">
+      <Filter>gui</Filter>
     </CustomBuild>
   </ItemGroup>
   <ItemGroup>
@@ -371,6 +386,12 @@
     </ClInclude>
     <ClInclude Include="version.h">
       <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="GeneratedFiles\ui_keyviewdlg.h">
+      <Filter>Generated Files</Filter>
+    </ClInclude>
+    <ClInclude Include="winutils_qt.h">
+      <Filter>Generated Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

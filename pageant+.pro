@@ -69,7 +69,8 @@ SOURCES += main.cpp\
     setting.cpp \
     ssh-agent_ms.cpp \
     cert/pkcs_helper.c \
-    winutils_cpp.cpp
+    winutils_cpp.cpp \
+    keyviewdlg.cpp
 
 HEADERS  += mainwindow.h \
     passphrasedlg.h \
@@ -80,12 +81,14 @@ HEADERS  += mainwindow.h \
     cert/cert_pkcs.h \
     settingdlg.h \
     setting.h \
+    keyviewdlg.h
 
 FORMS    += mainwindow.ui \
     passphrasedlg.ui \
     aboutdlg.ui \
     confirmacceptdlg.ui \
     settingdlg.ui \
+    keyviewdlg.ui
 
 RESOURCES += \
     pageant+.qrc

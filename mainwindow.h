@@ -4,7 +4,6 @@
 #include <vector>
 #include <QMainWindow>
 #include <QSystemTrayIcon>
-#include <QStandardItemModel>
 #include <QAbstractNativeEventFilter>
 
 #include "gui_stuff.h"
@@ -29,36 +28,32 @@ public slots:
     int slot_confirmAcceptDlg(struct ConfirmAcceptDlgInfo *info);
     int slot_passphraseDlg(struct PassphraseDlgInfo *info);
     void trayClicked(QSystemTrayIcon::ActivationReason e);
+    void on_pushButtonAddKey_clicked();
 
 private slots:
     void on_pushButton_close_clicked();
-    void on_pushButtonRemoveKey_clicked();
-    void on_pushButtonAddKey_clicked();
     void on_actionAboutDlg();
     void on_actionabout_triggered();
     void on_session(QAction *action);
     void on_actionhelp_triggered();
-    void on_pushButton_clicked();
-    void on_pushButton_2_clicked();
     void on_actionsetting_triggered();
-    void on_pushButton_3_clicked();
+	void on_viewKeys();
 	
 private:
     void createTrayIcon();
-	void changeEvent(QEvent *e);
-    void closeEvent(QCloseEvent *event);
     void createTrayIconMenu();
 
     Ui::MainWindow *ui;
 
     QSystemTrayIcon *trayIcon;
-    bool quitGuard_;
     std::vector<QAction *> sessionActionAry;
 
 public:
+    void on_pushButton_clicked();		// add CAPI
+    void on_pushButton_2_clicked();		// add PKCS
+
     int passphraseDlg(struct PassphraseDlgInfo *info);
     int confirmAcceptDlg(struct ConfirmAcceptDlgInfo *info);
-    void keylist_update();
     void add_keyfile(const QString &filename);
 
 private:

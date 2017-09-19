@@ -47,7 +47,11 @@ int task_dialog(
 	int helpid);
 
 char *pin_dlg(const wchar_t *text, const wchar_t *caption, HWND hWnd, BOOL *pSavePassword);
-	
+
+void addFileCert();
+void addCAPICert();
+void addPKCSCert();
+
 #ifdef __cplusplus
 }
 #endif

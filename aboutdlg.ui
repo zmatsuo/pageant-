@@ -13,218 +13,156 @@
   <property name="windowTitle">
    <string>About Pageant+</string>
   </property>
-  <widget class="QDialogButtonBox" name="buttonBox">
-   <property name="geometry">
-    <rect>
-     <x>440</x>
-     <y>10</y>
-     <width>81</width>
-     <height>41</height>
-    </rect>
-   </property>
-   <property name="orientation">
-    <enum>Qt::Vertical</enum>
-   </property>
-   <property name="standardButtons">
-    <set>QDialogButtonBox::Ok</set>
-   </property>
-   <property name="centerButtons">
-    <bool>false</bool>
-   </property>
-  </widget>
-  <widget class="QLabel" name="labelTitle">
-   <property name="geometry">
-    <rect>
-     <x>30</x>
-     <y>10</y>
-     <width>50</width>
-     <height>12</height>
-    </rect>
-   </property>
-   <property name="text">
-    <string>Pageant+</string>
-   </property>
-  </widget>
-  <widget class="QLabel" name="labelVersion">
-   <property name="geometry">
-    <rect>
-     <x>40</x>
-     <y>50</y>
-     <width>361</width>
-     <height>21</height>
-    </rect>
-   </property>
-   <property name="text">
-    <string>version strings</string>
-   </property>
-   <property name="wordWrap">
-    <bool>true</bool>
-   </property>
-  </widget>
-  <widget class="QTabWidget" name="tabWidget">
-   <property name="geometry">
-    <rect>
-     <x>20</x>
-     <y>90</y>
-     <width>441</width>
-     <height>211</height>
-    </rect>
-   </property>
-   <property name="currentIndex">
-    <number>0</number>
-   </property>
-   <widget class="QWidget" name="tab_2">
-    <attribute name="title">
-     <string>Copyright</string>
-    </attribute>
-    <widget class="QTextEdit" name="textEdit_2">
-     <property name="geometry">
-      <rect>
-       <x>10</x>
-       <y>10</y>
-       <width>401</width>
-       <height>161</height>
-      </rect>
+  <layout class="QGridLayout" name="gridLayout">
+   <item row="3" column="0" colspan="2">
+    <widget class="QTabWidget" name="tabWidget">
+     <property name="currentIndex">
+      <number>0</number>
      </property>
-     <property name="readOnly">
-      <bool>true</bool>
-     </property>
+     <widget class="QWidget" name="tab_2">
+      <attribute name="title">
+       <string>Copyright</string>
+      </attribute>
+      <layout class="QGridLayout" name="gridLayout_2">
+       <item row="0" column="0">
+        <widget class="QTextEdit" name="textEdit_2">
+         <property name="readOnly">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="tab">
+      <attribute name="title">
+       <string>About putty</string>
+      </attribute>
+      <layout class="QFormLayout" name="formLayout">
+       <item row="0" column="0">
+        <widget class="QLabel" name="labelCopyright">
+         <property name="text">
+          <string>©1997-2017 Simon Tatham. All rights reserved.</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="1">
+        <widget class="QLabel" name="label">
+         <property name="toolTip">
+          <string>https://www.chiark.greenend.org.uk/~sgtatham/putty/</string>
+         </property>
+         <property name="text">
+          <string>&lt;a href=&quot;https://www.chiark.greenend.org.uk/~sgtatham/putty/&quot;&gt;Putty web&lt;/a&gt;</string>
+         </property>
+         <property name="openExternalLinks">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="0" colspan="2">
+        <widget class="QTextEdit" name="textEdit">
+         <property name="readOnly">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="tab_4">
+      <attribute name="title">
+       <string>About putty-CAC</string>
+      </attribute>
+      <layout class="QFormLayout" name="formLayout_2">
+       <item row="0" column="0">
+        <widget class="QLabel" name="label_4">
+         <property name="toolTip">
+          <string>http://hp.vector.co.jp/authors/VA024651/PuTTYkj.html</string>
+         </property>
+         <property name="text">
+          <string>&lt;a href=&quot;https://risacher.org/putty-cac/&quot;&gt;PuTTY-CAC&lt;/a&gt;</string>
+         </property>
+         <property name="openExternalLinks">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="0">
+        <widget class="QLabel" name="label_5">
+         <property name="mouseTracking">
+          <bool>false</bool>
+         </property>
+         <property name="text">
+          <string>Licensing: The basic PuTTY source code is licensed under the MIT license. PuTTY SC is licensed under the GNU General Public License (GPL). The PuTTY-CAC enhancements were written by a direct employee of the United States Federal Government, and as such, those enhancements are a declared work of the United States Government and are not subject to copyright protection. A binary, compiled version is a derivative work of all three sources, and should be considered GPL licensed. </string>
+         </property>
+         <property name="wordWrap">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="tab_3">
+      <attribute name="title">
+       <string>reference</string>
+      </attribute>
+      <layout class="QFormLayout" name="formLayout_3">
+       <item row="0" column="0">
+        <widget class="QLabel" name="label_6">
+         <property name="text">
+          <string>label</string>
+         </property>
+         <property name="wordWrap">
+          <bool>true</bool>
+         </property>
+         <property name="openExternalLinks">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
     </widget>
-   </widget>
-   <widget class="QWidget" name="tab">
-    <attribute name="title">
-     <string>About putty</string>
-    </attribute>
-    <widget class="QTextEdit" name="textEdit">
-     <property name="geometry">
-      <rect>
-       <x>10</x>
-       <y>40</y>
-       <width>401</width>
-       <height>131</height>
-      </rect>
-     </property>
-     <property name="readOnly">
-      <bool>true</bool>
-     </property>
-    </widget>
-    <widget class="QLabel" name="labelCopyright">
-     <property name="geometry">
-      <rect>
-       <x>10</x>
-       <y>10</y>
-       <width>271</width>
-       <height>16</height>
-      </rect>
-     </property>
+   </item>
+   <item row="1" column="0">
+    <widget class="QLabel" name="labeldetail">
      <property name="text">
-      <string>©1997-2017 Simon Tatham. All rights reserved.</string>
+      <string>developed based on pageant in putty project</string>
      </property>
-    </widget>
-    <widget class="QLabel" name="label">
-     <property name="geometry">
-      <rect>
-       <x>350</x>
-       <y>10</y>
-       <width>50</width>
-       <height>12</height>
-      </rect>
-     </property>
-     <property name="toolTip">
-      <string>https://www.chiark.greenend.org.uk/~sgtatham/putty/</string>
-     </property>
-     <property name="text">
-      <string>&lt;a href=&quot;https://www.chiark.greenend.org.uk/~sgtatham/putty/&quot;&gt;Putty web&lt;/a&gt;</string>
-     </property>
-     <property name="openExternalLinks">
+     <property name="wordWrap">
       <bool>true</bool>
      </property>
     </widget>
-   </widget>
-   <widget class="QWidget" name="tab_4">
-    <attribute name="title">
-     <string>About putty-CAC</string>
-    </attribute>
-    <widget class="QLabel" name="label_4">
-     <property name="geometry">
-      <rect>
-       <x>20</x>
-       <y>20</y>
-       <width>151</width>
-       <height>16</height>
-      </rect>
-     </property>
-     <property name="toolTip">
-      <string>http://hp.vector.co.jp/authors/VA024651/PuTTYkj.html</string>
-     </property>
+   </item>
+   <item row="0" column="0">
+    <widget class="QLabel" name="labelTitle">
      <property name="text">
-      <string>&lt;a href=&quot;https://risacher.org/putty-cac/&quot;&gt;PuTTY-CAC&lt;/a&gt;</string>
+      <string>Pageant+</string>
      </property>
-     <property name="openExternalLinks">
+    </widget>
+   </item>
+   <item row="2" column="0">
+    <widget class="QLabel" name="labelVersion">
+     <property name="text">
+      <string>version strings</string>
+     </property>
+     <property name="wordWrap">
       <bool>true</bool>
      </property>
     </widget>
-    <widget class="QLabel" name="label_5">
-     <property name="geometry">
-      <rect>
-       <x>20</x>
-       <y>40</y>
-       <width>381</width>
-       <height>111</height>
-      </rect>
+   </item>
+   <item row="0" column="1" rowspan="2">
+    <widget class="QDialogButtonBox" name="buttonBox">
+     <property name="orientation">
+      <enum>Qt::Vertical</enum>
      </property>
-     <property name="mouseTracking">
+     <property name="standardButtons">
+      <set>QDialogButtonBox::Ok</set>
+     </property>
+     <property name="centerButtons">
       <bool>false</bool>
      </property>
-     <property name="text">
-      <string>Licensing: The basic PuTTY source code is licensed under the MIT license. PuTTY SC is licensed under the GNU General Public License (GPL). The PuTTY-CAC enhancements were written by a direct employee of the United States Federal Government, and as such, those enhancements are a declared work of the United States Government and are not subject to copyright protection. A binary, compiled version is a derivative work of all three sources, and should be considered GPL licensed. </string>
-     </property>
-     <property name="wordWrap">
-      <bool>true</bool>
-     </property>
     </widget>
-   </widget>
-   <widget class="QWidget" name="tab_3">
-    <attribute name="title">
-     <string>reference</string>
-    </attribute>
-    <widget class="QLabel" name="label_6">
-     <property name="geometry">
-      <rect>
-       <x>20</x>
-       <y>10</y>
-       <width>351</width>
-       <height>161</height>
-      </rect>
-     </property>
-     <property name="text">
-      <string>label</string>
-     </property>
-     <property name="wordWrap">
-      <bool>true</bool>
-     </property>
-     <property name="openExternalLinks">
-      <bool>true</bool>
-     </property>
-    </widget>
-   </widget>
-  </widget>
-  <widget class="QLabel" name="labeldetail">
-   <property name="geometry">
-    <rect>
-     <x>40</x>
-     <y>30</y>
-     <width>361</width>
-     <height>21</height>
-    </rect>
-   </property>
-   <property name="text">
-    <string>developed based on pageant in putty project</string>
-   </property>
-   <property name="wordWrap">
-    <bool>true</bool>
-   </property>
-  </widget>
+   </item>
+  </layout>
  </widget>
  <resources/>
  <connections>

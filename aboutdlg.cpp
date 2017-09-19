@@ -25,7 +25,7 @@ AboutDlg::AboutDlg(QWidget *parent) :
     ui->setupUi(this);
 
     ui->labelTitle->setText(APP_NAME);
-    const QString s = ver;
+    const QString s = QString(ver) + " " + commitid;
     ui->labelVersion->setText(s);
 
 	ui->textEdit_2->setText(getText("://license.txt"));

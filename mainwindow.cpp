@@ -51,7 +51,7 @@ extern "C" {
 
 #define APPNAME			APP_NAME	// in pageant+.h
 
-static MainWindow *win;
+static MainWindow *gWin;
 void add_keyfile(const Filename *fn);
 
 MainWindow::MainWindow(QWidget *parent) :
@@ -61,7 +61,7 @@ MainWindow::MainWindow(QWidget *parent) :
     createTrayIcon();
     trayIcon->show();
     ui->setupUi(this);
-	win = this;
+	gWin = this;
 
 	connect(this, SIGNAL(signal_confirmAcceptDlg(struct ConfirmAcceptDlgInfo *)),
 			this, SLOT(slot_confirmAcceptDlg(struct ConfirmAcceptDlgInfo *)),
@@ -505,7 +505,7 @@ int MainWindow::passphraseDlg(struct PassphraseDlgInfo *info)
 
 DIALOG_RESULT_T confirmAcceptDlg(struct ConfirmAcceptDlgInfo *info)
 {
-	int r = win->confirmAcceptDlg(info);
+	int r = gWin->confirmAcceptDlg(info);
 	debug_printf("r=%s(%d)\n",
 				 r == QDialog::Accepted ? "QDialog::Accepted" :
 				 r == QDialog::Rejected ? "QDialog::Rejected" :
@@ -519,24 +519,24 @@ DIALOG_RESULT_T confirmAcceptDlg(struct ConfirmAcceptDlgInfo *info)
 
 void addCAPICert()
 {
-	win->on_pushButton_clicked();
+	gWin->on_pushButton_clicked();
 }
 
 void addPKCSCert()
 {
-	win->on_pushButton_2_clicked();
+	gWin->on_pushButton_2_clicked();
 }
 
 void addFileCert()
 {
-	win->on_pushButtonAddKey_clicked();
+	gWin->on_pushButtonAddKey_clicked();
 }
 
 
 // return
 DIALOG_RESULT_T passphraseDlg(struct PassphraseDlgInfo *info)
 {
-	int r = win->passphraseDlg(info);
+	int r = gWin->passphraseDlg(info);
 	return r == QDialog::Accepted ? DIALOG_RESULT_OK : DIALOG_RESULT_CANCEL;
 }
 
@@ -544,13 +544,13 @@ void keylist_update(void)
 {
 	// TODO key listが開いているとき、内容の更新を行う
 #if 0
-	win->keylist_update();
+	gWin->keylist_update();
 #endif
 }
 
 HWND get_hwnd()
 {
-	return (HWND)win->winId();
+	return (HWND)gWin->winId();
 }
 
 void add_keyfile(const Filename *fn)
@@ -592,7 +592,7 @@ void add_keyfile(const Filename *fn)
 		}
 #else
 		{
-			passphrase dlg(win, &pps);
+			passphrase dlg(gWin, &pps);
 			showAndBringFront(&dlg);
 			int r2 = dlg.exec();
 			r = r2 == QDialog::Accepted ? DIALOG_RESULT_OK : DIALOG_RESULT_CANCEL;

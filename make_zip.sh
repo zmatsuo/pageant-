@@ -1,7 +1,7 @@
 #!/bin/sh
 dest=`date +install_%y%m%d_%H%M%S`
 version=1.0alpha
-windeployqt=C:/Qt/5.9/msvc2017_64/bin/windeployqt.exe
+windeployqt=C:/Qt/5.9.3/msvc2017_64/bin/windeployqt.exe
 zip=pageant+_${version}_`date +%y%m%d_%H%M%S`.zip
 if [ -e ${dest} ]; then
 	rm -rf ${dest}

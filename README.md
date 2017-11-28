@@ -16,6 +16,7 @@ Windows用のssh-agentです。
 - sshの秘密鍵のパスフレーズを記憶,適当なタイミングで忘れる
 - ほとんどのsshクライアントと通信できる
 - スマートカードを使うことができる
+- WSLのssh-agentとして利用[ここを参照ください](https://github.com/zmatsuo/pageant-/wiki/WSL%E3%81%8B%E3%82%89-pageant---%E3%82%92%E5%88%A9%E7%94%A8%E3%81%99%E3%82%8B)
 
 ## 大雑把な使い方
 
@@ -23,15 +24,20 @@ Windows用のssh-agentです。
 
 - zipファイルを解いて適当なフォルダに置く
 
-### 鍵ファイル
+### 起動
 
 - 他のsshエージェントを止める
 	- pageant(putty)
 	- ssh-pageant(cygwinなど)
-- pageant+を起動する
-- 'Add Key file'ボタンを押してファイルを追加
 - 環境変数`SSH_AUTH_SOCK`を調整する
-- `ssh-add -l -E md5`で鍵を表示できれば使用できる
+- pageant+を起動する
+- 必要に応じて設定から自動起動するようにする
+- `ssh-add -l`で接続できればok
+
+### 鍵ファイル
+
+- 'Add Key file'ボタンを押してファイルを追加
+- `ssh-add -l -E md5`で鍵を表示できればok
 
 ### マイナンバーカード(スマートカード)
 
@@ -183,7 +189,7 @@ Cygwin/Xを使っていて、cygwin系の`ssh -Y`を使用するとX11 Forwardin
 - できるようになったが、カードを持ち歩くことに疑問を感じる
 - 持ち歩いているスマホに秘密キーを入れておけばokでは?
 - BT経由でスマホと通信、基礎実験はできた状態
-- WSLを使ってみたところ良さそうだったので、socat経由で受け付ける口を追加した
+- WSLを使ってみたところ良さそうだったので、socat経由で受け付ける口を追加
 
 # license
 

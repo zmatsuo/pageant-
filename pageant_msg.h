@@ -8,7 +8,7 @@
 
 /* Pageant client */
 int agent_exists(void);
-int agent_query(void *in, int inlen, void **out, int *outlen,
+int agent_query(void *in, size_t inlen, void **out, size_t *outlen,
 		void (*callback)(void *, void *, int), void *callback_ctx);
 
 /*

@@ -70,7 +70,12 @@ SOURCES += main.cpp\
     ssh-agent_ms.cpp \
     cert/pkcs_helper.c \
     winutils_cpp.cpp \
-    keyviewdlg.cpp
+    keyviewdlg.cpp \
+    btselectdlg.cpp \
+    bt_agent_proxy.cpp \
+    bt_agent_proxy_main.cpp \
+    debug.c \
+    utf8.cpp
 
 HEADERS  += mainwindow.h \
     passphrasedlg.h \
@@ -81,14 +86,19 @@ HEADERS  += mainwindow.h \
     cert/cert_pkcs.h \
     settingdlg.h \
     setting.h \
-    keyviewdlg.h
-
+    keyviewdlg.h \
+    btselectdlg.h \
+    bt_agent_proxy.h \
+    bt_agent_proxy_main.h \
+    utf8.h
+    
 FORMS    += mainwindow.ui \
     passphrasedlg.ui \
     aboutdlg.ui \
     confirmacceptdlg.ui \
     settingdlg.ui \
-    keyviewdlg.ui
+    keyviewdlg.ui \
+    btselectdlg.ui
 
 RESOURCES += \
     pageant+.qrc

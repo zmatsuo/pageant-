@@ -145,7 +145,7 @@ char *dupstr(const char *s)
 {
     char *p = NULL;
     if (s) {
-        int len = strlen(s);
+        size_t len = strlen(s);
         p = snewn(len + 1, char);
         strcpy(p, s);
     }
@@ -155,7 +155,7 @@ char *dupstr(const char *s)
 /* Allocate the concatenation of N strings. Terminate arg list with NULL. */
 char *dupcat(const char *s1, ...)
 {
-    int len;
+    size_t len;
     char *p, *q, *sn;
     va_list ap;
 
@@ -371,8 +371,8 @@ void strbuf_catf(strbuf *buf, const char *fmt, ...)
 char *fgetline(FILE *fp)
 {
     char *ret = snewn(512, char);
-    int size = 512, len = 0;
-    while (fgets(ret + len, size - len, fp)) {
+    size_t size = 512, len = 0;
+    while (fgets(ret + len, (int)(size - len), fp)) {
 	len += strlen(ret + len);
 	if (len > 0 && ret[len-1] == '\n')
 	    break;		       /* got a newline, we're done */
@@ -397,7 +397,7 @@ char *fgetline(FILE *fp)
 char *chomp(char *str)
 {
     if (str) {
-        int len = strlen(str);
+        size_t len = strlen(str);
         while (len > 0 && (str[len-1] == '\r' || str[len-1] == '\n'))
             len--;
         str[len] = '\0';
@@ -739,69 +739,6 @@ void safefree(void *ptr)
 #endif
 }
 
-/* ----------------------------------------------------------------------
- * Debugging routines.
- */
-
-
-#ifdef DEBUG
-void debug_printf(const char *fmt, ...)
-{
-    char *buf;
-    va_list ap;
-
-    va_start(ap, fmt);
-    buf = dupvprintf(fmt, ap);
-
-    FILE *fp = fopen("debug.log", "a+");
-    if (fp != NULL) {
-	fputs(buf, fp);	// \n is not output
-	fflush(fp);
-	fclose(fp);
-    }
-
-    dputs(buf);
-    sfree(buf);
-    va_end(ap);
-}
-
-
-void debug_memdump(const void *buf, int len, int L)
-{
-    int i;
-    const unsigned char *p = buf;
-    char foo[17];
-    if (L) {
-	int delta;
-	debug_printf("\t%d (0x%x) bytes:\n", len, len);
-	delta = (int)(15 & (uintptr_t) p);
-	p -= delta;
-	len += delta;
-    }
-    for (; 0 < len; p += 16, len -= 16) {
-	debug_printf("  ");
-	if (L)
-	    debug_printf("%p: ", p);
-	strcpy(foo, "................");	/* sixteen dots */
-	for (i = 0; i < 16 && i < len; ++i) {
-	    if (&p[i] < (unsigned char *) buf) {
-		debug_printf("   ");	       /* 3 spaces */
-		foo[i] = ' ';
-	    } else {
-		debug_printf("%c%02.2x",
-			&p[i] != (unsigned char *) buf
-			&& i % 4 ? '.' : ' ', p[i]
-		    );
-		if (p[i] >= ' ' && p[i] <= '~')
-		    foo[i] = (char) p[i];
-	    }
-	}
-	foo[i] = '\0';
-	debug_printf("%*s%s\n", (16 - i) * 3 + 2, "", foo);
-    }
-}
-
-#endif				/* def DEBUG */
 
 #if 0
 /*
@@ -838,7 +775,9 @@ char const *cfg_dest(const Config *cfg)
  * Some platforms (e.g. Windows) may provide their own version of this
  * function.
  */
-void smemclr(void *b, size_t n) {
+//void smemclr(void *b, size_t n)
+void safememclr(void *b, size_t n)
+{
     volatile char *vp;
 
     if (b && n > 0) {
@@ -980,7 +919,7 @@ int smemeq(const void *av, const void *bv, size_t len)
 
 int match_ssh_id(int stringlen, const void *string, const char *id)
 {
-    int idlen = strlen(id);
+    size_t idlen = strlen(id);
     return (idlen == stringlen && !memcmp(string, id, idlen));
 }
 
@@ -1041,7 +980,12 @@ char *buildinfo(const char *newline)
     strbuf_catf(buf, "%sCompiler: gcc %s", newline, __VERSION__);
 #elif defined _MSC_VER
     strbuf_catf(buf, "%sCompiler: Visual Studio", newline);
-#if _MSC_VER == 1900
+#if _MSC_VER == 1911
+    strbuf_catf(buf, " 2017 / MSVC++ 15.0");
+    strbuf_catf(buf, " (%s)",
+		(_MSC_FULL_VER == 191125547) ? "15.4.3(15.4.5?)" :
+		"_MSC_FULL_VER=" xstr( _MSC_FULL_VER));
+#elif _MSC_VER == 1900
     strbuf_catf(buf, " 2015 / MSVC++ 14.0");
     strbuf_catf(buf, " (%s)",
 		(_MSC_FULL_VER == 190024215) ? "Update 3(KB3165756)" :
@@ -1148,10 +1092,8 @@ int filename_is_null(const Filename *fn)
 
 void filename_free(Filename *fn)
 {
-    _CrtCheckMemory();
     sfree(fn->path);
     sfree(fn);
-    _CrtCheckMemory();
 }
 
 void logevent(void *f, const char *msg)

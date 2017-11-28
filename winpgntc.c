@@ -66,7 +66,7 @@ DWORD WINAPI agent_query_thread(LPVOID param)
 
 #endif
 
-int agent_query(void *in, int inlen, void **out, int *outlen,
+int agent_query(void *in, size_t inlen, void **out, size_t *outlen,
 		void (*callback)(void *, void *, int), void *callback_ctx)
 {
     HWND hwnd;

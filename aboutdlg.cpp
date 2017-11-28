@@ -1,5 +1,8 @@
-﻿#include <QFile>
+﻿#pragma warning(push)
+#pragma warning(disable:4127)
+#include <QFile>
 #include <QTextStream>
+#pragma warning(pop)
 
 #include "pageant+.h"
 #include "aboutdlg.h"

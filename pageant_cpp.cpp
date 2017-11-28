@@ -1,9 +1,14 @@
-
+﻿
 #include <stdio.h>
 
+#pragma warning(push)
+#pragma warning(disable:4127)
+#pragma warning(disable:4251)
 #include <QApplication>
 #include <QStandardItemModel>
 #include <QTime>
+#pragma warning(pop)
+
 #include <vector>
 #include <string>
 
@@ -36,7 +41,7 @@ void getKeylist(std::vector<std::string> &keylist)
 	ctx.keylist = &keylist;
 	int r = pageant_enum_keys(getKeylist_sub, &ctx, &retstr);
 	if (r != PAGEANT_ACTION_OK) {
-		debug_printf("%s\n", retstr);
+		dbgprintf("%s\n", retstr);
 		sfree(retstr);
 		keylist.clear();
 	}
@@ -54,7 +59,7 @@ static void removeKey_sub(void *ctx,
 {
 	removekeylist_ctx *p = (removekeylist_ctx *)ctx;
 	if (strcmp(fingerprint, p->fingerprint) == 0) {
-		// ここで削除
+		// TODO:ここで削除
 		int a = 0;
 	}
 }
@@ -66,7 +71,7 @@ void removeKey(const char *fingerprint)
 	ctx.fingerprint = fingerprint;
 	int r = pageant_enum_keys(removeKey_sub, &ctx, &retstr);
 	if (r != PAGEANT_ACTION_OK) {
-		debug_printf("%s\n", retstr);
+		dbgprintf("%s\n", retstr);
 		sfree(retstr);
 	}
 }
@@ -91,6 +96,6 @@ std::vector<KeyListItem> keylist_update2()
 
 // Local Variables:
 // mode: c++
-// coding: utf-8
+// coding: utf-8-with-signature-dos
 // tab-width: 4
 // End:

@@ -1,10 +1,17 @@
 ﻿
+#include <io.h>		// for access()
+
+#pragma warning(push)
+#pragma warning(disable:4127)
+#pragma warning(disable:4251)
 #include <QApplication>
 #include <QtCore/QCommandLineParser>
+#pragma warning(pop)
 
+#include "pageant+.h"
+#include "pageant.h"
 #include "mainwindow.h"
 #include "winpgnt.h"
-#include "pageant.h"
 #include "misc.h"
 #include "misc_cpp.h"
 #include "setting.h"
@@ -14,6 +21,8 @@
 extern "C" {
 #include "cert/cert_common.h"
 }
+#include "bt_agent_proxy_main.h"
+#include "winmisc.h"
 
 #ifdef _DEBUG
 static void crt_set_debugflag(void)
@@ -29,6 +38,13 @@ static void crt_set_debugflag(void)
 		_CRTDBG_CHECK_DEFAULT_DF	// チェックしない(default)
 		;
 	_CrtSetDbgFlag( tmpFlag );
+
+	_CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_FILE | _CRTDBG_MODE_DEBUG);
+	_CrtSetReportFile(_CRT_WARN, _CRTDBG_FILE_STDERR);
+	_CrtSetReportMode(_CRT_ERROR, _CRTDBG_MODE_FILE | _CRTDBG_MODE_DEBUG);
+	_CrtSetReportFile(_CRT_ERROR, _CRTDBG_FILE_STDERR);
+	_CrtSetReportMode(_CRT_ASSERT, _CRTDBG_MODE_FILE | _CRTDBG_MODE_DEBUG);
+	_CrtSetReportFile(_CRT_ASSERT, _CRTDBG_FILE_STDERR);
 }
 #endif
 
@@ -48,7 +64,7 @@ int main(int argc, char *argv[])
 	std::vector<std::wstring> keyfileAry;
 #if 1
 	{
-		a.setApplicationName("pagent+");
+		a.setApplicationName("pageant+");
 		a.setApplicationVersion("1.0");
 
 		QCommandLineParser parser;
@@ -94,9 +110,19 @@ int main(int argc, char *argv[])
 	}
 #endif
 
+#if defined(DEVELOP_VERSION)
+	if (!use_inifile) {
+		if (_access("pageant+.exe.forceini", 0) == 0) {
+			use_inifile = true;
+			std::wstring ws_inifile =
+				_GetCurrentDirectory() + L"\\pageant+.ini";
+			inifile = QString::fromStdWString(ws_inifile);
+		}
+	}
+#endif
 	setting_init(use_inifile, inifile.isEmpty() ? nullptr : inifile.toStdWString().c_str());
 
-	debug_printf("main() start\n");
+	dbgprintf("main() start\n");
 
 
 #if 0
@@ -134,7 +160,7 @@ int main(int argc, char *argv[])
 	if (!sock_path.empty())
 	{
 		if (setting_get_bool("ssh-agent/cygwin_sock")) {
-			bool r = ssh_agent_server_start(sock_path.c_str());
+			bool r = ssh_agent_cygwin_unixdomain_start(sock_path.c_str());
 			if (r == false) {
 				setting_set_bool("ssh-agent/cygwin_sock", false);
 			}
@@ -145,6 +171,16 @@ int main(int argc, char *argv[])
 				setting_set_bool("ssh-agent/ms_ssh", false);
 			}
 		}
+	}
+
+	if (setting_get_bool("bt/enable", false)) {
+		bt_agent_proxy_main_init();
+	}
+
+	if (setting_get_bool("ssh-agent_tcp/enable", false)) {
+		const int port_no =
+			setting_get_int("ssh-agent_tcp/port_no", 8080);
+		ssh_agent_localhost_start(port_no);
 	}
 	
 	set_confirm_any_request(setting_get_bool("confirm/confirm_any_request", false));
@@ -162,11 +198,15 @@ int main(int argc, char *argv[])
 	add_keyfile(keyfileAry);
 
 	int r = a.exec();
-	debug_printf("main leave %d\n", r);
+	dbgprintf("main leave %d\n", r);
 
+	// stop threads
 	winpgnt_stop();
-	ssh_agent_server_stop();
+	ssh_agent_cygwin_unixdomain_stop();
 	pipe_th_stop();			// TODO fix
+	bt_agent_proxy_main_exit();
+	ssh_agent_localhost_stop();
+
 	pageant_exit();
 	setting_exit();
 

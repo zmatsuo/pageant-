@@ -5,11 +5,13 @@
 
 #include <windows.h>
 
+#pragma warning(push)
+#pragma warning(disable:4127)
+#pragma warning(disable:4251)
 #include <QDir>
+#pragma warning(pop)
 
 #include "pageant+.h"
-#include "settingdlg.h"
-#include "ui_settingdlg.h"
 #include "debug.h"
 #include "setting.h"
 #include "ssh-agent_emu.h"
@@ -19,27 +21,33 @@
 #include "misc_cpp.h"
 #include "misc.h"
 extern "C" {
-#include "cert_common.h"
+#include "cert_common.h"	// for cert_forget_pin()
 }
+
+#include "settingdlg.h"
+#pragma warning(push)
+#pragma warning(disable:4127)
+#pragma warning(disable:4251)
+#pragma warning(disable:4244)
+#include "ui_settingdlg.h"
+#pragma warning(pop)
 
 void SettingDlg::dispSetting()
 {
 	QString text;
 	QString s1;
-	text += u8"Qt バージョン\n";
+	text += u8"Qt version: ";
 	text += QT_VERSION_STR;
 	text += "\n";
-	text += u8"Qt ライブラリ(DLL)バージョン\n";
+	text += u8"Qt dll version: ";
 	text += qVersion();
 	text += "\n";
 
-#if defined(_DEBUG)
 	{
 		char *buildinfo_text = buildinfo("\n");
 		s1 = buildinfo_text;
 		sfree(buildinfo_text);
 	}
-#endif
 
 	text += s1;
 	
@@ -62,8 +70,6 @@ static QString get_recommended_ssh_sock_path()
 	path_list.push_back("c:\\tmp");
     path_list.push_back(QString::fromStdWString(_SHGetKnownFolderPath(FOLDERID_LocalAppData)) + "\\temp");
 
-
-	
 	QDir dir;
 	QString path;
 	for(size_t i=0; i<path_list.size(); i++) {
@@ -104,10 +110,13 @@ SettingDlg::SettingDlg(QWidget *parent) :
 		ui->label_3->setText(text);
     }
 
-    setStartup(0);
 	dispSetting();
 
-	
+	// startup
+	{
+		const bool check = setStartup(0);
+		ui->checkBox_13->setChecked(check);
+	}
 	
     ui->checkBox->setChecked(setting_get_bool("ssh-agent/cygwin_sock"));
 	ui->checkBox_3->setChecked(setting_get_bool("ssh-agent/pageant"));
@@ -169,6 +178,32 @@ SettingDlg::SettingDlg(QWidget *parent) :
 			get_confirm_any_request());
 	}
 
+	// relay系
+	{
+#if !defined(DEVELOP_VERSION)
+		ui->checkBox_6->setEnabled(false);
+		ui->lineEdit_2->setEnabled(false);
+		ui->spinBox->setEnabled(false);
+#endif
+		ui->checkBox_6->setChecked(
+			setting_get_bool("bt/enable", false));
+		ui->lineEdit_2->setText(
+			QString::fromStdWString(setting_get_str("bt/device", nullptr)));
+		ui->spinBox->setValue(
+			setting_get_int("bt/timeoute", 10));
+	}
+
+	// localhost
+	{
+		ui->checkBox_14->setChecked(
+			setting_get_bool("ssh-agent_tcp/enable", false));
+		ui->lineEdit_3->setText(
+			QString::fromStdString(
+				std::to_string(
+					setting_get_int("ssh-agent_tcp/port_no", 8080))));
+	}
+	
+	showTab(false);
 }
 
 SettingDlg::~SettingDlg()
@@ -250,6 +285,36 @@ void SettingDlg::on_buttonBox_accepted()
 		set_confirm_any_request(confirm_any_request);
 	}
 	
+	// startup
+	{
+		setStartup(ui->checkBox_13->isChecked() == false ? 2 : 1);
+	}
+
+	// debug
+	{
+#if defined(_DEBUG)
+		const bool check = ui->checkBox_4->isChecked();
+		setting_set_bool("debug/console_enable", check);
+		debug_console_show(check);
+#endif
+	}
+
+	// bluetooth
+	{
+		setting_set_bool("bt/enable", ui->checkBox_6->isChecked());
+		setting_set_str("bt/device", ui->lineEdit_2->text().toStdWString().c_str());
+		setting_set_int("bt/timeoute", ui->spinBox->value());
+	}
+
+	// localhost
+	{
+		setting_set_bool("ssh-agent_tcp/enable", 
+						 ui->checkBox_14->isChecked());
+		setting_set_int("ssh-agent_tcp/port_no",
+						std::stoi(
+							ui->lineEdit_3->text().toStdString()));
+	}
+	
 	//const char *ssh_auth_sock = getenv("SSH_AUTH_SOCK");
     std::wstring ssh_auth_sock;
     reg_read_cur_user(L"Environment", L"SSH_AUTH_SOCK", ssh_auth_sock);
@@ -280,7 +345,7 @@ void SettingDlg::on_buttonBox_accepted()
 			"\n"
 			"<A HREF=\"http://d.hatena.ne.jp/ganaware/20111102/1320222616\">win-ssh-agent</a>の説明";
 		int ret = task_dialog(
-			L"pagent+",
+			L"pageant+",
 			L"環境変数の変更を全てのウィンドウに通知しますか?",
 			L"通知する場合は[yes]を押してください",
 			expandedInformation,
@@ -336,9 +401,13 @@ void SettingDlg::on_pushButton_11_clicked()
 }
 
 /*
- *	@param	action	0/1 = 反映/逆転
+ *	@param	action	0	取得
+ *					1	起動するよう設定
+ *					2	起動しないよう設定
+ *	@retval	true	launch
+ *	@retval	false	don't launch
  */
-void SettingDlg::setStartup(int action)
+bool SettingDlg::setStartup(int action)
 {
     const wchar_t *subkey =
 		L"Software\\Microsoft\\Windows\\CurrentVersion\\Run";
@@ -351,35 +420,18 @@ void SettingDlg::setStartup(int action)
 		// コントロールに反映させる
 		break;
     case 1:
-		// 現在の状態を逆にする
-		if (result) {
-			// 削除する
-			reg_delete_cur_user(subkey, valuename);
-			result = false;
-		} else {
-			// 登録する
-			str = setting_get_my_fullpath();
-			str += L" --hide";
-			reg_write_cur_user(subkey, valuename, str.c_str());
-			result = true;
-		}
+		// 起動するようレジストリに登録
+		str = setting_get_my_fullpath();
+		reg_write_cur_user(subkey, valuename, str.c_str());
+		result = true;
+		break;
+	case 2:
+		// 削除する
+		reg_delete_cur_user(subkey, valuename);
+		result = false;
 		break;
     }
-    QString tip;
-    if (result == false) {
-		tip = u8"設定されていません";
-    } else {
-		tip = u8"設定されています\n";
-		tip += "'" + QString::fromStdWString(str) + "'";
-    }
-    ui->pushButton_5->setChecked(result);
-    ui->pushButton_5->setToolTip(tip);
-}
-
-// 登録解除
-void SettingDlg::on_pushButton_5_clicked()
-{
-    setStartup(1);
+	return result;
 }
 
 // exeフォルダをexplorerで開く
@@ -413,14 +465,6 @@ void SettingDlg::on_pushButton_7_clicked()
         std::wstring reg_path = get_putty_ini();
 		exec_regedit(reg_path.c_str());
 	}
-}
-
-// debug console
-void SettingDlg::on_checkBox_4_clicked()
-{
-	const bool check = ui->checkBox_4->isChecked();
-	setting_set_bool("debug/console_enable", check);
-	debug_console_show(check);
 }
 
 // startup user
@@ -500,8 +544,47 @@ void SettingDlg::on_pushButton_14_clicked()
     cert_forget_pin();
 }
 
+void SettingDlg::showTab(bool show)
+{
+	const int index_from = 4;
+	const int index_to = 6;
+	if (show) {
+		// show
+		int n = index_to;
+		for (const auto &a : invisibleTabs_) {
+			ui->tabWidget->insertTab(n, a.tab, a.label);
+			n--;
+		}
+		invisibleTabs_.clear();
+	} else {
+		// hide
+		int current_index = ui->tabWidget->currentIndex();
+		if (current_index >= index_from) {
+			ui->tabWidget->setCurrentIndex(0);
+		}
+		for (int i = index_to; i >= index_from; i--) {
+			invisiableTabsInfo_t info;
+			info.tab = ui->tabWidget->widget(i);
+			info.label = ui->tabWidget->tabText(i);
+			invisibleTabs_.push_back(info);
+			ui->tabWidget->removeTab(i);
+		}
+	}
+}
+
+void SettingDlg::on_checkBox_5_clicked()
+{
+	if (ui->checkBox_5->isChecked()) {
+		// show detail
+		showTab(true);
+	} else {
+		showTab(false);
+	}
+}
+
 // Local Variables:
 // mode: c++
 // coding: utf-8-with-signature
 // tab-width: 4
 // End:
+

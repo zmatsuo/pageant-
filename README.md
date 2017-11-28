@@ -6,16 +6,16 @@ Windows用のssh-agentです。
 次の通信を行うことができます。
 - pageant (putty ssh-agent)
 - ssh-agent cygwin
-- ssh-agent Microsoft (0.0.17.0は未対応)
+- ssh-agent Microsoft (0.0.17.0以降は未対応)
+- ssh-agent TCP接続 (socat(WSL)からの接続用)
 
-まだまだ気になるところはありますが、
-概ね動作します。
+まだまだ気になるところはありますが、概ね動作します。
 
 # できること
 
 - sshの秘密鍵のパスフレーズを記憶,適当なタイミングで忘れる
 - ほとんどのsshクライアントと通信できる
-- スマートキーを使うことができる
+- スマートカードを使うことができる
 
 ## 大雑把な使い方
 
@@ -65,9 +65,10 @@ putty-CACを元にしたCAPI(Cryptographic API)経由、pkcs#11経由で対応�
 
 ## OpenSSH
 - Win32 port of OpenSSH
-	- v0.0.17.0は未対応
+	- v0.0.17.0以降未対応
+- socatを経由したソケット接続
 
-## cygwin/msys ssh familys
+## cygwin/msys ssh family
 - cygwin/msys ssh
 - mobaxterm (you need reset `SSH_AUTH_SOCK`)
 - TortoiseSVN/TortoiseGit(modified plink)
@@ -85,6 +86,16 @@ putty-CACを元にしたCAPI(Cryptographic API)経由、pkcs#11経由で対応�
 
 次のようにコマンドを実行して同一のfingerprintが表示されればokです。
 表示されているバージョンはチェックした時点のものです。
+
+## Ubuntu 16.04.3 LTS on WSL
+socat経由で接続しています
+`/usr/bin/socat UNIX-LISTEN:/unix/domain/path,fork TCP:127.0.0.1:8080`
+
+```
+$ ssh -V
+OpenSSH_7.2p2 Ubuntu-4ubuntu2.2, OpenSSL 1.0.2g  1 Mar 2016
+$ ssh-add -l -E md5
+```
 
 ## git for windows
 ```
@@ -148,12 +159,14 @@ reference.txt を参照してください。
 
 - 準備
 	- <https://www.qt.io/> から Qtをダウンロードしてインストールする
-	- Qt 5.9
-	- Visual Studo 2015を使用する場合
-		- msvc2015 64-bit ,32-bit をインストール
+	- Qt 5.9.3
+	- Visual Studo 2017をインストール
+	- MinGW 32bitではコンパイルできなくなっています
 
-- Visual Studio 2015を使用する場合
-	- `pageant+.sln`をVisual Studio 2015で開く
+- Visual Studio 2017を使用する場合
+	- `pageant+.sln`をVisual Studio 2017で開く
+- Qt Creatorを使用する場合
+	- `pageant+.pro`をQt Creatorで開く
 
 # X11 Forwarding (Cygwin/X + ssh)
 
@@ -163,6 +176,14 @@ Cygwin/Xを使っていて、cygwin系の`ssh -Y`を使用するとX11 Forwardin
 
 `startxwin -- -listen tcp`などでtcp経由で接続できるようになります。
 - http://x.cygwin.com/docs/faq/cygwin-x-faq.html#q-xserver-nolisten-tcp-default
+
+# やりたかったこと、これからやりたいこと
+
+- スマートカード+sshを使いたかった
+- できるようになったが、カードを持ち歩くことに疑問を感じる
+- 持ち歩いているスマホに秘密キーを入れておけばokでは?
+- BT経由でスマホと通信、基礎実験はできた状態
+- WSLを使ってみたところ良さそうだったので、socat経由で受け付ける口を追加した
 
 # license
 

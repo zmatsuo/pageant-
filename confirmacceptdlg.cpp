@@ -1,5 +1,9 @@
-﻿#include "confirmacceptdlg.h"
+﻿#pragma warning(push)
+#pragma warning(disable:4127)
+#pragma warning(disable:4251)
+#include "confirmacceptdlg.h"
 #include "ui_confirmacceptdlg.h"
+#pragma warning(pop)
 
 ConfirmAcceptDlg::ConfirmAcceptDlg(
         QWidget *parent,

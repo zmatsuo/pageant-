@@ -1,5 +1,12 @@
-﻿
-//
+﻿/**
+   ssh-agent_emu.cpp
+
+   Copyright (c) 2017 zmatsuo
+
+   This software is released under the MIT License.
+   http://opensource.org/licenses/mit-license.php
+*/
+
 #include <stdio.h>
 #include <inttypes.h>
 #if defined(_MSC_VER) || defined(__MINGW32__)
@@ -24,26 +31,20 @@
 #include "pageant.h"
 #include "puttymem.h"
 
-// TODO:hへ
-extern "C" void smemclr(void *b, size_t len);
-
-
 #undef DEBUG
 #undef debug
 
 #if 0
 #define debug(...)
 #else
-#define debug(...)  	debug_printf(__VA_ARGS__)
+#define debug(...)  	dbgprintf(__VA_ARGS__)
 #endif
-
-static sock_server_t *pSS;
-static bool exit_flag;
 
 #define RECV_BUF_SIZE		512
 #define RECV_TIMEOUT		10*1000	// ms
 #define CONNECT_TIMEOUT		10*1000	// ms
 
+// 1クライアント毎のデータ
 typedef struct {
 	std::vector<uint8_t> recv_buf;
 	size_t buf_size;
@@ -53,6 +54,26 @@ typedef struct {
 	size_t send_size;
 	bool flash;
 } echo_server_data_t;
+
+class SocketServer {
+public:
+	bool server_init(const wchar_t *sock_path);
+	bool server_init(uint16_t port_no);
+	void server_stop();
+	SocketServer() {
+		th = nullptr;
+		pSS = nullptr;
+		exit_flag = true;
+	}
+
+private:
+	std::thread *th;
+	sock_server_t *pSS;
+	bool exit_flag;
+
+	bool server_init(const sock_server_init_t *init);
+	void server_thread_main();
+};
 
 static inline int msglen(const void *p)
 {
@@ -161,7 +182,24 @@ static int ssh_agent_server(sock_server_notify_param_st *notify)
 	return 0;	// continue
 }
 
-static void ssh_agent_server_init(const wchar_t *sock_path)
+bool SocketServer::server_init(const sock_server_init_t *init)
+{
+	pSS = sock_server_init(init);
+	if (pSS == nullptr) {
+		debug("init error\n");
+		return false;
+	}
+	int r = sock_server_open(pSS);
+	if (r != 0) {
+		debug("open error %d\n", r);
+		return false;
+	}
+	exit_flag = false;
+	th = new std::thread(&SocketServer::server_thread_main, this);
+	return true;
+}
+
+bool SocketServer::server_init(const wchar_t *sock_path)
 {
 	debug("ssh agent server start (%ls)\n", sock_path);
 	sock_server_init_t init = { sizeof(sock_server_init_t) };
@@ -169,51 +207,89 @@ static void ssh_agent_server_init(const wchar_t *sock_path)
 	init.socket_type = SOCK_SERVER_TYPE_UNIXDOMAIN;
 	init.Wsocket_path = sock_path;
 	init.serv_func = ssh_agent_server;
-	pSS = sock_server_init(&init);
-	if (pSS == NULL) {
-		debug("init error\n");
-		return;
-	}
-	int r = sock_server_open(pSS);
-	if (r != 0) {
-		debug("open error %d\n", r);
-		return;
-	}
-	exit_flag = false;
+	return server_init(&init);
 }
 
-static void echo_server_thread()
+bool SocketServer::server_init(uint16_t port_no)
+{
+	debug("ssh agent server start port %d\n", port_no);
+	sock_server_init_t init = { sizeof(sock_server_init_t) };
+	init.accept_count = 10;
+	init.socket_type = SOCK_SERVER_TYPE_TCP;
+	init.port_no = port_no;
+	init.serv_func = ssh_agent_server;
+	return server_init(&init);
+}
+
+void SocketServer::server_thread_main()
 {
 	debug("server start\n");
 	sock_server_main(pSS);
 	debug("server finish\n");
 }
 
-static std::thread *th;
-
-bool ssh_agent_server_start(const wchar_t *sock_path)
+void SocketServer::server_stop()
 {
-	if (th != NULL)
-		return false;
-	ssh_agent_server_init(sock_path);
-	th = new std::thread(echo_server_thread);
-	return true;
-}
-
-void ssh_agent_server_stop()
-{
-	if (th != NULL) {
+	if (th != nullptr) {
 		sock_server_reqest_exit(pSS);
 		th->join();
 		delete th;
-		th = NULL;
+		th = nullptr;
+	}
+	if (pSS != nullptr) {
 		sock_server_close(pSS);
-		pSS = NULL;
+		pSS = nullptr;
+	}
+}
+
+static SocketServer *unixSocketServer;
+
+bool ssh_agent_cygwin_unixdomain_start(const wchar_t *sock_path)
+{
+	if (unixSocketServer != nullptr)
+		return false;
+	unixSocketServer = new SocketServer;
+	bool r = unixSocketServer->server_init(sock_path);
+	if (r == false) {
+		return false;
+	}
+	return true;
+}
+
+void ssh_agent_cygwin_unixdomain_stop()
+{
+	if (unixSocketServer != nullptr) {
+		unixSocketServer->server_stop();
+		delete unixSocketServer;
+		unixSocketServer = nullptr;
 	}
 	debug("ssh agent server finish\n");
 }
 
+static SocketServer *localhostTcpSocketServer;
 
+bool ssh_agent_localhost_start(int port_no)
+{
+	if (localhostTcpSocketServer != nullptr)
+		return false;
+	localhostTcpSocketServer = new SocketServer;
+	bool r = localhostTcpSocketServer->server_init(
+		static_cast<uint16_t>(port_no));
+	if (r == false) {
+		return false;
+	}
+	return true;
+}
+
+void ssh_agent_localhost_stop()
+{
+	if (localhostTcpSocketServer != nullptr) {
+		localhostTcpSocketServer->server_stop();
+		delete localhostTcpSocketServer;
+		localhostTcpSocketServer = nullptr;
+	}
+	debug("ssh agent server finish\n");
+}
 
 // Local Variables:
 // mode: c++

@@ -1,8 +1,11 @@
 ﻿#ifndef CONFIRMACCEPTDLG_H
 #define CONFIRMACCEPTDLG_H
 
+#pragma warning(push)
+#pragma warning(disable:4127)
 #include <QDialog>
 #include <QTimer>
+#pragma warning(pop)
 
 #include "gui_stuff.h"
 

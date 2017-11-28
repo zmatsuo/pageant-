@@ -180,7 +180,7 @@ public:
 			std::wstring base = base_;
 			base += L"\\";
 			base += section;
-			bool r = reg_read_cur_user(base.c_str() , key.c_str(), i);
+			bool r = reg_read_cur_user(base.c_str(), key.c_str(), i);
 			if (r == false) {
 				i = 0;
 			}
@@ -199,7 +199,7 @@ public:
 		return i;
 	}
 
-	void setting_set_int(const char *_key, int i)
+	bool setting_set_int(const char *_key, int i)
 	{
 		std::wstring section;
 		std::wstring key;
@@ -207,16 +207,18 @@ public:
 
 		if (type_ == TYPE_INI) {
 			std::wstring str = std::to_wstring(i);
-			_WritePrivateProfileString(
+			bool r = _WritePrivateProfileString(
 				section.c_str(), key.c_str(), base_.c_str(), str.c_str());
-			return;
+			return r;
 		}
 		if (type_ == TYPE_REG) {
 			std::wstring base = base_;
 			base += L"\\";
 			base += section;
-			reg_write_cur_user(base.c_str(), key.c_str(), i);
+			bool r = reg_write_cur_user(base.c_str(), key.c_str(), i);
+			return r;
 		}
+		return false;
 	}
 
 	bool setting_get_bool(const char *_key, bool &_bool)
@@ -345,9 +347,14 @@ std::wstring setting_get_inifile()
     return ini_->get_base();
 }
 
-void setting_set_str(const char *key, const wchar_t *str)
+bool setting_set_str(const char *key, const wchar_t *str)
 {
-	ini_->setting_set_str(key, str);
+	return ini_->setting_set_str(key, str);
+}
+
+std::wstring setting_get_str(const char *key, const wchar_t *_default)
+{
+	return ini_->setting_get_str(key, _default);
 }
 
 bool setting_get_bool(const char *key)
@@ -365,14 +372,26 @@ void setting_set_bool(const char *key, bool _bool)
 	ini_->setting_set_bool(key, _bool);
 }
 
+#if 0
 int setting_get_int(const char *key)
 {
 	return ini_->setting_get_int(key);
 }
+#endif
 
-void setting_set_int(const char *key, int i)
+int setting_get_int(const char *key, int _default)
 {
-	ini_->setting_set_int(key, i);
+	int i;
+	bool r = ini_->setting_get_int(key, i);
+	if (r == false) {
+		return _default;
+	}
+	return i;
+}
+
+bool setting_set_int(const char *key, int i)
+{
+	return ini_->setting_set_int(key, i);
 }
 
 bool setting_isempty(const char *key)
@@ -604,7 +623,7 @@ void setting_init(int _use_ini, const wchar_t *_ini_file)
 	
 	set_default();
 	
-	debug_printf("setting_init() leave\n");
+	dbgprintf("setting_init() leave\n");
 }
 
 void setting_exit()
@@ -905,13 +924,13 @@ void setting_get_passphrases(std::vector<std::string> &passphraseAry)
 void setting_remove_passphrases()
 {
 	std::string key = "Passphrases";
-	bool r = ini_->setting_set_str(key.c_str(), nullptr);
+	ini_->setting_set_str(key.c_str(), nullptr);
 }
 
 void setting_remove_confirm_info()
 {
 	std::string key = "ssh-agent_confirm";
-	bool r = ini_->setting_set_str(key.c_str(), nullptr);
+	ini_->setting_set_str(key.c_str(), nullptr);
 }
 
 

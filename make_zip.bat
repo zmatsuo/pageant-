@@ -2,9 +2,20 @@ cd /d %~dp0
 bash make_version.sh
 
 setlocal
-call "%VS140COMNTOOLS%vsvars32.bat"
+set VCVARSALL="C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvarsall.bat"
+if not exist %VCVARSALL% (
+   set VCVARSALL="C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\VC\Auxiliary\Build\vcvarsall.bat"
+)
+if not exist %VCVARSALL% (
+   echo VS2017?
+   pause
+   exit
+)
+pushd .
+call %VCVARSALL% amd64
+popd
 msbuild pageant+.sln /t:rebuild /p:Configuration=Release /p:Platform="x64" /m
 endlocal
 
-bash make_zip.sh
+c:\cygwin64\bin\bash make_zip.sh
 pause

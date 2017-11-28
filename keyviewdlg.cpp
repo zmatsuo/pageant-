@@ -5,10 +5,13 @@
 
 #include <windows.h>
 
+#pragma warning(push)
+#pragma warning(disable:4127)
 #include <QDir>
 #include <QStandardPaths>
 #include <QClipboard>
 #include <QStandardItemModel>
+#pragma warning(pop)
 
 #include "pageant+.h"
 #include "winpgnt.h"
@@ -25,15 +28,11 @@
 #include "ssh.h"
 
 #include "keyviewdlg.h"
+#pragma warning(push)
+#pragma warning(disable:4127)
+#pragma warning(disable:4251)
 #include "ui_keyviewdlg.h"
-
-#ifdef PUTTY_CAC
-extern "C" {
-#include "cert/cert_common.h"
-}
-#endif
-
-void add_keyfile(const Filename *fn);
+#pragma warning(pop)
 
 keyviewdlg::keyviewdlg(QWidget *parent) :
 	QDialog(parent),
@@ -106,14 +105,14 @@ void keyviewdlg::on_pushButton_2_clicked()
 // pubkey to clipboard
 void keyviewdlg::on_pushButton_3_clicked()
 {
-	debug_printf("pubkey to clipboard\n");
+	dbgprintf("pubkey to clipboard\n");
 
 	const QStandardItemModel *model = (QStandardItemModel *)ui->treeView->model();
 	QItemSelectionModel *selection = ui->treeView->selectionModel();
 	QModelIndexList indexes = selection->selectedRows();
 	switch (indexes.count()) {
 	case 0:
-		message_boxW(L"鍵が選択されていません", L"pagent+", MB_OK, 0);
+		message_boxW(L"鍵が選択されていません", L"pageant+", MB_OK, 0);
 		break;
 	case 1:
 	{
@@ -131,12 +130,12 @@ void keyviewdlg::on_pushButton_3_clicked()
 		QApplication::clipboard()->setText(QString(pubkey));
 		free(pubkey);
 
-		message_boxW(L"OpenSSH形式の公開鍵をクリップボードにコピーしました", L"pagent+", MB_OK, 0);
+		message_boxW(L"OpenSSH形式の公開鍵をクリップボードにコピーしました", L"pageant+", MB_OK, 0);
 
 		break;
 	}
 	default:
-		message_boxW(L"1つだけ選択してください", L"pagent+", MB_OK, 0);
+		message_boxW(L"1つだけ選択してください", L"pageant+", MB_OK, 0);
 		break;
 	}
 }
@@ -144,13 +143,13 @@ void keyviewdlg::on_pushButton_3_clicked()
 // remove key
 void keyviewdlg::on_pushButtonRemoveKey_clicked()
 {
-	debug_printf("remove\n");
+	dbgprintf("remove\n");
 
 	QItemSelectionModel *selection = ui->treeView->selectionModel();
 	QModelIndexList indexes = selection->selectedRows();
 	const int count = indexes.count();
 	if (count == 0) {
-		message_boxW(L"鍵が選択されていません", L"pagent+", MB_OK, 0);
+		message_boxW(L"鍵が選択されていません", L"pageant+", MB_OK, 0);
 	} else {
 		std::vector<int> selectedArray;
 		for (int i = 0; i < count; i++) {
@@ -167,7 +166,7 @@ void keyviewdlg::on_pushButtonRemoveKey_clicked()
 
 void keyviewdlg::on_actionhelp_triggered()
 {
-	debug_printf("on_help_triggerd()\n");
+	dbgprintf("on_help_triggerd()\n");
 	launch_help_id(NULL, WINHELP_CTXID_errors_hostkey_absent);
 }
 

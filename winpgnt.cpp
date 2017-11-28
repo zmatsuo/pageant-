@@ -25,7 +25,7 @@
 
 #define DEBUG_IPC
 
-static HWND hwnd;
+static HWND ghwnd;		// todo:hWnd
 static std::thread *winpgnt_th;
 
 //static int already_running;
@@ -87,10 +87,11 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
 				return 0;      /* unable to get security info */
 			}
 			CloseHandle(proc);
-			if ((rc = GetSecurityInfo(filemap, SE_KERNEL_OBJECT,
-									  OWNER_SECURITY_INFORMATION,
-									  &mapowner, NULL, NULL, NULL,
-									  &psd1) != ERROR_SUCCESS)) {
+			rc = GetSecurityInfo(filemap, SE_KERNEL_OBJECT,
+								 OWNER_SECURITY_INFORMATION,
+								 &mapowner, NULL, NULL, NULL,
+								 &psd1);
+			if (rc != ERROR_SUCCESS) {
 #ifdef DEBUG_IPC
 				debug(
 					"couldn't get owner info for filemap: %d\n",
@@ -144,16 +145,16 @@ static bool winpgnt_init(void)
 
     RegisterClass(&wndclass);
 
-    hwnd = CreateWindow(
+    ghwnd = CreateWindow(
 		WINDOW_CLASS_NAME,
 		WINDOW_CLASS_NAME,	// title must 'Pagent'
 		WS_OVERLAPPEDWINDOW | WS_VSCROLL,
 		CW_USEDEFAULT, CW_USEDEFAULT,
 		100, 100, NULL, NULL, hInstance, NULL);
 
-    ShowWindow(hwnd, SW_HIDE);
+    ShowWindow(ghwnd, SW_HIDE);
 
-    debug("pageant window handle %p\n", hwnd);
+    debug("pageant window handle %p\n", ghwnd);
 
 	return true;
 }
@@ -163,7 +164,7 @@ static void winpgnt_main(void)
 	winpgnt_init();
 
 	MSG msg;
-	while (GetMessage(&msg, hwnd, 0, 0) == 1) {
+	while (GetMessage(&msg, ghwnd, 0, 0) == 1) {
 		TranslateMessage(&msg);
 		DispatchMessage(&msg);
 	}
@@ -183,11 +184,11 @@ bool winpgnt_start()
 void winpgnt_stop()
 {
     if (winpgnt_th != nullptr) {
-		PostMessage(hwnd, WM_CLOSE, 0, 0);
+		PostMessage(ghwnd, WM_CLOSE, 0, 0);
 		winpgnt_th->join();
 		delete winpgnt_th;
 		winpgnt_th = nullptr;
-		hwnd = NULL;
+		ghwnd = NULL;
     }
 }
 

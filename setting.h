@@ -4,22 +4,28 @@
 #include <string>
 #include <vector>
 
-std::vector<std::wstring> setting_get_putty_sessions();
+void setting_init(int _use_ini = true, const wchar_t *_ini_file = NULL);
+void setting_exit();
 std::wstring setting_get_inifile();
 bool setting_get_use_inifile();
 
-void setting_init(int _use_ini = true, const wchar_t *_ini_file = NULL);
-void setting_exit();
+// General purpose
 bool setting_get_bool(const char *key);
 bool setting_get_bool(const char *key, bool _default);
 void setting_set_bool(const char *key, bool _bool);
+bool setting_set_str(const char *key, const wchar_t *str);
+std::wstring setting_get_str(const char *key, const wchar_t *_default);
+bool setting_set_int(const char *key, int val);
+int setting_get_int(const char *key, int _default);
+
+// exclusive use
 std::wstring setting_get_my_fullpath();
 void setting_get_keyfiles(std::vector<std::wstring> &list);
 void setting_add_keyfile(const wchar_t *_file);
-
 std::wstring get_putty_path();
 std::wstring get_putty_ini();
 int get_use_inifile(void);
+std::vector<std::wstring> setting_get_putty_sessions();
 
 void setting_get_passphrases(std::vector<std::string> &passphraseAry);
 

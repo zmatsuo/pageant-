@@ -1,4 +1,4 @@
-/*
+﻿/*
  * RSA implementation for PuTTY.
  */
 
@@ -614,6 +614,7 @@ static void *rsa2_newkey(const struct ssh_signkey *self,
     struct RSAKey *rsa;
 
     rsa = snew(struct RSAKey);
+	memset(rsa, 0, sizeof(struct RSAKey));
     getstring(&data, &len, &p, &slen);
 
     if (!p || slen != 7 || memcmp(p, "ssh-rsa", 7)) {
@@ -624,8 +625,9 @@ static void *rsa2_newkey(const struct ssh_signkey *self,
     rsa->modulus = getmp(&data, &len);
     rsa->private_exponent = NULL;
     rsa->p = rsa->q = rsa->iqmp = NULL;
+    rsa->bits = 0;	// TODO:0でいいのか?
+    rsa->bytes = 0;
     rsa->comment = NULL;
-
     if (!rsa->exponent || !rsa->modulus) {
         rsa2_freekey(rsa);
         return NULL;

@@ -90,7 +90,8 @@ struct tm ltime(void);
  * attempts (by fiddly use of volatile) to inhibit the compiler from
  * over-cleverly trying to optimise the memset away because it knows
  * the variable is going out of scope. */
-void smemclr(void *b, size_t len);
+// TODO check
+//void smemclr(void *b, size_t len);
 
 /* Compare two fixed-length chunks of memory for equality, without
  * data-dependent control flow (so an attacker with a very accurate

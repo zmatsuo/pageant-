@@ -1,7 +1,11 @@
 ﻿#ifndef KEYVIEWDLG_H
 #define KEYVIEWDLG_H
 
+#pragma warning(push)
+#pragma warning(disable:4127)
+#pragma warning(disable:4251)
 #include <QDialog>
+#pragma warning(pop)
 
 namespace Ui {
 class keyviewdlg;

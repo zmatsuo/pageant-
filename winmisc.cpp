@@ -693,13 +693,12 @@ void debug_console_init()
 	}
 }
 
-void debug_console_puts(const char *buf)
+extern "C" void debug_console_puts(const char *buf)
 {
     if (!debug_console_opend) {
 		debug_console_init();
-    } else {
-		printf("%s", buf);
-	}
+    }
+	printf("%s", buf);
 }
 
 void debug_console_show(int show)

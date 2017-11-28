@@ -1,8 +1,12 @@
 #ifndef ABOUTDLG_H
 #define ABOUTDLG_H
 
+#pragma warning(push)
+#pragma warning(disable:4127)
+#pragma warning(disable:4251)
 #include <QDialog>
 #include "ui_aboutdlg.h"
+#pragma warning(pop)
 
 namespace Ui {
 class AboutDlg;

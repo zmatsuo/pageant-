@@ -163,6 +163,20 @@ int get_confirm_any_request(void);
 void pageant_del_key(const char *fingerprint);
 char *pageant_get_pubkey(const char *fingerprint);
 
+typedef void (*agent_query_synchronous_fn)(void *in, size_t inlen, void **out, size_t *outlen);
+void pagent_set_destination(agent_query_synchronous_fn fn);
+
+bool parse_one_key(
+    struct ssh2_userkey **_key,
+    const void *msg,
+    size_t msglen,
+    const char **fail_reason);
+bool parse_one_public_key(
+	struct ssh2_userkey **_key,
+	const void *msg,
+	size_t msglen,
+	const char **fail_reason);
+
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

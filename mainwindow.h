@@ -2,9 +2,14 @@
 #define MAINWINDOW_H
 
 #include <vector>
+
+#pragma warning(push)
+#pragma warning(disable:4127)
+#pragma warning(disable:4251)
 #include <QMainWindow>
 #include <QSystemTrayIcon>
 #include <QAbstractNativeEventFilter>
+#pragma warning(pop)
 
 #include "gui_stuff.h"
 
@@ -29,6 +34,7 @@ public slots:
     int slot_passphraseDlg(struct PassphraseDlgInfo *info);
     void trayClicked(QSystemTrayIcon::ActivationReason e);
     void on_pushButtonAddKey_clicked();
+    void on_pushButtonAddBTKey_clicked();
 
 private slots:
     void on_pushButton_close_clicked();
@@ -41,7 +47,7 @@ private slots:
 	
 private:
     void createTrayIcon();
-    void createTrayIconMenu();
+    void trayIconMenu();
 
     Ui::MainWindow *ui;
 

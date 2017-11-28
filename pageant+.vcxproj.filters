@@ -50,23 +50,29 @@
     <Filter Include="ud_socket">
       <UniqueIdentifier>{b946e74a-1dde-43f1-9c9b-05de3a33cf76}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ssh-agent-emu">
-      <UniqueIdentifier>{3363f752-8b56-41f5-9efa-39ddc90ae9f5}</UniqueIdentifier>
-    </Filter>
     <Filter Include="cert">
       <UniqueIdentifier>{24869e3b-e0ae-4f75-b294-c94d68e5f3d2}</UniqueIdentifier>
     </Filter>
     <Filter Include="ssh">
       <UniqueIdentifier>{57196c67-23dc-4363-b451-27f13dc07cb9}</UniqueIdentifier>
     </Filter>
-    <Filter Include="winpgnt">
-      <UniqueIdentifier>{89760f36-e967-4f05-9f76-bdfcbad2e030}</UniqueIdentifier>
-    </Filter>
     <Filter Include="gui">
       <UniqueIdentifier>{2103137f-3de3-4fd1-b1fe-9682db3185bd}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ssh-agent-ms">
+    <Filter Include="agent">
+      <UniqueIdentifier>{6e0c4a7a-730a-48e6-82cf-82579b57d136}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="agent\ssh-agent-emu">
+      <UniqueIdentifier>{3363f752-8b56-41f5-9efa-39ddc90ae9f5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="agent\ssh-agent-ms">
       <UniqueIdentifier>{7d329584-3e03-420e-88ef-709ed8aec361}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="agent\winpgnt">
+      <UniqueIdentifier>{89760f36-e967-4f05-9f76-bdfcbad2e030}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="agent\bt">
+      <UniqueIdentifier>{56107755-b15a-42d1-8e72-7e244a2875ab}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -107,7 +113,7 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="ssh-agent_emu.cpp">
-      <Filter>ssh-agent-emu</Filter>
+      <Filter>agent\ssh-agent-emu</Filter>
     </ClCompile>
     <ClCompile Include="cert\cert_pkcs.c">
       <Filter>cert</Filter>
@@ -173,7 +179,7 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="winpgntc.c">
-      <Filter>winpgnt</Filter>
+      <Filter>agent\winpgnt</Filter>
     </ClCompile>
     <ClCompile Include="confirmacceptdlg.cpp">
       <Filter>gui</Filter>
@@ -188,7 +194,7 @@
       <Filter>gui</Filter>
     </ClCompile>
     <ClCompile Include="winpgnt.cpp">
-      <Filter>winpgnt</Filter>
+      <Filter>agent\winpgnt</Filter>
     </ClCompile>
     <ClCompile Include="pageant_cpp.cpp">
       <Filter>Source Files</Filter>
@@ -196,11 +202,8 @@
     <ClCompile Include="misc_cpp.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="GeneratedFiles\qrc_pageant+.cpp">
-      <Filter>Generated Files\Debug</Filter>
-    </ClCompile>
     <ClCompile Include="ssh-agent_ms.cpp">
-      <Filter>ssh-agent-ms</Filter>
+      <Filter>agent\ssh-agent-ms</Filter>
     </ClCompile>
     <ClCompile Include="libunixdomain\ud_socket.c">
       <Filter>ud_socket</Filter>
@@ -214,9 +217,6 @@
     <ClCompile Include="cert\pkcs_helper.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="passphrasedlg.cpp">
-      <Filter>Generated Files\Debug</Filter>
-    </ClCompile>
     <ClCompile Include="winutils_cpp.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -228,6 +228,24 @@
     </ClCompile>
     <ClCompile Include="keyviewdlg.cpp">
       <Filter>gui</Filter>
+    </ClCompile>
+    <ClCompile Include="bt_agent_proxy.cpp">
+      <Filter>agent\bt</Filter>
+    </ClCompile>
+    <ClCompile Include="bt_agent_proxy_main.cpp">
+      <Filter>agent\bt</Filter>
+    </ClCompile>
+    <ClCompile Include="debug.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="utf8.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="passphrasedlg.cpp">
+      <Filter>gui</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\qrc_pageant+.cpp">
+      <Filter>Generated Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -264,13 +282,11 @@
     <CustomBuild Include="keyviewdlg.h">
       <Filter>gui</Filter>
     </CustomBuild>
-  </ItemGroup>
-  <ItemGroup>
-    <CustomBuild Include="debug\moc_predefs.h.cbt">
-      <Filter>Generated Files</Filter>
-    </CustomBuild>
     <CustomBuild Include="release\moc_predefs.h.cbt">
-      <Filter>Generated Files</Filter>
+      <Filter>Generated Files\Release</Filter>
+    </CustomBuild>
+    <CustomBuild Include="debug\moc_predefs.h.cbt">
+      <Filter>Generated Files\Debug</Filter>
     </CustomBuild>
   </ItemGroup>
   <ItemGroup>
@@ -304,7 +320,7 @@
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="ssh-agent_emu.h">
-      <Filter>ssh-agent-emu</Filter>
+      <Filter>agent\ssh-agent-emu</Filter>
     </ClInclude>
     <ClInclude Include="cert\cert_common.h">
       <Filter>cert</Filter>
@@ -340,7 +356,7 @@
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="winpgnt.h">
-      <Filter>winpgnt</Filter>
+      <Filter>agent\winpgnt</Filter>
     </ClInclude>
     <ClInclude Include="misc_cpp.h">
       <Filter>Source Files</Filter>
@@ -352,7 +368,7 @@
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="ssh-agent_ms.h">
-      <Filter>ssh-agent-ms</Filter>
+      <Filter>agent\ssh-agent-ms</Filter>
     </ClInclude>
     <ClInclude Include="pgpkey.h">
       <Filter>Source Files</Filter>
@@ -378,9 +394,6 @@
     <ClInclude Include="winhelp_.h">
       <Filter>Source Files</Filter>
     </ClInclude>
-    <ClInclude Include="passphrasedlg.h">
-      <Filter>Generated Files</Filter>
-    </ClInclude>
     <ClInclude Include="GeneratedFiles\ui_passphrasedlg.h">
       <Filter>Generated Files</Filter>
     </ClInclude>
@@ -390,8 +403,20 @@
     <ClInclude Include="GeneratedFiles\ui_keyviewdlg.h">
       <Filter>Generated Files</Filter>
     </ClInclude>
+    <ClInclude Include="bt_agent_proxy.h">
+      <Filter>agent\bt</Filter>
+    </ClInclude>
+    <ClInclude Include="bt_agent_proxy_main.h">
+      <Filter>agent\bt</Filter>
+    </ClInclude>
+    <ClInclude Include="utf8.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
     <ClInclude Include="winutils_qt.h">
-      <Filter>Generated Files</Filter>
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="passphrasedlg.h">
+      <Filter>gui</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

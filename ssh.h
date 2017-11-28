@@ -147,8 +147,12 @@ unsigned char *rsa_public_blob(struct RSAKey *key, int *len);
 int rsa_public_blob_len(void *data, int maxlen);
 void freersakey(struct RSAKey *key);
 
-typedef unsigned int word32;
+#ifndef PUTTY_UINT32_DEFINED
+/* This makes assumptions about the int type. */
 typedef unsigned int uint32;
+#define PUTTY_UINT32_DEFINED
+#endif
+typedef uint32 word32;
 
 unsigned long crc32_compute(const void *s, size_t len);
 unsigned long crc32_update(unsigned long crc_input, const void *s, size_t len);
@@ -158,6 +162,27 @@ void *crcda_make_context(void);
 void crcda_free_context(void *handle);
 int detect_attack(void *handle, unsigned char *buf, uint32 len,
 		  unsigned char *IV);
+
+/*
+ * SSH2 RSA key exchange functions
+ */
+struct ssh_hash;
+void *ssh_rsakex_newkey(char *data, int len);
+void ssh_rsakex_freekey(void *key);
+int ssh_rsakex_klen(void *key);
+void ssh_rsakex_encrypt(const struct ssh_hash *h, unsigned char *in, int inlen,
+                        unsigned char *out, int outlen,
+                        void *key);
+
+/*
+ * SSH2 ECDH key exchange functions
+ */
+struct ssh_kex;
+const char *ssh_ecdhkex_curve_textname(const struct ssh_kex *kex);
+void *ssh_ecdhkex_newkey(const struct ssh_kex *kex);
+void ssh_ecdhkex_freekey(void *key);
+char *ssh_ecdhkex_getpublic(void *key, int *len);
+Bignum ssh_ecdhkex_getkey(void *key, char *remoteKey, int remoteKeyLen);
 
 /*
  * Helper function for k generation in DSA, reused in ECDSA
@@ -222,11 +247,17 @@ typedef struct {
     int blkused;
     uint32 len[4];
 } SHA512_State;
+#define SHA384_State SHA512_State
 void SHA512_Init(SHA512_State * s);
 void SHA512_Bytes(SHA512_State * s, const void *p, int len);
 void SHA512_Final(SHA512_State * s, unsigned char *output);
 void SHA512_Simple(const void *p, int len, unsigned char *output);
+void SHA384_Init(SHA384_State * s);
+#define SHA384_Bytes(s, p, len) SHA512_Bytes(s, p, len)
+void SHA384_Final(SHA384_State * s, unsigned char *output);
+void SHA384_Simple(const void *p, int len, unsigned char *output);
 
+struct ssh_mac;
 struct ssh_cipher {
     void *(*make_context)(void);
     void (*free_context)(void *);
@@ -234,7 +265,7 @@ struct ssh_cipher {
     void (*encrypt) (void *, unsigned char *blk, int len);
     void (*decrypt) (void *, unsigned char *blk, int len);
     int blksize;
-    char *text_name;
+    const char *text_name;
 };
 
 struct ssh2_cipher {
@@ -348,23 +379,6 @@ struct ssh_signkey {
     const void *extra;                 /* private to the public key methods */
 };
 
-struct ssh_compress {
-    const char *name;
-    /* For zlib@openssh.com: if non-NULL, this name will be considered once
-     * userauth has completed successfully. */
-    const char *delayed_name;
-    void *(*compress_init) (void);
-    void (*compress_cleanup) (void *);
-    int (*compress) (void *, unsigned char *block, int len,
-		     unsigned char **outblock, int *outlen);
-    void *(*decompress_init) (void);
-    void (*decompress_cleanup) (void *);
-    int (*decompress) (void *, unsigned char *block, int len,
-		       unsigned char **outblock, int *outlen);
-    int (*disable_compression) (void *);
-    const char *text_name;
-};
-
 struct ssh2_userkey {
     const struct ssh_signkey *alg;     /* the key algorithm */
     void *data;			       /* the key data */
@@ -449,6 +463,7 @@ extern void pfd_unthrottle(Socket s);
 extern void pfd_override_throttle(Socket s, int enable);
 
 /* Exports from x11fwd.c */
+#if 0
 extern const char *x11_init(Socket *, char *, void *, void *, const char *,
 			    int, const Config *);
 extern void x11_close(Socket);
@@ -460,6 +475,7 @@ extern void x11_override_throttle(Socket s, int enable);
 extern int x11_get_screen_number(char *display);
 void x11_get_real_auth(void *authv, char *display);
 char *x11_display(const char *display);
+#endif
 
 /* Platform-dependent X11 functions */
 extern void platform_get_x11_auth(char *display, int *proto,

@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>629</width>
-    <height>440</height>
+    <width>673</width>
+    <height>474</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -29,6 +29,15 @@
        </property>
        <property name="selectionMode">
         <enum>QAbstractItemView::ExtendedSelection</enum>
+       </property>
+       <property name="verticalScrollMode">
+        <enum>QAbstractItemView::ScrollPerPixel</enum>
+       </property>
+       <property name="autoExpandDelay">
+        <number>-1</number>
+       </property>
+       <property name="allColumnsShowFocus">
+        <bool>true</bool>
        </property>
       </widget>
      </item>
@@ -54,6 +63,13 @@
           <widget class="QPushButton" name="pushButton_2">
            <property name="text">
             <string>Add PKCS Cert</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="pushButton_4">
+           <property name="text">
+            <string>Add bt Cert</string>
            </property>
           </widget>
          </item>

@@ -60,7 +60,6 @@ int main(int argc, char *argv[])
 
 	bool use_inifile = false;
 	QString inifile;
-	bool hide = true;
 	std::vector<std::wstring> keyfileAry;
 #if 1
 	{
@@ -74,10 +73,6 @@ int main(int argc, char *argv[])
 			QStringLiteral("ini"),
 			QStringLiteral("use inifile."), "ini_file");
 		parser.addOption(iniOption);
-		QCommandLineOption hideOption(
-			QStringLiteral("hide"),
-			QStringLiteral("hide window when startup."));
-		parser.addOption(hideOption);
 		parser.addPositionalArgument("path1 path2 ...","keyfile");
 	
 		QStringList qargv = QCoreApplication::arguments();
@@ -99,7 +94,6 @@ int main(int argc, char *argv[])
 		use_inifile = parser.isSet(iniOption);
 		if (use_inifile) {
 			inifile = parser.value(iniOption);
-			hide = parser.isSet(hideOption);
 			{
 				const QStringList args = parser.positionalArguments();
 				for (QString s : args) {
@@ -187,9 +181,7 @@ int main(int argc, char *argv[])
 
 	MainWindow w;
 	a.installNativeEventFilter(&w);
-	if (!hide) {
-		w.show();
-	}
+	//w.show();
 
 	// 鍵ファイル一覧を設定より取得
 	setting_get_keyfiles(keyfileAry);
@@ -198,6 +190,7 @@ int main(int argc, char *argv[])
 	add_keyfile(keyfileAry);
 
 	int r = a.exec();
+//	int r = 0;
 	dbgprintf("main leave %d\n", r);
 
 	// stop threads

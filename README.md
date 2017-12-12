@@ -61,6 +61,10 @@ putty-CACを元にしたCAPI(Cryptographic API)経由、pkcs#11経由で対応�
 - ACS ACR122 + マイナンバーカード
 - yubiko yubikey neo pivモード
 
+## うまく自動起動しなくなったとき
+
+pageant+のスタートタップ登録をもう一度やり直してください
+
 # 通信できるプログラム
 
 次のプログラムと通信できます。

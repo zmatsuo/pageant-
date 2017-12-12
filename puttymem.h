@@ -1,54 +1,76 @@
-﻿/*
- * PuTTY memory-handling header.
- */
+﻿/**
+   puttymem.h
+   PuTTY memory-handling header.
 
-#ifndef PUTTY_PUTTYMEM_H
-#define PUTTY_PUTTYMEM_H
+   Copyright (c) 2017 zmatsuo
+
+   This software is released under the MIT License.
+   http://opensource.org/licenses/mit-license.php
+*/
+#pragma once
 
 #include <windows.h>		/* for SecureZeroMemory */
 
 #include <stddef.h>			/* for size_t */
 #include <string.h>			/* for memcpy() */
-#include <stdlib.h>			/* for malloc() famiy */
+#include <stdlib.h>			/* for malloc() family */
 #include <crtdbg.h>
-#define malloc(size)	_malloc_dbg(size,_NORMAL_BLOCK,__FILE__,__LINE__) 
-//#define new ::new(_NORMAL_BLOCK, __FILE__, __LINE__)
 
-#ifdef __cplusplus
+#if defined(_DEBUG)
+#define malloc(size)	_malloc_dbg(size,_NORMAL_BLOCK,__FILE__,__LINE__) 
+#if defined(__cplusplus)
+#define new ::new(_NORMAL_BLOCK, __FILE__, __LINE__)
+#endif
+#endif
+
+#if defined(__cplusplus)
 extern "C" {
 #endif
 
-#if 0
-// use safe malloc family
+//#define MALLOC_LOG
+
+// safe malloc family
 void *safemalloc(size_t, size_t);
 void *saferealloc(void *, size_t, size_t);
 void safefree(void *);
 void safememclr(void *b, size_t len);
+
+// use crt malloc family
+#if 1
+#define _smalloc(size)					malloc(size)
+#define _snmalloc(size, count)			malloc(size*count)
+#define _srealloc(ptr, size, count)		realloc(ptr, size*count)
+#define _snrealloc(ptr, size, count)	realloc(ptr, size*count)
+#define _sfree(ptr)						free(ptr)
+#define	_smemclr(ptr, size)				SecureZeroMemory(ptr, size)
 #endif
 
-/* #define MALLOC_LOG  do this if you suspect putty of leaking memory */
-#ifdef MALLOC_LOG
-#define smalloc(z) (mlog(__FILE__,__LINE__), safemalloc(z,1))
-#define snmalloc(z,s) (mlog(__FILE__,__LINE__), safemalloc(z,s))
-#define srealloc(y,z) (mlog(__FILE__,__LINE__), saferealloc(y,z,1))
-#define snrealloc(y,z,s) (mlog(__FILE__,__LINE__), saferealloc(y,z,s))
-#define sfree(z) (mlog(__FILE__,__LINE__), safefree(z))
-void mlog(char *, int);
-#else
+// use safe malloc family
 #if 0
-#define smalloc(z) 		safemalloc(z,1)
-#define snmalloc 		safemalloc
-#define srealloc(y,z)	saferealloc(y,z,1)
-#define snrealloc 		saferealloc
-#define sfree 			safefree
-#define	smemclr(y, z)	safememclr(y,z)
+#define _smalloc(z)			safemalloc(z,1)		  
+#define _snmalloc(z,s)		safemalloc(z,s)	
+#define _srealloc(y,z)		saferealloc(y,z,1)	
+#define _snrealloc(y,z,s)	saferealloc(y,z,s)				
+#define _sfree(z)			safefree(z)					
+#define	_smemclr(y, z)		safememclr(y,z)
 #endif
-#define smalloc(size)				malloc(size)
-#define snmalloc(size, count)		malloc(size*count)
-#define srealloc(ptr, size, count)	realloc(ptr, size*count)
-#define snrealloc(ptr, size, count)	realloc(ptr, size*count)
-#define sfree(ptr)					free(ptr)
-#define	smemclr(ptr, size)			SecureZeroMemory(ptr, size)
+
+void mlog(const char *, int);
+
+#if defined(MALLOC_LOG)
+#define smalloc(z)			(mlog(__FILE__,__LINE__), _smalloc(z))
+#define snmalloc(z,s)		(mlog(__FILE__,__LINE__), _snmalloc(z,s))
+#define srealloc(y,z)		(mlog(__FILE__,__LINE__), _srealloc(y,z,1))
+#define snrealloc(y,z,s)	(mlog(__FILE__,__LINE__), _snrealloc(y,z,s))
+#define sfree(z)			(mlog(__FILE__,__LINE__), _sfree(z))
+#define	smemclr(y, z)		(mlog(__FILE__,__LINE__), _smemclr(y,z))
+#else
+#define smalloc(z)			_smalloc(z)
+#define snmalloc(z,s)		_snmalloc(z,s)
+#define srealloc(y,z)		_srealloc(y,z,1)
+#define snrealloc(y,z,s)	_snrealloc(y,z,s)
+#define sfree(z)			_sfree(z)
+#define	smemclr(y, z)		_smemclr(y,z)
 #endif
 
 /*
@@ -57,14 +79,12 @@ void mlog(char *, int);
  * you don't mistakenly allocate enough space for one sort of
  * structure and assign it to a different sort of pointer.
  */
-#define snew(type) ((type *)snmalloc(1, sizeof(type)))
-#define snewn(n, type) ((type *)snmalloc((n), sizeof(type)))
-#define sresize(ptr, n, type) ((type *)snrealloc((ptr), (n), sizeof(type)))
+#define snew(type)				((type *)snmalloc(1, sizeof(type)))
+#define snewn(n, type)			((type *)snmalloc((n), sizeof(type)))
+#define sresize(ptr, n, type)	((type *)snrealloc((ptr), (n), sizeof(type)))
 
 #ifdef __cplusplus
 }
-#endif
-
 #endif
 
 // Local Variables:

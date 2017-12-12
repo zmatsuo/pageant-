@@ -1,9 +1,11 @@
+
+#pragma once
+
 #include <stdio.h>
 #include <string.h>
 
 #include "puttymem.h"
 #include "network.h"
-#include "int64.h"
 #include "misc.h"
 #include "filename.h"
 
@@ -141,7 +143,7 @@ void rsasign(unsigned char *data, int length, struct RSAKey *key);
 void rsasanitise(struct RSAKey *key);
 int rsastr_len(struct RSAKey *key);
 void rsastr_fmt(char *str, struct RSAKey *key);
-void rsa_fingerprint(char *str, int len, struct RSAKey *key);
+void rsa_fingerprint(char *str, int len, const struct RSAKey *key);
 int rsa_verify(struct RSAKey *key);
 unsigned char *rsa_public_blob(struct RSAKey *key, int *len);
 int rsa_public_blob_len(void *data, int maxlen);
@@ -241,6 +243,9 @@ void SHA256_Bytes(SHA256_State * s, const void *p, int len);
 void SHA256_Final(SHA256_State * s, unsigned char *output);
 void SHA256_Simple(const void *p, int len, unsigned char *output);
 
+typedef struct {
+    unsigned long hi, lo;
+} uint64;
 typedef struct {
     uint64 h[8];
     unsigned char block[128];

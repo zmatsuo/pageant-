@@ -44,7 +44,6 @@ private:
     Ui::SettingDlg *ui;
 
     void dispSockPath(const std::string &path);
-    bool setStartup(int action);
     void dispSetting();
     void arrengePassphraseUI(bool enable);
 

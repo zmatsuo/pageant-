@@ -63,8 +63,6 @@ SOURCES += main.cpp\
     cert/cert_common.c \
     cert/cert_pkcs.c \
     aqsync.c \
-    winucs.c \
-    miscucs.c \
     settingdlg.cpp \
     setting.cpp \
     ssh-agent_ms.cpp \
@@ -75,7 +73,8 @@ SOURCES += main.cpp\
     bt_agent_proxy.cpp \
     bt_agent_proxy_main.cpp \
     debug.c \
-    utf8.cpp
+    ckey.cpp \
+    codeconvert.cpp
 
 HEADERS  += mainwindow.h \
     passphrasedlg.h \
@@ -90,7 +89,8 @@ HEADERS  += mainwindow.h \
     btselectdlg.h \
     bt_agent_proxy.h \
     bt_agent_proxy_main.h \
-    utf8.h
+    ckey.h \
+    codeconvert.h
     
 FORMS    += mainwindow.ui \
     passphrasedlg.ui \

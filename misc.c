@@ -1,6 +1,13 @@
-/*
- * Platform-independent routines shared between all PuTTY programs.
- */
+/**
+   misc.c
+   from putty
+   Platform-independent routines shared between all PuTTY programs.
+
+   Copyright (c) 2017 zmatsuo
+
+   This software is released under the MIT License.
+   http://opensource.org/licenses/mit-license.php
+*/
 #undef UNICODE
 #define _CRT_SECURE_NO_WARNINGS
 #include <stdio.h>
@@ -12,10 +19,12 @@
 #include <windows.h>
 #include <crtdbg.h>
 
-#include "misc.h"
 #include "filename.h"
 #include "winutils.h"
 #include "version.h"
+#include "puttymem.h"
+#include "misc.h"
+#include "codeconvert.h"
 
 
 /*
@@ -323,10 +332,12 @@ char *dupprintf(const char *fmt, ...)
     return ret;
 }
 
-struct strbuf {
+// ÉçÅ[ÉJÉãÇæÇØÅA
+#if 1
+typedef struct strbuf {
     char *s;
     int len, size;
-};
+} strbuf;
 strbuf *strbuf_new(void)
 {
     strbuf *buf = snew(strbuf);
@@ -363,6 +374,7 @@ void strbuf_catf(strbuf *buf, const char *fmt, ...)
     strbuf_catfv(buf, fmt, ap);
     va_end(ap);
 }
+#endif
 
 /*
  * Read an entire line of text from a file. Return a buffer
@@ -630,7 +642,7 @@ static FILE *fp = NULL;
 static char *mlog_file = NULL;
 static int mlog_line = 0;
 
-void mlog(char *file, int line)
+void mlog(const char *file, int line)
 {
     mlog_file = file;
     mlog_line = line;
@@ -1062,7 +1074,7 @@ Filename *filename_from_wstr(const wchar_t *str)
 
 Filename *filename_from_str(const char *str)
 {
-    wchar_t *wstr = dup_mb_to_wc(CP_ACP, 0, str);
+    wchar_t *wstr = dup_mb_to_wc(str);
     Filename *ret = filename_from_wstr(wstr);
     free(wstr);
     return ret;

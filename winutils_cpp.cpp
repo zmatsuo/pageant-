@@ -8,6 +8,7 @@
 #include "winhelp.h"
 #include "winhelp_.h"
 #include "misc_cpp.h"
+#include "codeconvert.h"
 
 #include "gui_stuff.h"
 
@@ -33,28 +34,7 @@ static VOID CALLBACK message_box_help_callback(LPHELPINFO lpHelpInfo)
  *		IDRETRY
  *		IDYES
  */
-int message_box(LPCTSTR text, LPCTSTR caption, DWORD style, DWORD helpctxid)
-{
-	MSGBOXPARAMSA mbox = {
-		sizeof(mbox)
-	};
-    mbox.hInstance = (HINSTANCE)::GetModuleHandle(NULL);
-    mbox.hwndOwner = get_hwnd();
-    mbox.dwLanguageId = LANG_NEUTRAL;
-    mbox.lpszText = text;
-    mbox.lpszCaption = caption;
-    mbox.dwContextHelpId = helpctxid;
-    mbox.dwStyle = style;
-    if (helpctxid != WINHELP_CTXID_no_help &&	// WINHELP_CTXID_no_help == 0
-		has_help())
-	{
-		mbox.dwStyle |= MB_HELP;
-		mbox.lpfnMsgBoxCallback = &message_box_help_callback;
-	}
-    return ::MessageBoxIndirectA(&mbox);
-}
-
-int message_boxW(const wchar_t *text, const wchar_t *caption, DWORD style, DWORD helpctxid)
+int message_box(const wchar_t *text, const wchar_t *caption, DWORD style, DWORD helpctxid)
 {
 	MSGBOXPARAMSW mbox = {
 		sizeof(mbox)
@@ -73,6 +53,19 @@ int message_boxW(const wchar_t *text, const wchar_t *caption, DWORD style, DWORD
 		mbox.lpfnMsgBoxCallback = &message_box_help_callback;
 	}
     return ::MessageBoxIndirectW(&mbox);
+}
+
+int message_boxW(const wchar_t *text, const wchar_t *caption, DWORD style, DWORD helpctxid)
+{
+	return message_box(text, caption, style, helpctxid);
+}
+
+int message_boxA(const char *text, const char *caption, DWORD style, DWORD helpctxid)
+{
+	std::wstring wtext = acp_to_wc(text);
+	std::wstring wcaption = acp_to_wc(caption);
+	int r = message_box(wtext.c_str(), wcaption.c_str(), style, helpctxid);
+	return r;
 }
 
 //////////////////////////////////////////////////////////////////////////////

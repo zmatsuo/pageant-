@@ -1,5 +1,7 @@
 ﻿#include "passphrasedlg.h"
 
+#define strdup(s)	dupstr(s)
+
 passphrase::passphrase(QWidget *parent, PassphraseDlgInfo *ptr)
 	: QDialog(parent)
 {

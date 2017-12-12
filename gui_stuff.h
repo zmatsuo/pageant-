@@ -32,7 +32,7 @@ struct PassphraseDlgInfo {
 
 DIALOG_RESULT_T passphraseDlg(struct PassphraseDlgInfo *info);
 
-int message_box(const char *text, const char *caption, DWORD style, DWORD helpctxid);
+int message_boxA(const char *text, const char *caption, DWORD style, DWORD helpctxid);
 int message_boxW(const wchar_t *text, const wchar_t *caption, DWORD style, DWORD helpctxid);
 
 int task_dialog(
@@ -51,9 +51,15 @@ char *pin_dlg(const wchar_t *text, const wchar_t *caption, HWND hWnd, BOOL *pSav
 void addFileCert();
 void addCAPICert();
 void addPKCSCert();
+void addBtCert();
 
 #ifdef __cplusplus
 }
+#endif
+
+#if defined(__cplusplus)
+extern "C++" int message_box(const char *text, const char *caption, DWORD style, DWORD helpctxid = 0);
+extern "C++" int message_box(const wchar_t *text, const wchar_t *caption, DWORD style, DWORD helpctxid = 0);
 #endif
 
 #endif

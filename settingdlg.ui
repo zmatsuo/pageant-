@@ -39,7 +39,7 @@
     </rect>
    </property>
    <property name="currentIndex">
-    <number>5</number>
+    <number>0</number>
    </property>
    <widget class="QWidget" name="tab">
     <attribute name="title">
@@ -649,34 +649,11 @@
       <string>Enable Bluetooth SSH Agent relay</string>
      </property>
     </widget>
-    <widget class="QLineEdit" name="lineEdit_2">
-     <property name="geometry">
-      <rect>
-       <x>120</x>
-       <y>60</y>
-       <width>113</width>
-       <height>20</height>
-      </rect>
-     </property>
-    </widget>
-    <widget class="QLabel" name="label_10">
-     <property name="geometry">
-      <rect>
-       <x>40</x>
-       <y>60</y>
-       <width>81</width>
-       <height>16</height>
-      </rect>
-     </property>
-     <property name="text">
-      <string>device name</string>
-     </property>
-    </widget>
     <widget class="QLabel" name="label_11">
      <property name="geometry">
       <rect>
        <x>40</x>
-       <y>90</y>
+       <y>50</y>
        <width>81</width>
        <height>16</height>
       </rect>
@@ -689,7 +666,7 @@
      <property name="geometry">
       <rect>
        <x>120</x>
-       <y>90</y>
+       <y>50</y>
        <width>42</width>
        <height>22</height>
       </rect>

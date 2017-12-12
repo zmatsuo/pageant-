@@ -12,7 +12,7 @@
 #include "pageant.h"
 
 //#define APPNAME "Pageant"			// access ini and registory
-#define strdup(p)	_strdup(p)
+#define strdup(s)	dupstr(s)
 
 //////////////////////////////////////////////////////////////////////////////
 

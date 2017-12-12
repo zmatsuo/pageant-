@@ -2,8 +2,10 @@
 #pragma once
 
 #include <stdint.h>
+#if 1
 #include <winsock2.h>
 #include <ws2bth.h>
+#endif
 
 #include <vector>
 
@@ -29,10 +31,12 @@ typedef enum {
 
 typedef struct bta_notify_param_st {
 	bta_notify_t type;
+#if 0
 #if defined(_MSC_VER) || defined(__MINGW32__)
 	SOCKET sock;
 #else
 	int sock;
+#endif
 #endif
 	union {
 		struct {
@@ -70,7 +74,7 @@ bt_agent_proxy_t *bta_init(const bta_init_t *init_info);
 bool bta_connect(bt_agent_proxy_t *hBta, const BTH_ADDR *deviceAddr);
 bool bta_disconnect(bt_agent_proxy_t *hBta);
 void bta_exit(bt_agent_proxy_t *hBta);
-void bta_send(bt_agent_proxy_t *hBta, const uint8_t *data, size_t len);
+bool bta_send(bt_agent_proxy_t *hBta, const uint8_t *data, size_t len);
 void bta_deviceinfo(bt_agent_proxy_t *hBta, std::vector<DeviceInfoType> &deivceInfo);
 
 

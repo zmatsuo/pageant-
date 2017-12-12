@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>411</width>
-    <height>289</height>
+    <width>532</width>
+    <height>375</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -28,6 +28,13 @@
         <widget class="QPushButton" name="pushButton">
          <property name="text">
           <string>追加</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="pushButton_2">
+         <property name="text">
+          <string>検索</string>
          </property>
         </widget>
        </item>

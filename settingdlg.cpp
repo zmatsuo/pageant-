@@ -9,6 +9,7 @@
 #pragma warning(disable:4127)
 #pragma warning(disable:4251)
 #include <QDir>
+#include <qmap.h>		// TODO newのdefineでエラーが出るので入れた
 #pragma warning(pop)
 
 #include "pageant+.h"
@@ -114,8 +115,8 @@ SettingDlg::SettingDlg(QWidget *parent) :
 
 	// startup
 	{
-		const bool check = setStartup(0);
-		ui->checkBox_13->setChecked(check);
+		const int startup = setting_get_startup();
+		ui->checkBox_13->setChecked(startup == 1);
 	}
 	
     ui->checkBox->setChecked(setting_get_bool("ssh-agent/cygwin_sock"));
@@ -182,13 +183,10 @@ SettingDlg::SettingDlg(QWidget *parent) :
 	{
 #if !defined(DEVELOP_VERSION)
 		ui->checkBox_6->setEnabled(false);
-		ui->lineEdit_2->setEnabled(false);
 		ui->spinBox->setEnabled(false);
 #endif
 		ui->checkBox_6->setChecked(
 			setting_get_bool("bt/enable", false));
-		ui->lineEdit_2->setText(
-			QString::fromStdWString(setting_get_str("bt/device", nullptr)));
 		ui->spinBox->setValue(
 			setting_get_int("bt/timeoute", 10));
 	}
@@ -287,7 +285,24 @@ void SettingDlg::on_buttonBox_accepted()
 	
 	// startup
 	{
-		setStartup(ui->checkBox_13->isChecked() == false ? 2 : 1);
+		if (ui->checkBox_13->isChecked() == false) {
+			setting_set_startup(false);
+		} else {
+			bool setup_startup = true;
+			const int startup = setting_get_startup();
+			if (startup == 2) {
+				std::wstring text =
+					L"スタートアップに他のexeのパスが設定されています\n"
+					"設定しますか?";
+				int r = message_boxW(text.c_str(), L"" "Pageant+", MB_YESNO, 0);
+				if (r == IDNO) {
+					setup_startup = false;
+				}
+			}
+			if (setup_startup == true) {
+				setting_set_startup(true);
+			}
+		}
 	}
 
 	// debug
@@ -302,7 +317,6 @@ void SettingDlg::on_buttonBox_accepted()
 	// bluetooth
 	{
 		setting_set_bool("bt/enable", ui->checkBox_6->isChecked());
-		setting_set_str("bt/device", ui->lineEdit_2->text().toStdWString().c_str());
 		setting_set_int("bt/timeoute", ui->spinBox->value());
 	}
 
@@ -400,40 +414,6 @@ void SettingDlg::on_pushButton_11_clicked()
 	exec_regedit(L"HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run");
 }
 
-/*
- *	@param	action	0	取得
- *					1	起動するよう設定
- *					2	起動しないよう設定
- *	@retval	true	launch
- *	@retval	false	don't launch
- */
-bool SettingDlg::setStartup(int action)
-{
-    const wchar_t *subkey =
-		L"Software\\Microsoft\\Windows\\CurrentVersion\\Run";
-    const wchar_t *valuename = L"pageant+";
-    std::wstring str;
-    bool result = reg_read_cur_user(subkey, valuename, str);
-    switch (action) {
-    case 0:
-    default:
-		// コントロールに反映させる
-		break;
-    case 1:
-		// 起動するようレジストリに登録
-		str = setting_get_my_fullpath();
-		reg_write_cur_user(subkey, valuename, str.c_str());
-		result = true;
-		break;
-	case 2:
-		// 削除する
-		reg_delete_cur_user(subkey, valuename);
-		result = false;
-		break;
-    }
-	return result;
-}
-
 // exeフォルダをexplorerで開く
 void SettingDlg::on_pushButton_8_clicked()
 {
@@ -503,7 +483,7 @@ void SettingDlg::on_checkBox_7_clicked()
 
 void SettingDlg::on_pushButton_12_clicked()
 {
-#if defined(_DEBUG)
+#if defined(DEVELOP_VERSION) || defined(_DEBUG)
 	if ((GetAsyncKeyState(VK_LSHIFT) & 0x8000) != 0) {
 		// shiftキーが押されている
 		std::vector<std::string> passphraseAry;
@@ -519,11 +499,11 @@ void SettingDlg::on_pushButton_12_clicked()
 			text += "\n";
 		}
 		text = "count " + std::to_string(n) + "\n" + text;
-		message_box(text.c_str(), "secret pp", MB_OK | MB_ICONERROR, 0);
+		message_boxA(text.c_str(), "secret pp", MB_OK | MB_ICONERROR, 0);
 	} else
 #endif
 	{
-		int r = message_box(
+		int r = message_boxA(
 			"forgot passphrases OK?", "ok?",
 			MB_OKCANCEL | MB_ICONERROR, 0);
 		if (r == IDOK) {

@@ -41,7 +41,7 @@
        <item row="0" column="0">
         <widget class="QLabel" name="labelCopyright">
          <property name="text">
-          <string>©1997-2017 Simon Tatham. All rights reserved.</string>
+          <string>© 1997-2017 Simon Tatham. All rights reserved.</string>
          </property>
         </widget>
        </item>

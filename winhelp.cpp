@@ -80,7 +80,7 @@ void launch_help(HWND hwnd, const char *topic)
 			WinHelp(hwnd, help_path.c_str(), HELP_COMMAND, (ULONG_PTR)cmd);
 			sfree(cmd);
 		} else {
-			message_box("ヘルプがおかしい?", APP_NAME, MB_OK, 0);
+			message_boxA("ヘルプがおかしい?", APP_NAME, MB_OK, 0);
 		}
     } else {
 		if (!chm_path.empty()) {
@@ -89,7 +89,7 @@ void launch_help(HWND hwnd, const char *topic)
 			WinHelp(hwnd, help_path.c_str(),
 					help_has_contents ? HELP_FINDER : HELP_CONTENTS, 0);
 		} else {
-			message_box("ヘルプがおかしい?", APP_NAME, MB_OK, 0);
+			message_boxA("ヘルプがおかしい?", APP_NAME, MB_OK, 0);
 		}
     }
     requested_help = true;
@@ -129,7 +129,7 @@ static const struct ctxListSt *help_get_ctx_from_ctxid(DWORD_PTR dwContextId)
 void launch_help_id(HWND hwnd, DWORD id)
 {
 	if (!has_help()) {
-		message_box("ヘルプがありません", APP_NAME, MB_OK, 0);
+		message_boxA("ヘルプがありません", APP_NAME, MB_OK, 0);
 		return;
 	}
 

@@ -163,12 +163,6 @@
     <ClCompile Include="aqsync.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="miscucs.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="winucs.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="GeneratedFiles\Debug\moc_settingdlg.cpp">
       <Filter>Generated Files\Debug</Filter>
     </ClCompile>
@@ -238,14 +232,26 @@
     <ClCompile Include="debug.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="utf8.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="passphrasedlg.cpp">
       <Filter>gui</Filter>
     </ClCompile>
     <ClCompile Include="GeneratedFiles\qrc_pageant+.cpp">
       <Filter>Generated Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ckey.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="btselectdlg.cpp">
+      <Filter>gui</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Debug\moc_btselectdlg.cpp">
+      <Filter>Generated Files\Debug</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Release\moc_btselectdlg.cpp">
+      <Filter>Generated Files\Release</Filter>
+    </ClCompile>
+    <ClCompile Include="codeconvert.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -287,6 +293,12 @@
     </CustomBuild>
     <CustomBuild Include="debug\moc_predefs.h.cbt">
       <Filter>Generated Files\Debug</Filter>
+    </CustomBuild>
+    <CustomBuild Include="btselectdlg.ui">
+      <Filter>Form Files</Filter>
+    </CustomBuild>
+    <CustomBuild Include="btselectdlg.h">
+      <Filter>gui</Filter>
     </CustomBuild>
   </ItemGroup>
   <ItemGroup>
@@ -409,14 +421,23 @@
     <ClInclude Include="bt_agent_proxy_main.h">
       <Filter>agent\bt</Filter>
     </ClInclude>
-    <ClInclude Include="utf8.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
     <ClInclude Include="winutils_qt.h">
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="passphrasedlg.h">
       <Filter>gui</Filter>
+    </ClInclude>
+    <ClInclude Include="ckey.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="gui_stuff.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="GeneratedFiles\ui_btselectdlg.h">
+      <Filter>Generated Files</Filter>
+    </ClInclude>
+    <ClInclude Include="codeconvert.h">
+      <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

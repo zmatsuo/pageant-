@@ -510,66 +510,6 @@ bool parse_one_key(
 	return true;
 }
 
-/**
- *	publicキーblobをパースしてssh2_userkeyに取得する
- *
- *	TODO: ssh key系に持っていく
- */
-bool parse_one_public_key(
-	struct ssh2_userkey **_key,
-	const void *msg,
-	size_t msglen,
-	const char **fail_reason)
-{
-	const unsigned char *p = msg;
-	const unsigned char *msgend = p + msglen;
-
-	if (msgend < p+4) {
-		*fail_reason = "request truncated before key algorithm";
-		return false;
-	}
-	int alglen = toint(GET_32BIT(p));
-	if (alglen < 0 || alglen > msgend - p) {
-		*fail_reason = "request truncated before key algorithm";
-		return false;
-	}
-	const char *alg = (const char *)(p+4);
-
-	struct ssh2_userkey *key = snew(struct ssh2_userkey);
-	memset(key, 0, sizeof(struct ssh2_userkey));
-	key->alg = find_pubkey_alg_len(alglen, alg);
-	if (!key->alg) {
-		sfree(key);
-		*fail_reason = "algorithm unknown";
-		return false;
-	}
-
-	// ↓todo:内部で呼ぶ void *ssh_rsakex_newkey(char *data, int len)
-	struct RSAKey *rsa = key->alg->newkey(key->alg, p, msgend - p);
-	if (rsa == NULL) {
-		*fail_reason = "bad data";
-		return false;
-	}
-
-	// データの後ろにコメントがついている
-	{
-		p = msgend;
-		int commlen = toint(GET_32BIT(p));
-		p += 4;
-		char *comment = snewn(commlen + 1, char);
-		if (comment) {
-			memcpy(comment, p, commlen);
-			comment[commlen] = '\0';
-		}
-		rsa->comment = comment;
-	}
-
-	key->data = rsa;
-	key->comment = NULL;
-	*_key = key;
-	return true;
-}
-
 void *pageant_handle_msg(const void *msg, int msglen, int *outlen,
                          void *logctx, pageant_logfn_t logfn)
 {

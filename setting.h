@@ -22,12 +22,15 @@ int setting_get_int(const char *key, int _default);
 std::wstring setting_get_my_fullpath();
 void setting_get_keyfiles(std::vector<std::wstring> &list);
 void setting_add_keyfile(const wchar_t *_file);
+int get_use_inifile(void);
+void setting_get_passphrases(std::vector<std::string> &passphraseAry);
+int setting_get_startup();
+void setting_set_startup(bool enable);
+
+// for putty
 std::wstring get_putty_path();
 std::wstring get_putty_ini();
-int get_use_inifile(void);
 std::vector<std::wstring> setting_get_putty_sessions();
-
-void setting_get_passphrases(std::vector<std::string> &passphraseAry);
 
 #endif
 

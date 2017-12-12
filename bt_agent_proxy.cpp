@@ -11,6 +11,15 @@
 #include <list>
 
 #include <assert.h>
+#include <crtdbg.h>
+
+#if defined(_DEBUG)
+#define malloc(size)		_malloc_dbg(size,_NORMAL_BLOCK,__FILE__,__LINE__) 
+#define calloc(num, size)   _calloc_dbg(num, size, _NORMAL_BLOCK, __FILE__, __LINE__)
+#if defined(__cplusplus)
+#define new ::new(_NORMAL_BLOCK, __FILE__, __LINE__)
+#endif
+#endif
 
 #include "bt_agent_proxy.h"
 //#define ENABLE_DEBUG_PRINT
@@ -265,13 +274,6 @@ static std::vector<DeviceInfoType> PerformInquiry()
 #endif
 
 		////
-#if 0
-		DeviceInfoType2 info;
-		info.deviceAddr = btAddr;
-		info.deviceAddrStr = remote_address;
-		info.deviceName = pwsaResults->lpszServiceInstanceName;
-#endif
-		////
 		
 		DeviceInfoType _deviceInfo;
 		_deviceInfo.deviceName = pwsaResults->lpszServiceInstanceName;
@@ -383,10 +385,10 @@ static void bta_set_senddata(
 }
 
 
-static void bta_send_i(bt_agent_proxy_impl_t *impl)
+static bool bta_send_i(bt_agent_proxy_impl_t *impl)
 {
 	if (impl->send_pool_.size() == 0) {
-		return;
+		return false;
 	}
 	SOCKET client = impl->clientSocket_;
 	
@@ -395,7 +397,7 @@ static void bta_send_i(bt_agent_proxy_impl_t *impl)
 	int sent_size = send(client, (char *)send_ptr, (int)send_len, 0);
 	if (sent_size == SOCKET_ERROR) {
 		dbgprintf("error\n");
-		return;
+		return false;
 	}
 	dbgprintf("send %zd bytes, sent %d bytes\n", send_len, sent_size);
 	impl->send_top_ += sent_size;
@@ -405,6 +407,7 @@ static void bta_send_i(bt_agent_proxy_impl_t *impl)
 		impl->send_pool_.clear();
 		impl->send_top_ = 0;
 	}
+	return true;
 }
 
 static void exec_notify(
@@ -646,6 +649,9 @@ void bta_exit(bt_agent_proxy_t *hBta)
 	impl->threadExitRequest_ = true;
 	WSASetEvent(impl->hEventExit_);
 	impl->hThread_->join();
+	delete impl->hThread_;
+	impl->hThread_ = nullptr;
+	impl->deivceInfo_.clear();
 	WSACloseEvent(impl->hEventExit_);
 	free(impl);
 	free(hBta);
@@ -668,15 +674,18 @@ bool bta_disconnect(bt_agent_proxy_t *hBta)
 	return true;
 }
 
-void bta_send(bt_agent_proxy_t *hBta, const uint8_t *data, size_t len)
+bool bta_send(bt_agent_proxy_t *hBta, const uint8_t *data, size_t len)
 {
 	if (len == 0)
-		return;
+		return false;
 	bt_agent_proxy_impl_t *impl = get_impl_ptr(hBta);
 
 	// 送信する
 	bta_set_senddata(impl, data, len);
-	bta_send_i(impl);
+	bool r = bta_send_i(impl);
+	if (!r) {
+		return false;
+	}
 
 	// 送信が完了したらイベントを発生するようにしておく
 	//		まるでブロッキングソケットみたいに
@@ -685,6 +694,8 @@ void bta_send(bt_agent_proxy_t *hBta, const uint8_t *data, size_t len)
 		impl->pesudo_send_notify_ = true;
 		WSASetEvent(impl->hEventExit_);
 	}
+
+	return true;
 }
 
 void bta_deviceinfo(bt_agent_proxy_t *hBta, std::vector<DeviceInfoType> &deivceInfo)

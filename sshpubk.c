@@ -14,6 +14,7 @@
 //#include "putty.h"
 #include "ssh.h"
 #include "misc.h"
+#include "codeconvert.h"
 
 #ifdef PUTTY_CAC
 #include "cert_common.h"
@@ -640,9 +641,10 @@ const struct ssh_signkey *find_pubkey_alg(const char *name)
     return find_pubkey_alg_len(strlen(name), name);
 }
 
-struct ssh2_userkey *ssh2_load_userkey(const Filename *filename,
-				       const char *passphrase,
-                                       const char **errorstr)
+struct ssh2_userkey *ssh2_load_userkey(
+	const Filename *filename,
+	const char *passphrase,
+	const char **errorstr)
 {
     FILE *fp;
     char header[40], *b, *encryption, *comment, *mac;
@@ -657,7 +659,7 @@ struct ssh2_userkey *ssh2_load_userkey(const Filename *filename,
 
 #ifdef PUTTY_CAC
     {
-		char *mbs = dup_wc_to_mb(CP_ACP, 0, filename->path, -1, NULL, NULL, NULL);
+		char *mbs = dup_wc_to_mb(filename->path);
 		if(cert_is_certpath(mbs)) {
 			ret = cert_load_key(mbs);
 			if (ret == NULL) {
@@ -670,7 +672,7 @@ struct ssh2_userkey *ssh2_load_userkey(const Filename *filename,
     }
 #endif // PUTTY_CAC
     {
-		char *mbs = dup_wc_to_mb(CP_ACP, 0, filename->path, -1, NULL, NULL, NULL);
+		char *mbs = dup_wc_to_mb(filename->path);
 		if (strncmp("btspp://", mbs, 8) == 0)  {
 			// TODO bt 未実装
 			struct ssh2_userkey * userkey = snew(struct ssh2_userkey);
@@ -1156,7 +1158,7 @@ unsigned char *ssh2_userkey_loadpub(const Filename *filename, char **algorithm,
 
 #ifdef PUTTY_CAC
     {
-		char *mbs = dup_wc_to_mb(CP_ACP, 0, filename->path, -1, NULL, NULL, NULL);
+		char *mbs = dup_wc_to_mb(filename->path);
 		cert_convert_legacy(mbs);
 		if (cert_is_certpath(mbs)) {
 			struct ssh2_userkey * userkey = cert_load_key(mbs);
@@ -1176,7 +1178,7 @@ unsigned char *ssh2_userkey_loadpub(const Filename *filename, char **algorithm,
     }
 #endif // PUTTY_CAC
     {
-		char *mbs = dup_wc_to_mb(CP_ACP, 0, filename->path, -1, NULL, NULL, NULL);
+		char *mbs = dup_wc_to_mb(filename->path);
 		if (strncmp("btspp://", mbs, 8) == 0)  {
 			// TODO: bt 未実装
 			struct ssh2_userkey * userkey = snew(struct ssh2_userkey);
@@ -1371,18 +1373,18 @@ void base64_encode(FILE *fp, const unsigned char *data, int datalen, int cpl)
     int n, i;
 
     while (datalen > 0) {
-	n = (datalen < 3 ? datalen : 3);
-	base64_encode_atom(data, n, out);
-	data += n;
-	datalen -= n;
-	for (i = 0; i < 4; i++) {
-	    if (linelen >= cpl) {
-		linelen = 0;
-		fputc('\n', fp);
-	    }
-	    fputc(out[i], fp);
-	    linelen++;
-	}
+		n = (datalen < 3 ? datalen : 3);
+		base64_encode_atom(data, n, out);
+		data += n;
+		datalen -= n;
+		for (i = 0; i < 4; i++) {
+			if (linelen >= cpl) {
+				linelen = 0;
+				fputc('\n', fp);
+			}
+			fputc(out[i], fp);
+			linelen++;
+		}
     }
     fputc('\n', fp);
 }
@@ -1708,18 +1710,18 @@ char *ssh2_fingerprint(const struct ssh_signkey *alg, void *data)
     int len;
     unsigned char *blob = alg->public_blob(data, &len);
     char *ret = ssh2_fingerprint_blob(blob, len);
-
+#if 0
     unsigned char sha1[20];
 	SHA_Simple(blob, len, sha1);
     char sha1_digest[40+1];
     for (int i = 0; i < 20; i++)
         sprintf(sha1_digest + i*2, "%02x", sha1[i]);
-
-	
 	char *r = dupprintf("%s %s", ret, sha1_digest);
-	sfree(blob);
 	sfree(ret);
-    return r;
+	ret = r;
+#endif
+	sfree(blob);
+    return ret;
 }
 
 /* ----------------------------------------------------------------------
@@ -1776,7 +1778,7 @@ int key_type(const Filename *filename)
 
 #ifdef PUTTY_CAC
     {
-		char *mbs = dup_wc_to_mb(CP_ACP, 0, filename->path, -1, NULL, NULL, NULL);
+		char *mbs = dup_wc_to_mb(filename->path);
 		cert_convert_legacy(mbs);
 		ret = cert_is_certpath(mbs);
 		sfree(mbs);
@@ -1786,7 +1788,7 @@ int key_type(const Filename *filename)
     }
 #endif // PUTTY_CAC
     {
-		char *mbs = dup_wc_to_mb(CP_ACP, 0, filename->path, -1, NULL, NULL, NULL);
+		char *mbs = dup_wc_to_mb(filename->path);
 		ret = strncmp("btspp://", mbs, 8);
 		sfree(mbs);
 		if (ret == 0) {

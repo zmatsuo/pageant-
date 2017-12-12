@@ -91,7 +91,67 @@ private:
 		return true;
 	}
 
+	bool setting_get_strs_reg(
+		const wchar_t *section, const wchar_t *key,
+		std::vector<std::wstring> &strs)
+	{
+		std::wstring base = base_;
+		base += L"\\";
+		base += section;
+		bool r = reg_read_cur_user(base.c_str(), key, strs);
+		if (r == false) {
+			strs.clear();
+			return false;
+		}
+		return true;
+	}
+
+	bool setting_get_strs_ini(
+		const wchar_t *section, const wchar_t *key,
+		std::vector<std::wstring> &strs)
+	{
+		strs.clear();
+		int n = 0;
+		int read_error_count = 0;
+		while(1) {
+			std::wstring key_local = key;
+			key_local += L"_" + std::to_wstring(n);
+			std::wstring str;
+			bool r = _GetPrivateProfileString(section, key_local.c_str(), base_.c_str(), str);
+			if (r == false) {
+				read_error_count++;
+				if (read_error_count == 10)
+					break;
+			} else {
+				strs.push_back(str);
+			}
+			n++;
+		}
+		return true;
+	}
+	
 public:
+	bool setting_get_strs(const char *_key, std::vector<std::wstring> &strs)
+	{
+		std::wstring section;
+		std::wstring key;
+		get_key_sec(_key, section, key);
+
+		bool r;
+		if (type_ == TYPE_REG) {
+			r = setting_get_strs_reg(
+				section.c_str(), key.c_str(), strs);
+			return r;
+		}
+		if (type_ == TYPE_INI) {
+			r = setting_get_strs_ini(
+				section.c_str(), key.c_str(), strs);
+			return r;
+		}
+		strs.clear();
+		return false;
+	}
+
 	bool setting_get_str(const char *_key, const wchar_t *_default, std::wstring &str)
 	{
 		std::wstring section;
@@ -118,6 +178,42 @@ public:
 		std::wstring str;
 		setting_get_str(_key, _default, str);
 		return str;
+	}
+
+	bool setting_set_strs(const char *_key, std::vector<std::wstring> &strs)
+	{
+		std::wstring section;
+		std::wstring key;
+		get_key_sec(_key, section, key);
+
+		if (type_ == TYPE_REG) {
+			std::wstring base = base_;
+			base += L"\\";
+			base += section;
+			if (!strs.empty()) {
+				bool r = reg_write_cur_user(base.c_str(), key.c_str(), strs);
+				return r;
+			} else {
+				bool r = reg_delete_cur_user(base.c_str());
+				return r;
+			}
+		}
+		if (type_ == TYPE_INI) {
+			// 全削除
+			_WritePrivateProfileString(section.c_str(), nullptr, base_.c_str(), nullptr);
+			std::wstring key_local = key;
+			key_local += L"_count";
+			_WritePrivateProfileString(section.c_str(), key_local.c_str(), base_.c_str(),
+									   std::to_wstring(strs.size()).c_str());
+			int n = 0;
+			for (auto s : strs) {
+				key_local = key;
+				key_local += L"_" + std::to_wstring(n);
+				_WritePrivateProfileString(section.c_str(), key_local.c_str(), base_.c_str(), s.c_str());
+				n++;
+			}
+		}
+		return false;
 	}
 
 	/**
@@ -717,17 +813,7 @@ std::wstring get_putty_path()
 
 void setting_get_keyfiles(std::vector<std::wstring> &list)
 {
-	int n = 1;
-	while(1) {
-		std::string key = "Keyfile/file" + std::to_string(n);
-		std::wstring fn;
-		bool r = ini_->setting_get_str(key.c_str(), nullptr, fn);
-		if (r == false) {
-			break;
-		}
-		list.push_back(fn);
-		n++;
-	}
+	ini_->setting_get_strs("Keyfile/file", list);
 }
 
 void setting_add_keyfile(const wchar_t *_file)
@@ -744,12 +830,7 @@ void setting_add_keyfile(const wchar_t *_file)
 	}
 	list.push_back(file);
 
-	int n = 1;
-	for (auto &f: list) {
-		std::string key = "Keyfile/file" + std::to_string(n);
-		ini_->setting_set_str(key.c_str(), f.c_str());
-		n++;
-	}
+	ini_->setting_set_strs("Keyfile/file", list);
 }
 
 /* Un-munge session names out of the registry. */
@@ -797,7 +878,7 @@ std::vector<std::wstring> setting_get_putty_sessions()
 		reg_enum_key(HKEY_CURRENT_USER, PUTTY_REGKEY, sectionAry);
 	}
 
-	for(auto &sec : sectionAry) {
+	for (const auto &sec : sectionAry) {
 		// remove header
 		const wchar_t *wp = sec.c_str();
 		if (get_use_inifile()) {
@@ -933,6 +1014,37 @@ void setting_remove_confirm_info()
 	ini_->setting_set_str(key.c_str(), nullptr);
 }
 
+static const wchar_t *startup_subkey =
+	L"Software\\Microsoft\\Windows\\CurrentVersion\\Run";
+static const wchar_t *startup_valuename = L"pageant+";
+
+/**
+ *	@retval 0	設定されていない
+ *	@retval 1	設定されている
+ *	@retval 2	設定されている、でも他のpath
+ */
+int setting_get_startup()
+{
+    std::wstring str;
+    bool result = reg_read_cur_user(startup_subkey, startup_valuename, str);
+	if (!result) {
+		return 0;
+	}
+	if (str == setting_get_my_fullpath()) {
+		return 2;
+	}
+	return 1;
+}
+
+void setting_set_startup(bool enable)
+{
+	if (enable) {
+		std::wstring path = setting_get_my_fullpath();
+		reg_write_cur_user(startup_subkey, startup_valuename, path.c_str());
+	} else {
+		reg_delete_cur_user(startup_subkey, startup_valuename);
+	}
+}
 
 // Local Variables:
 // mode: c++

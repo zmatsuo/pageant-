@@ -8,7 +8,6 @@
 #include <regex>
 #include <chrono>
 #include <thread>
-
 #include <windows.h>
 #include <Wtsapi32.h>
 #include <Dbt.h>
@@ -44,8 +43,9 @@
 #include "keyviewdlg.h"
 #include "bt_agent_proxy_main.h"
 #include "debug.h"
-#include "utf8.h"
-
+#include "codeconvert.h"
+#include "ckey.h"
+#include "puttymem.h"
 #pragma warning(push)
 #pragma warning(disable:4127)
 #pragma warning(disable:4251)
@@ -53,6 +53,7 @@
 #include "aboutdlg.h"
 #include "settingdlg.h"
 #include "confirmacceptdlg.h"
+#include "btselectdlg.h"
 #pragma warning(pop)
 
 #include "ui_mainwindow.h"
@@ -221,6 +222,23 @@ void MainWindow::add_keyfile(const QString &filename)
 
 //////////////////////////////////////////////////////////////////////////////
 
+static void addStartupKeyfile(const std::wstring &fn)
+{
+	std::vector<std::wstring> flist;
+	setting_get_keyfiles(flist);
+
+	auto iter = std::find(flist.begin(), flist.end(), fn);
+	if (iter == flist.end()) {
+		std::wostringstream oss;
+		oss << L"次回起動時に読み込みますか?\n"
+			<< fn;
+		int r = message_box(oss.str().c_str(), L"pageant+", MB_YESNO);
+		if (r == IDYES) {
+			setting_add_keyfile(fn.c_str());
+		}
+	}
+}
+
 void MainWindow::on_pushButtonAddKey_clicked()
 {
 	dbgprintf("add\n");
@@ -243,180 +261,11 @@ void MainWindow::on_pushButtonAddKey_clicked()
 	keylist_update();
 #endif
 	if (files.size() > 0) {
-		int r = message_boxW(L"次回起動時に読み込みますか?", L"pageant+", MB_YESNO, 0);
-		if (r == IDYES) {
-			for (auto &f: files) {
-				setting_add_keyfile(f.toStdWString().c_str());
-			}
+		for (const auto &f: files) {
+			addStartupKeyfile(f.toStdWString());
 		}
 	}
 }
-
-class ckey {
-public:
-	ckey() {
-		key_ = nullptr;
-	}
-	ckey(const ckey &rhs) {
-		copy(rhs);
-	}
-	ckey &operator=(const ckey &rhs) {
-        assert(!(&rhs == this));
-		if (key_ != nullptr) {
-			key_->alg->freekey(key_);
-		}
-		copy(rhs);
-		return *this;
-	}
-	~ckey()
-	{
-	    key_->alg->freekey(key_->data);
-		if (key_->comment != nullptr) {
-			sfree(key_->comment);
-			key_->comment = nullptr;
-		}
-	    sfree(key_);
-		key_ = nullptr;
-	}
-	ckey(ssh2_userkey *key) {
-		key_ = key;
-	}
-	std::string fingerprint() const {
-		char *r = ssh2_fingerprint(key_->alg, key_->data);
-		std::string s = r;
-		sfree(r);
-		return s;
-	}
-	std::string alg_name() const {
-		return std::string(key_->alg->name);
-	}		
-	int bits() const {
-		int bloblen;
-		unsigned char *blob = public_blob(&bloblen);
-		int bits = key_->alg->pubkey_bits(key_->alg, blob, bloblen);
-		sfree(blob);
-		return bits;
-	}
-	std::string fingerprint_md5() const {
-		int bloblen;
-		unsigned char *blob = public_blob(&bloblen);
-
-		unsigned char digest[16];
-		MD5Simple(blob, bloblen, digest);
-		sfree(blob);
-
-		char fingerprint_str[16 * 3];
-		for (int i = 0; i < 16; i++)
-			sprintf(fingerprint_str + i * 3, "%02x%s", digest[i], i == 15 ? "" : ":");
-		return std::string(fingerprint_str);
-	}
-	std::string fingerprint_sha1() const {
-		int bloblen;
-		unsigned char *blob = public_blob(&bloblen);
-
-		unsigned char sha1[20];
-		SHA_Simple(blob, bloblen, sha1);
-		sfree(blob);
-
-		char sha1_str[40 + 1];
-		for (int i = 0; i < 20; i++)
-			sprintf(sha1_str + i * 2, "%02x", sha1[i]);
-
-		return std::string(sha1_str);
-	}
-	// こちらでつけたコメント(=ファイル名)
-	std::string key_comment() const {
-		std::string s;
-		if (key_ == nullptr) {
-			return s;
-		}
-		s = key_->comment;
-		return s;
-	}
-	void set_fname(const char *fn) {
-		if (key_->comment != nullptr) {
-			sfree(key_->comment);
-			key_->comment = nullptr;
-		}
-		key_->comment = _strdup(fn);
-	}
-	// キーについているコメント
-	std::string key_comment2() const {
-		std::string s;
-		if (key_ == nullptr) {
-			return s;
-		}
-		struct RSAKey *rsa = (struct RSAKey *)key_->data;
-		if (rsa == nullptr) {
-			return s;
-		}
-		s = rsa->comment;
-		return s;
-	}
-	// バイナリデータをパースしてkeyに再構成する
-	bool parse_one_public_key(const void *data, size_t len,
-							  const char **fail_reason)
-	{
-		bool r = ::parse_one_public_key(&key_, data, len, fail_reason);
-		debug_rsa_ = (RSAKey *)key_->data;
-		return r;
-	}
-	void get_raw_key(ssh2_userkey **key) const {
-		ssh2_userkey *ret_key = snew(struct ssh2_userkey);
-		copy_ssh2_userkey(*ret_key, *key_);
-		*key = ret_key;
-	}
-private:
-	ssh2_userkey *key_;
-	RSAKey *debug_rsa_;
-
-	unsigned char *public_blob(int *len) const {
-		return key_->alg->public_blob(key_->data, len);
-	}
-
-	void copy(const ckey &rhs) {
-		key_ = snew(struct ssh2_userkey);
-		copy_ssh2_userkey(*key_, *rhs.key_);
-	}
-	void RSAKey_copy(const RSAKey &rhs) {
-		RSAKey *rsa = (RSAKey *)key_->data;
-		debug_rsa_ = rsa;
-		copy_RSAKey(*rsa, rhs);
-	}
-	static void copy_ssh2_userkey(ssh2_userkey &dest, const ssh2_userkey &src) {
-		memset(&dest, 0, sizeof(ssh2_userkey));
-		dest.alg = src.alg;
-		if (src.comment != nullptr) {
-			dest.comment = _strdup(src.comment);
-		}
-		RSAKey *rsa = snew(struct RSAKey);
-		dest.data = rsa;
-		const RSAKey *src_rsa = (RSAKey *)src.data;
-		copy_RSAKey(*rsa, *src_rsa);
-	}
-	static void copy_RSAKey(RSAKey &dest, const RSAKey &src) {
-		memset(&dest, 0, sizeof(RSAKey));
-		dest.exponent = copybn(src.exponent);
-		dest.modulus = copybn(src.modulus);
-		if (src.private_exponent != nullptr) {
-			dest.private_exponent = copybn(src.private_exponent);
-		}
-		if (src.p != nullptr) {
-			dest.p = copybn(src.p);
-		}
-		if (src.q != nullptr) {
-			dest.q = copybn(src.q);
-		}
-		if (src.iqmp != nullptr) {
-			dest.iqmp = copybn(src.iqmp);
-		}
-		dest.bits = src.bits;
-		dest.bytes = src.bytes;
-		if (src.comment != nullptr) {
-			dest.comment = _strdup(src.comment);
-		}
-	}
-};
 
 static bool parse_public_keys(
 	const void *data, size_t len,	
@@ -458,6 +307,7 @@ static bool parse_public_keys(
 	return true;
 }
 
+#if 1
 static void bt_agent_query_synchronous_fn(void *in, size_t inlen, void **out, size_t *outlen)
 {
 	size_t reply_len = inlen;
@@ -466,76 +316,7 @@ static void bt_agent_query_synchronous_fn(void *in, size_t inlen, void **out, si
 	*outlen = reply_len;
 }
 
-// TODO btファイルに持っていく
-bool bt_agent_proxy_main_connect(const wchar_t *target_device)
-{
-	bt_agent_proxy_t *hBta = bt_agent_proxy_main_get_handle();
-	if (hBta == nullptr) {
-		printf("bt?\n");
-		return false;
-	}
-
-	// デバイス一覧を取得
-	std::vector<DeviceInfoType> deviceInfos;
-	bta_deviceinfo(hBta, deviceInfos);
-	if (deviceInfos.size() == 0) {
-		auto start = std::chrono::system_clock::now();
-		while(1) {
-			auto now = std::chrono::system_clock::now();
-			auto elapse =
-				std::chrono::duration_cast<std::chrono::seconds>(
-					now - start);
-			if (elapse >= (std::chrono::seconds)10) {
-				break;
-			}
-			std::this_thread::sleep_for(std::chrono::microseconds(10));
-
-			bta_deviceinfo(hBta, deviceInfos);
-			if (deviceInfos.size() != 0) {
-				break;
-			}
-		}
-		if (deviceInfos.size() == 0) {
-			// 見つからなかった
-			return false;
-		}
-	}
-	
-	DeviceInfoType deviceInfo;
-	for (const auto &device : deviceInfos) {
-		if (device.deviceName == target_device) {
-			deviceInfo = device;
-			break;
-		}
-	}
-	if (deviceInfo.deviceName != target_device) {
-		// 見つからなかった
-		return false;
-	}
-
-	// 接続する
-	if (!deviceInfo.connected) {
-		BTH_ADDR deviceAddr = deviceInfo.deviceAddr;
-		bool r = bta_connect(hBta, &deviceAddr);
-		printf("bta_connect() %d\n", r);
-		if (r == false) {
-			dbgprintf("connect fail\n");
-			return false;
-		} else {
-			// 接続待ち
-			while (1) {
-				// TODO タイムアウト
-				if (bt_agent_proxy_main_check_connect() == true) {
-					break;
-				}
-				Sleep(1);
-			}
-		}
-	}
-	return true;
-}
-
-// BTファイルに持っていく
+// TODO: BTファイルに持っていく
 bool bt_agent_proxy_main_get_key(
 	const wchar_t *target_device,
 	std::vector<ckey> &keys)
@@ -556,6 +337,10 @@ bool bt_agent_proxy_main_get_key(
 	int length;
 	void *p = pageant_get_keylist2(&length);
 	pagent_set_destination(nullptr);
+	if (p == nullptr) {
+		// 応答なし
+		return false;
+	}
 	std::vector<uint8_t> from_bt((uint8_t *)p, ((uint8_t *)p) + length);
 	sfree(p);
 	p = &from_bt[0];
@@ -563,8 +348,7 @@ bool bt_agent_proxy_main_get_key(
 
 	debug_memdump(p, length, 1);
 
-	std::string target_device_utf8;
-	to_utf8(target_device, target_device_utf8);
+	std::string target_device_utf8 = wc_to_utf8(target_device);
 
 	// 鍵を抽出
 	const char *fail_reason = nullptr;
@@ -617,8 +401,7 @@ bool bt_agent_proxy_main_add_key(
 	// デバイスごとに公開鍵を取得
 	for (auto target_device_utf8: target_devices_utf8) {
 
-		std::wstring target_device;
-		to_wstring(target_device_utf8.c_str(), target_device);
+		std::wstring target_device = utf8_to_wc(target_device_utf8);
 
 		std::vector<ckey> keys;
 		bool r = bt_agent_proxy_main_get_key(target_device.c_str(), keys);
@@ -640,40 +423,13 @@ bool bt_agent_proxy_main_add_key(
 	}
 	return true;
 }
+#endif
 
 void MainWindow::on_pushButtonAddBTKey_clicked()
 {
 	dbgprintf("add bt\n");
-
-	std::wstring target_device = setting_get_str("bt/device", nullptr);
-	if (target_device.empty()) {
-		dbgprintf("?device\n");
-		return;
-	}
-
-	std::vector<ckey> keys;
-	bool r = bt_agent_proxy_main_get_key(
-		target_device.c_str(), keys);
-
-	for(const ckey &key : keys) {
-		ssh2_userkey *key_st;
-		key.get_raw_key(&key_st);
-		if (!pageant_add_ssh2_key(key_st)) {
-			printf("err\n");
-		}
-	}
-
-	for(const ckey &key : keys) {
-		std::wostringstream oss;
-		oss << L"次回起動時に読み込みますか?\n"
-			<< key.key_comment().c_str();
-		int r2 = message_boxW(oss.str().c_str(), L"pageant+", MB_YESNO, 0);
-		if (r2 == IDYES) {
-			std::wstring fn;
-			to_wstring(key.key_comment().c_str(), fn);
-			setting_add_keyfile(fn.c_str());
-		}
-	}
+	BtSelectDlg dlg(this);
+	dlg.exec();
 }
 
 void MainWindow::trayClicked(QSystemTrayIcon::ActivationReason e)
@@ -781,10 +537,7 @@ void MainWindow::on_pushButton_clicked()
 #if 0
 	keylist_update();
 #endif
-	int r = message_boxW(L"次回起動時に読み込みますか?", L"pageant+", MB_YESNO, 0);
-	if (r == IDYES) {
-		setting_add_keyfile(fn->path);
-	}
+	addStartupKeyfile(fn->path);
 
 	filename_free(fn);
 #else
@@ -810,10 +563,7 @@ void MainWindow::on_pushButton_2_clicked()
 		keylist_update();
 #endif
 
-		int r = message_boxW(L"次回起動時に読み込みますか?", L"pageant+", MB_YESNO, 0);
-		if (r == IDYES) {
-			setting_add_keyfile(fn->path);
-		}
+		addStartupKeyfile(fn->path);
 
 		filename_free(fn);
 	}
@@ -987,6 +737,10 @@ void addFileCert()
 	gWin->on_pushButtonAddKey_clicked();
 }
 
+void addBtCert()
+{
+	gWin->on_pushButtonAddBTKey_clicked();
+}
 
 // return
 DIALOG_RESULT_T passphraseDlg(struct PassphraseDlgInfo *info)
@@ -1081,7 +835,7 @@ void add_keyfile(const Filename *fn)
     }
 
 error:
-    message_box(err, APPNAME, MB_OK | MB_ICONERROR, 0);
+    message_boxA(err, APPNAME, MB_OK | MB_ICONERROR, 0);
 done:
     sfree(err);
 }
@@ -1104,8 +858,7 @@ void add_keyfile(const std::vector<std::wstring> &keyfileAry)
 	// BTとその他を分離
 	for(const auto &f: keyfileAry) {
 		if (wcsncmp(L"btspp://", f.c_str(), 8) == 0)  {
-			std::string utf8;
-			to_utf8(f.c_str(), utf8);
+			std::string utf8 = wc_to_utf8(f.c_str());
 			bt_files.emplace_back(utf8);
 		} else {
 			normal_files.emplace_back(f);

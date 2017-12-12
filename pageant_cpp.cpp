@@ -16,9 +16,11 @@
 #include "tree234.h"
 #include "ssh.h"
 #include "pageant.h"
+#include "ckey.h"
 
 typedef struct {
 	std::vector<std::string> *keylist;
+	std::vector<ckey> *keys;
 } getkeylist_ctx;
 
 static void getKeylist_sub(void *ctx,
@@ -32,13 +34,21 @@ static void getKeylist_sub(void *ctx,
 	s += " ";
 	s += comment;
 	p->keylist->push_back(s);
+
+	ckey Ckey;
+	const char *fail_reason;
+	Ckey.parse_one_public_key(key->blob, key->bloblen, &fail_reason);
+	p->keys->push_back(Ckey);
 }
 
-void getKeylist(std::vector<std::string> &keylist)
+static void getKeylist(
+	std::vector<std::string> &keylist,
+	std::vector<ckey> &keys)
 {
 	char *retstr;
 	getkeylist_ctx ctx;
 	ctx.keylist = &keylist;
+	ctx.keys = &keys;
 	int r = pageant_enum_keys(getKeylist_sub, &ctx, &retstr);
 	if (r != PAGEANT_ACTION_OK) {
 		dbgprintf("%s\n", retstr);
@@ -80,14 +90,21 @@ void removeKey(const char *fingerprint)
 std::vector<KeyListItem> keylist_update2()
 {
 	std::vector<std::string> keylistSimple;
-	getKeylist(keylistSimple);
+	std::vector<ckey> ckeys;
+	getKeylist(keylistSimple, ckeys);
 
 	std::vector<KeyListItem> keylist;
 	for(size_t i=0; i< keylistSimple.size(); i++) {
+		const ckey &ckey = ckeys[i];
 		KeyListItem item;
 		item.no = i;
 		item.name = keylistSimple[i];
-		item.comment = "comment!";
+		item.algorithm = ckey.alg_name();
+		item.size = ckey.bits();
+		item.md5 = ckey.fingerprint_md5();
+		item.sha256 = ckey.fingerprint_sha256();
+		item.comment = ckey.key_comment2();
+		item.comment2 = ckey.key_comment();
 		keylist.push_back(item);
 	}
 

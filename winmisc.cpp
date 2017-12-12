@@ -68,6 +68,7 @@ int filename_is_null(Filename fn)
 }
 #endif
 
+#if 0
 char *get_username(void)
 {
     DWORD namelen;
@@ -75,12 +76,12 @@ char *get_username(void)
 
     namelen = 0;
     if (GetUserName(NULL, &namelen) == FALSE) {
-	/*
-	 * Apparently this doesn't work at least on Windows XP SP2.
-	 * Thus assume a maximum of 256. It will fail again if it
-	 * doesn't fit.
-	 */
-	namelen = 256;
+		/*
+		 * Apparently this doesn't work at least on Windows XP SP2.
+		 * Thus assume a maximum of 256. It will fail again if it
+		 * doesn't fit.
+		 */
+		namelen = 256;
     }
 
     user = snewn(namelen, char);
@@ -88,6 +89,7 @@ char *get_username(void)
 
     return user;
 }
+#endif
 
 std::wstring _GetModuleFileName(HMODULE hModule)
 {
@@ -97,6 +99,7 @@ std::wstring _GetModuleFileName(HMODULE hModule)
 		DWORD r = ::GetModuleFileNameW(hModule, &buf[0], (DWORD)buf.size());
 		if (r == 0) {
 			// 関数が失敗
+			buf[0] = 0;
 			break;
 		} else if (r < buf.size() - 1) {
 			break;
@@ -218,7 +221,7 @@ std::string _ExpandEnvironmentStrings(const char *str)
  *	@retvalue	true	read ok
  *	@retvalue	false	entry does not exist
  */
-bool reg_read(
+static bool reg_read(
 	HKEY hKey,
 	const wchar_t *subkey, const wchar_t *valuename, DWORD &dwType,
 	std::vector<uint8_t> &data)
@@ -254,6 +257,33 @@ bool reg_read(
 	}
 	RegCloseKey(hRegKey);
 	return ret_value;
+}
+
+bool reg_read_cur_user(const wchar_t *subkey, const wchar_t *valuename,
+					   std::vector<std::wstring> &strs)
+{
+	strs.clear();
+	std::vector<uint8_t> data;
+	DWORD dwType;
+	bool result = reg_read(
+		HKEY_CURRENT_USER, subkey, valuename, dwType, data);
+	if (result == false || dwType != REG_MULTI_SZ) {
+		strs.clear();
+		return false;
+	}
+
+	size_t pos = 0;
+	while(1) {
+		const wchar_t *p = (wchar_t *)&data[pos];
+		if (*p == L'\0')
+			break;
+		std::wstring s = (wchar_t *)&data[pos];
+		strs.push_back(s);
+		pos += (s.length() + 1) * sizeof(wchar_t);
+		if (pos > data.size())
+			break;
+	}
+	return true;
 }
 
 bool reg_read_cur_user(const wchar_t *subkey, const wchar_t *valuename,
@@ -320,6 +350,30 @@ bool reg_write(HKEY hKey, const wchar_t *subkey, const wchar_t *valuename,
 	}
 	RegCloseKey(hRegKey);
 	return result;
+}
+
+bool reg_write_cur_user(const wchar_t *subkey, const wchar_t *valuename,
+						const std::vector<std::wstring> &strs)
+{
+	if (valuename == NULL) {
+		HKEY hKey = HKEY_CURRENT_USER;
+		return reg_delete(hKey, subkey);
+	}
+	if (strs.empty()) {
+		HKEY hKey = HKEY_CURRENT_USER;
+		return reg_delete(hKey, subkey, valuename);
+	}
+	std::vector<wchar_t> buf;
+	for (const auto s : strs) {
+		const wchar_t *p = s.c_str();
+		buf.insert(buf.end(), p, p + s.length());
+		buf.push_back(L'\0');
+	}
+	buf.push_back(L'\0');
+	size_t len = buf.size();
+	const wchar_t *ptr = &buf[0];
+	return reg_write(HKEY_CURRENT_USER, subkey, valuename,
+					 REG_MULTI_SZ, (void *)ptr, (len) * sizeof(wchar_t));
 }
 
 bool reg_write_cur_user(const wchar_t *subkey, const wchar_t *valuename,
@@ -541,6 +595,80 @@ bool _GetPrivateProfileSectionNames(
 		p += wcslen(p) + 1;
 	}
 	return true;
+}
+
+/**
+ *	@param	wstr_len	wstr長	EOS(L'\0')を含まない(wcslen()の戻り値)
+ */
+bool _WideCharToMultiByte(const wchar_t *wstr_ptr, size_t wstr_len, std::string &str, bool utf8)
+{
+    UINT codePage = utf8 ? CP_UTF8 : CP_ACP;
+	DWORD flags = 0;
+    int len =
+		::WideCharToMultiByte(codePage, flags,
+							  wstr_ptr, wstr_len,
+							  NULL, 0,
+							  NULL, NULL);
+	if (len == 0) {
+		str.clear();
+		return false;
+	}
+	str.resize(len);
+	char *buf =
+		&str[0];		// C++11/14
+		//str.data();	// C++17(c++1z)
+	len = 
+		::WideCharToMultiByte(codePage, flags,
+							  wstr_ptr, wstr_len,
+							  buf, len,
+							  NULL,NULL);
+	if (len == 0) {
+		str.clear();
+		return false;
+	}
+    return true;
+}
+
+bool _WideCharToMultiByte(const std::wstring &wstr, std::string &str, bool utf8)
+{
+	return _WideCharToMultiByte(wstr.c_str(), wstr.length(), str, utf8);
+}
+
+/**
+ *	@param	str_len		str長	EOS('\0')を含まない(strlen()の戻り値)
+ */
+bool _MultiByteToWideChar(const char *str_ptr, size_t str_len, std::wstring &wstr, bool utf8)
+{
+    UINT codePage = utf8 ? CP_UTF8 : CP_ACP;
+	DWORD flags = MB_ERR_INVALID_CHARS;
+	int len =
+		::MultiByteToWideChar(
+			codePage, flags,
+			str_ptr, str_len,
+			NULL, 0);
+	if (len == 0) {
+		wstr.clear();
+		return false;
+	}
+	wstr.resize(len);
+	wchar_t *buf =
+		&wstr[0];		// C++11/14
+		//wstr.data();	// C++17(c++1z)
+	len =
+		::MultiByteToWideChar(
+			codePage, flags,
+			str_ptr, str_len,
+			buf, len);
+	if (len == 0) {
+		wstr.clear();
+		return false;
+	}
+	return true;
+}
+
+bool _MultiByteToWideChar(const std::string &str, std::wstring &wstr, bool utf8)
+{
+	return _MultiByteToWideChar(str.c_str(), str.length(), wstr, utf8);
 }
 
 void exec(const wchar_t *file, const wchar_t *param)

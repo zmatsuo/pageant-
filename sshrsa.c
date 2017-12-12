@@ -404,7 +404,7 @@ void rsa_fingerprint(char *str, int len, struct RSAKey *key)
 #endif
 
 //void rsa_fingerprint_sha256(char *str, int len, struct RSAKey *key)
-void rsa_fingerprint(char *str, int len, struct RSAKey *key)
+void rsa_fingerprint(char *str, int len, const struct RSAKey *key)
 {
     SHA256_State ctx;
     int numlen, slen, i;

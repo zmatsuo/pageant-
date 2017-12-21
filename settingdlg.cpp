@@ -24,6 +24,7 @@
 extern "C" {
 #include "cert_common.h"	// for cert_forget_pin()
 }
+#include "passphrases.h"
 
 #include "settingdlg.h"
 #pragma warning(push)
@@ -486,8 +487,7 @@ void SettingDlg::on_pushButton_12_clicked()
 #if defined(DEVELOP_VERSION) || defined(_DEBUG)
 	if ((GetAsyncKeyState(VK_LSHIFT) & 0x8000) != 0) {
 		// shiftキーが押されている
-		std::vector<std::string> passphraseAry;
-		setting_get_passphrases(passphraseAry);
+		auto passphraseAry = passphrase_get_array();
 
 		std::string text;
 		int n = 0;
@@ -507,8 +507,8 @@ void SettingDlg::on_pushButton_12_clicked()
 			"forgot passphrases OK?", "ok?",
 			MB_OKCANCEL | MB_ICONERROR, 0);
 		if (r == IDOK) {
-			pageant_forget_passphrases();
-			setting_remove_passphrases();
+			passphrase_forget();
+			passphrase_remove_setting();
 			cert_forget_pin();
 		}
 	}

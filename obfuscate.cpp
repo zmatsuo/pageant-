@@ -1,20 +1,17 @@
-﻿
-#define _CRT_SECURE_NO_WARNINGS
-#undef UNICODE
-#include <windows.h>	// for registory
-#include <stdlib.h>	// for NULL
-#include <malloc.h>	// for alloca()
+﻿/**
+   obfuscate.cpp
 
-#include "misc.h"
+   Copyright (c) 2017 zmatsuo
+
+   This software is released under the MIT License.
+   http://opensource.org/licenses/mit-license.php
+*/
+
+
+#include <string.h>
+
 #include "ssh.h"	// base64_decode_atom()
-#include "db.h"
-#include "setting.h"
-#include "pageant.h"
-
-//#define APPNAME "Pageant"			// access ini and registory
-#define strdup(s)	dupstr(s)
-
-//////////////////////////////////////////////////////////////////////////////
+#include "obfuscate.h"
 
 /* generate random number by MT(http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/MT2002/mt19937ar.html) */
 
@@ -25,7 +22,7 @@
 #define UPPER_MASK 0x80000000UL /* most significant w-r bits */
 #define LOWER_MASK 0x7fffffffUL /* least significant r bits */
 
-static void random_mask(char* buffer, int length)
+static void random_mask(char* buffer, size_t length)
 {
     /* static variables of MT */
     unsigned long mt[N]; /* the array for the state vector  */
@@ -93,14 +90,14 @@ static void random_mask(char* buffer, int length)
     }
 }
 
-int encrypto(char* original, char* buffer)
+size_t encrypto(char* original, char* buffer)
 {
-    int length = (int)strlen(original);
-    if (buffer != NULL) {
+    size_t length = strlen(original);
+    if (buffer != nullptr) {
 		random_mask(original, length);
 		while (length > 0) {
-			int n = (length < 3 ? length : 3);
-			base64_encode_atom((unsigned char *)original, n, buffer);
+			size_t n = (length < 3 ? length : 3);
+			base64_encode_atom((unsigned char *)original, (int)n, buffer);
 			original += n;
 			length -= n;
 			buffer += 4;
@@ -110,10 +107,10 @@ int encrypto(char* original, char* buffer)
     return (length + 2) / 3 * 4;
 }
 
-int decrypto(const char* encrypted, char* buffer)
+size_t decrypto(const char* encrypted, char* buffer)
 {
-    int encrypted_len = (int)strlen(encrypted);
-    if (buffer == NULL) {
+    size_t encrypted_len = strlen(encrypted);
+    if (buffer == nullptr) {
         return encrypted_len * 3 / 4;
     }else{
 		const char* src = encrypted;
@@ -130,48 +127,29 @@ int decrypto(const char* encrypted, char* buffer)
     }
 }
 
-/**
- * keyのfingerprint取得(md5)
- * Return a buffer malloced to be as big as necessary (caller must free).
- */
-#if 0
-char *getfingerprint(int type, const void *key)
+sstring decrypto(const sstring &s)
 {
-    if (type == SSH1_AGENTC_REMOVE_ALL_RSA_IDENTITIES ||
-		type == SSH2_AGENTC_REMOVE_ALL_IDENTITIES) {
-		return NULL;
-    }
-    if (key == NULL) {
-		return NULL;
-    }
-
-    const size_t fingerprint_length = 512;
-    char* fingerprint = (char*) malloc(fingerprint_length);
-    fingerprint[0] = '\0';
-    if (type == SSH1_AGENTC_RSA_CHALLENGE
-		|| type == SSH1_AGENTC_ADD_RSA_IDENTITY
-		|| type == SSH1_AGENTC_REMOVE_RSA_IDENTITY) {
-		strcpy(fingerprint, "ssh1:");
-		rsa_fingerprint(fingerprint + 5, fingerprint_length - 5, (struct RSAKey*) key);
-    } else {
-		struct ssh2_userkey* skey = (struct ssh2_userkey*) key;
-//	char* fp = skey->alg->fingerprint(skey->data);
-		char test[100];
-		strcpy(test, "aslkj sadf adsf aeg adf");
-		char* fp = test;
-		strncpy(fingerprint, fp, fingerprint_length);
-		size_t fp_length = strlen(fingerprint);
-		if (fp_length < fingerprint_length - 2) {
-			fingerprint[fp_length] = ' ';
-			strncpy(fingerprint + fp_length + 1, skey->comment,
-					fingerprint_length - fp_length - 1);
-		}
-    }
-    return fingerprint;
+	size_t original_len = decrypto(s.c_str(), nullptr);
+	sstring decrypted_str(original_len+1, '\0');
+	original_len = decrypto(s.c_str(), &decrypted_str[0]);
+	decrypted_str.resize(original_len);
+	return decrypted_str;
 }
-#endif
 
-//////////////////////////////////////////////////////////////////////////////
+sstring encrypto(const sstring &s)
+{
+	size_t plen = s.length() + 1;
+	if (plen == 0) {
+		return sstring();
+	}
+	sstring buf = s;
+	buf.resize(buf.length()+1);		// add EOS space
+    size_t encrypted_len = encrypto(&buf[0], nullptr);
+	sstring encrpted_str(encrypted_len + 1, '\0');
+    encrypto(&buf[0], &encrpted_str[0]);
+	encrpted_str.pop_back();		// remove EOS
+	return encrpted_str;
+}
 
 // Local Variables:
 // mode: c++

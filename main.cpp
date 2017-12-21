@@ -23,6 +23,7 @@ extern "C" {
 }
 #include "bt_agent_proxy_main.h"
 #include "winmisc.h"
+#include "passphrases.h"
 
 #ifdef _DEBUG
 static void crt_set_debugflag(void)
@@ -48,12 +49,18 @@ static void crt_set_debugflag(void)
 }
 #endif
 
+void test();
+
 int main(int argc, char *argv[])
 {
 #ifdef _DEBUG
 	crt_set_debugflag();
 //	_CrtSetBreakAlloc(251204);
 #endif
+#if 0
+	test();
+	return 0;
+#endif	
 	QApplication a(argc, argv);
 	a.setQuitOnLastWindowClosed(false);
 
@@ -140,7 +147,7 @@ int main(int argc, char *argv[])
 	if (setting_get_bool("Passphrase/save_enable", false) &&
 		setting_get_bool("Passphrase/enable_loading_when_startup", false))
 	{
-		load_passphrases();
+		passphrase_load_setting();
 	}
 
 	if (setting_get_bool("ssh-agent/pageant")) {

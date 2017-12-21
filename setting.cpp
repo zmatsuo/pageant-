@@ -1,21 +1,18 @@
 ﻿
-#include <algorithm>
-
 #include "pageant+.h"
 #include "winmisc.h"
 #include "debug.h"
 #include "setting.h"
-#include "db.h"
 #include "winhelp_.h"
 #include "misc_cpp.h"
 #include "puttymem.h"
+
 #include "tree234.h"
+#include "passphrases.h"
 
 #define APPNAME "Pageant"			// access ini and registory
 #define INI_FILE	APP_NAME ".ini"
 #define INI_FILE_W	L"pageant+.ini"
-
-extern "C" tree234 *passphrases;
 
 static std::wstring putty_path;			// putty.exe
 
@@ -180,7 +177,7 @@ public:
 		return str;
 	}
 
-	bool setting_set_strs(const char *_key, std::vector<std::wstring> &strs)
+	bool setting_set_strs(const char *_key, const std::vector<std::wstring> &strs)
 	{
 		std::wstring section;
 		std::wstring key;
@@ -453,6 +450,11 @@ std::wstring setting_get_str(const char *key, const wchar_t *_default)
 	return ini_->setting_get_str(key, _default);
 }
 
+std::wstring setting_get_str_putty(const char *key, const wchar_t *_default)
+{
+	return ini_putty_->setting_get_str(key, _default);
+}
+
 bool setting_get_bool(const char *key)
 {
 	return ini_->setting_get_bool_default(key, false);
@@ -579,6 +581,8 @@ static std::wstring search_putty_help(const wchar_t *_putty_path, const wchar_t 
  */
 void setting_init(int _use_ini, const wchar_t *_ini_file)
 {
+	passphrase_init();
+
 	bool ok = false;
 	std::wstring ini_file_w;
 
@@ -730,6 +734,7 @@ void setting_exit()
 		delete ini_putty_;
 		ini_putty_ = nullptr;
 	}
+	passphrase_exit();
 }
 
 bool setting_get_use_inifile()
@@ -811,9 +816,19 @@ std::wstring get_putty_path()
     return putty_path;
 }
 
+void setting_get_strs(const char *key, std::vector<std::wstring> &strs)
+{
+	ini_->setting_get_strs(key, strs);
+}
+
+bool setting_set_strs(const char *key, const std::vector<std::wstring> &strs)
+{
+	return ini_->setting_set_strs(key, strs);
+}
+
 void setting_get_keyfiles(std::vector<std::wstring> &list)
 {
-	ini_->setting_get_strs("Keyfile/file", list);
+	setting_get_strs("Keyfile/file", list);
 }
 
 void setting_add_keyfile(const wchar_t *_file)
@@ -896,116 +911,6 @@ std::vector<std::wstring> setting_get_putty_sessions()
 		resultAry.push_back(std::wstring(session_name));
 	}
 	return resultAry;
-}
-
-void load_passphrases()
-{
-	if (passphrases == NULL) {
-		passphrases = newtree234(NULL);
-	}
-
-	std::vector<std::string> passphraseAry;
-
-	// ini or reg から読み出す
-    int i = 1;
-	while (1) {
-		std::string key = "Passphrases/crypto" + std::to_string(i++);
-		std::wstring ws_c_pass;
-		bool r = ini_->setting_get_str(key.c_str(), nullptr, ws_c_pass);
-		if (r == false) {
-			break;
-		}
-		passphraseAry.push_back(wc_to_mb(ws_c_pass));
-	}
-	if (!get_putty_path().empty()) {
-		i = 1;
-		while (1) {
-			std::string key = "Passphrases/crypto" + std::to_string(i++);
-			std::wstring ws_c_pass;
-			bool r = ini_putty_->setting_get_str(key.c_str(), nullptr, ws_c_pass);
-			if (r == false) {
-				break;
-			}
-			passphraseAry.push_back(wc_to_mb(ws_c_pass));
-		}
-	}
-
-	// 重複(暗号化済み)パスフレーズを削除する
-	std::sort(passphraseAry.begin(), passphraseAry.end());
-	passphraseAry.erase(
-		std::unique(passphraseAry.begin(), passphraseAry.end()),
-		passphraseAry.end());
-	
-	// パスフレーズの暗号化を解除
-	for (std::string &c_passphrase : passphraseAry) {
-		const char *buffer = c_passphrase.c_str();
-		int original_len = decrypto(buffer, NULL);
-		char *original = (char*) malloc(original_len + 1);
-		if (original != NULL) {
-			decrypto(buffer, original);
-			addpos234(passphrases, original, 0);
-		}
-	}
-}
-
-void save_passphrases(const char* passphrase)
-{
-	if (passphrase == NULL) {
-		return;
-	}
-	size_t plen = strlen(passphrase);
-	if (plen == 0) {
-		return;
-	}
-	std::vector<char> buf(plen+1);
-	memcpy(&buf[0], passphrase, plen+1);
-    int encrypted_len = encrypto(&buf[0], NULL);
-    char* encrypted = snewn(encrypted_len + 1, char);
-    encrypto(&buf[0], encrypted);
-	smemclr(&buf[0], plen+1);
-	std::wstring ws_encrypted = mb_to_wc(std::string(encrypted));
-
-	int i = 1;
-	while (1) {
-		std::string key = "Passphrases/crypto" + std::to_string(i++);
-		std::wstring ws_c_pass;
-		bool r = ini_->setting_get_str(key.c_str(), nullptr, ws_c_pass);
-		if (r == false) {
-			// 見つからず、最後に書き込み
-			r = ini_->setting_set_str(key.c_str(), ws_encrypted.c_str());
-			break;
-		}
-		if (ws_encrypted == ws_c_pass) {
-			// すでにあった、終了
-			break;
-		}
-	}
-
-	smemclr(encrypted, encrypted_len);
-	sfree(encrypted);
-}
-
-void setting_get_passphrases(std::vector<std::string> &passphraseAry)
-{
-	passphraseAry.clear();
-
-    if (!passphrases)
-        return;
-
-	int n = 0;
-	for(;;) {
-		const char *pp = (char *)index234(passphrases, n++);
-		if (pp == NULL) {
-			return;
-		}
-		passphraseAry.push_back(std::string(pp));
-    }
-}
-
-void setting_remove_passphrases()
-{
-	std::string key = "Passphrases";
-	ini_->setting_set_str(key.c_str(), nullptr);
 }
 
 void setting_remove_confirm_info()

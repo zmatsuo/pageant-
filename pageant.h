@@ -116,7 +116,7 @@ void pageant_listener_free(struct pageant_listen_state *pl);
  * successfully decrypted keys (because if you try to add multiple
  * keys in one go, you might very well have used the same passphrase
  * for keys that have the same trust properties). Call
- * pageant_forget_passphrases() to get rid of them all.
+ * passphrase_forget() to get rid of them all.
  */
 void *pageant_get_keylist1(int *length);
 void *pageant_get_keylist2(int *length);
@@ -127,8 +127,6 @@ enum {
 };
 int pageant_add_keyfile(const Filename *filename, const char *passphrase,
                         char **retstr);
-void pageant_forget_passphrases(void);
-void add_passphrase(const char *passphrase);
 
 struct pageant_pubkey {
     /* Everything needed to identify a public key found by

@@ -222,6 +222,23 @@ static std::string base64_encode(const void *data, size_t datalen, bool padding_
 	return &buf[0];
 }
 
+char *ssh2_fingerprint_sha256(const struct ssh2_userkey *key)
+{
+	int len;
+	unsigned char *blob;
+	blob = key->alg->public_blob(key->data, &len);
+
+	unsigned char sha256[256/8];
+	SHA256_Simple(blob, len, sha256);
+	sfree(blob);
+
+	auto s = base64_encode(sha256, 32, false);
+	char *fp_sha256 = snewn(s.length() + 1, char);
+	memcpy(fp_sha256, s.c_str(), s.length()+1);
+
+	return fp_sha256;
+}
+
 // SHA256/base64
 std::string ckey::fingerprint_sha256() const
 {
@@ -357,6 +374,47 @@ void ckey::copy_RSAKey(RSAKey &dest, const RSAKey &src)
 		dest.comment = _strdup(src.comment);
 	}
 }
+
+/**
+ * keyのfingerprint取得(md5)
+ * Return a buffer malloced to be as big as necessary (caller must free).
+ */
+#if 0
+char *getfingerprint(int type, const void *key)
+{
+    if (type == SSH1_AGENTC_REMOVE_ALL_RSA_IDENTITIES ||
+		type == SSH2_AGENTC_REMOVE_ALL_IDENTITIES) {
+		return NULL;
+    }
+    if (key == NULL) {
+		return NULL;
+    }
+
+    const size_t fingerprint_length = 512;
+    char* fingerprint = (char*) malloc(fingerprint_length);
+    fingerprint[0] = '\0';
+    if (type == SSH1_AGENTC_RSA_CHALLENGE
+		|| type == SSH1_AGENTC_ADD_RSA_IDENTITY
+		|| type == SSH1_AGENTC_REMOVE_RSA_IDENTITY) {
+		strcpy(fingerprint, "ssh1:");
+		rsa_fingerprint(fingerprint + 5, fingerprint_length - 5, (struct RSAKey*) key);
+    } else {
+		struct ssh2_userkey* skey = (struct ssh2_userkey*) key;
+//	char* fp = skey->alg->fingerprint(skey->data);
+		char test[100];
+		strcpy(test, "aslkj sadf adsf aeg adf");
+		char* fp = test;
+		strncpy(fingerprint, fp, fingerprint_length);
+		size_t fp_length = strlen(fingerprint);
+		if (fp_length < fingerprint_length - 2) {
+			fingerprint[fp_length] = ' ';
+			strncpy(fingerprint + fp_length + 1, skey->comment,
+					fingerprint_length - fp_length - 1);
+		}
+    }
+    return fingerprint;
+}
+#endif
 
 // Local Variables:
 // mode: c++

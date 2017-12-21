@@ -41,9 +41,12 @@ x64/
 *.c~
 *.h~
 *.VC.opendb
+*.vcxproj.user
 *.org~
 *.md~
 *.pro.user
 *.VC.db
 version.c
 debug*.log
+*.*~
+*.zip

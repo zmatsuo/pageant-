@@ -51,7 +51,6 @@ SOURCES += main.cpp\
     passphrasedlg.cpp \
     aboutdlg.cpp \
     confirmacceptdlg.cpp \
-    db.cpp \
     libunixdomain/sock_server.c \
     libunixdomain/ud_socket.c \
     ssh-agent_emu.cpp \
@@ -74,7 +73,9 @@ SOURCES += main.cpp\
     bt_agent_proxy_main.cpp \
     debug.c \
     ckey.cpp \
-    codeconvert.cpp
+    codeconvert.cpp \
+    obfuscate.cpp \
+    passphrases.cpp
 
 HEADERS  += mainwindow.h \
     passphrasedlg.h \
@@ -90,7 +91,9 @@ HEADERS  += mainwindow.h \
     bt_agent_proxy.h \
     bt_agent_proxy_main.h \
     ckey.h \
-    codeconvert.h
+    codeconvert.h \
+    obfuscate.h \
+    passphrases.h
     
 FORMS    += mainwindow.ui \
     passphrasedlg.ui \

@@ -182,7 +182,7 @@
     <ClCompile Include="cert\cert_common.c" />
     <ClCompile Include="cert\cert_pkcs.c" />
     <ClCompile Include="confirmacceptdlg.cpp" />
-    <ClCompile Include="db.cpp" />
+    <ClCompile Include="obfuscate.cpp" />
     <ClCompile Include="GeneratedFiles\Debug\moc_confirmacceptdlg.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
@@ -214,6 +214,7 @@
     <ClCompile Include="pageant.c" />
     <ClCompile Include="pageant_cpp.cpp" />
     <ClCompile Include="passphrasedlg.cpp" />
+    <ClCompile Include="passphrases.cpp" />
     <ClCompile Include="setting.cpp" />
     <ClCompile Include="settingdlg.cpp" />
     <ClCompile Include="ssh-agent_emu.cpp" />
@@ -353,6 +354,8 @@
     <ClInclude Include="codeconvert.h" />
     <ClInclude Include="GeneratedFiles\ui_btselectdlg.h" />
     <ClInclude Include="gui_stuff.h" />
+    <ClInclude Include="passphrases.h" />
+    <ClInclude Include="sstring.h" />
     <ClInclude Include="winutils_qt.h" />
     <CustomBuild Include="keyviewdlg.h">
       <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(QTDIR)\bin\moc.exe;%(FullPath)</AdditionalInputs>
@@ -373,7 +376,7 @@
     <ClInclude Include="cert\pkcs\pkcs11.h" />
     <ClInclude Include="cert\pkcs\pkcs11f.h" />
     <ClInclude Include="cert\pkcs\pkcs11t.h" />
-    <ClInclude Include="db.h" />
+    <ClInclude Include="obfuscate.h" />
     <ClInclude Include="debug.h" />
     <ClInclude Include="filename_.h" />
     <ClInclude Include="GeneratedFiles\ui_settingdlg.h" />

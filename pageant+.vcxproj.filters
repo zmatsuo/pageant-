@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <Filter Include="Form Files">
@@ -109,7 +109,7 @@
     <ClCompile Include="winmisc.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="db.cpp">
+    <ClCompile Include="obfuscate.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="ssh-agent_emu.cpp">
@@ -253,6 +253,9 @@
     <ClCompile Include="codeconvert.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="passphrases.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="aboutdlg.ui">
@@ -328,7 +331,7 @@
     <ClInclude Include="debug.h">
       <Filter>Source Files</Filter>
     </ClInclude>
-    <ClInclude Include="db.h">
+    <ClInclude Include="obfuscate.h">
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="ssh-agent_emu.h">
@@ -437,6 +440,12 @@
       <Filter>Generated Files</Filter>
     </ClInclude>
     <ClInclude Include="codeconvert.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="passphrases.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="sstring.h">
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>

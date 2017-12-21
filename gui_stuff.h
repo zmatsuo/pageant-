@@ -1,5 +1,5 @@
-﻿#ifndef	_GUI_STUFF_H_
-#define _GUI_STUFF_H_
+﻿
+#pragma once
 
 #include <windows.h>		// for MB_OK, IDOK, etc  :(
 
@@ -58,10 +58,10 @@ void addBtCert();
 #endif
 
 #if defined(__cplusplus)
-extern "C++" int message_box(const char *text, const char *caption, DWORD style, DWORD helpctxid = 0);
-extern "C++" int message_box(const wchar_t *text, const wchar_t *caption, DWORD style, DWORD helpctxid = 0);
-#endif
-
+extern "C++" {
+int message_box(const char *text, const char *caption, DWORD style, DWORD helpctxid = 0);
+int message_box(const wchar_t *text, const wchar_t *caption, DWORD style, DWORD helpctxid = 0);
+}
 #endif
 
 // Local Variables:

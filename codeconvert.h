@@ -1,4 +1,4 @@
-/**
+﻿/**
    codeconvert.h
 
    Copyright (c) 2017 zmatsuo
@@ -13,6 +13,10 @@
 std::string wc_to_utf8(const std::wstring &wstr);
 std::wstring utf8_to_wc(const std::string &str);
 std::wstring acp_to_wc(const std::string &str);
+std::string wc_to_mb(const std::wstring &wstr);
+std::wstring mb_to_wc(const std::string &str);
+std::string wc_to_mb(const wchar_t *wstr);
+std::wstring mb_to_wc(const char *str);
 #endif
 
 #if defined(__cplusplus)
@@ -23,3 +27,9 @@ char *dup_wc_to_mb(const wchar_t *wstring);
 #if defined(__cplusplus)
 }
 #endif
+
+// Local Variables:
+// mode: c++
+// coding: utf-8-with-signature
+// tab-width: 4
+// End:

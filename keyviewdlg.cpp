@@ -27,6 +27,7 @@
 #include "winutils.h"
 #include "ssh.h"
 #include "ckey.h"
+#include "codeconvert.h"
 
 #include "keyviewdlg.h"
 #pragma warning(push)
@@ -52,6 +53,8 @@ keyviewdlg::~keyviewdlg()
 	delete ui;
 }
 
+#define FINGERPRINT_SHA256_COLUMN	3
+
 void keyviewdlg::keylist_update()
 {
 	std::vector<KeyListItem> k = keylist_update2();
@@ -64,13 +67,12 @@ void keyviewdlg::keylist_update()
 	model->setHeaderData(n++, Qt::Horizontal, QObject::tr("size(bit)"));
 	model->setHeaderData(n++, Qt::Horizontal, QObject::tr("MD5/hex fingerpinrt"));
 	model->setHeaderData(n++, Qt::Horizontal, QObject::tr("SHA-256/base64 fingerprint"));
+	assert(n-1 == FINGERPRINT_SHA256_COLUMN);
 	model->setHeaderData(n++, Qt::Horizontal, QObject::tr("comment"));
 	int colum = 0;
 	for (const auto a : k) {
 		QStandardItem *item;
 		n = 0;
-		// item = new QStandardItem(QString::fromStdString(k[i].name));
-		// model->setItem(i, 0, item);
 		item = new QStandardItem(QString::fromStdString(a.algorithm));
 		model->setItem(colum, n++, item);
 		item = new QStandardItem(QString::fromStdString(std::to_string(a.size)));
@@ -81,6 +83,8 @@ void keyviewdlg::keylist_update()
 		model->setItem(colum, n++, item);
 		item = new QStandardItem(QString::fromStdString(a.comment));
 		model->setItem(colum, n++, item);
+//		item = new QStandardItem(QString::fromStdString(a.name));
+//		model->setItem(colum, n++, item);
 		colum++;
 	}
 
@@ -121,50 +125,46 @@ void keyviewdlg::on_pushButton_3_clicked()
 
 	const QItemSelectionModel *selection = ui->treeView->selectionModel();
 	const QModelIndexList &indexes = selection->selectedRows();
-	switch (indexes.count()) {
-	case 0:
+	const int count = indexes.count();
+	if (count == 0) {
 		message_box(L"鍵が選択されていません", L"pageant+", MB_OK);
-		break;
-	case 1:
-	{
-		const QModelIndex &index = selection->currentIndex();
+	} else {
 		const QStandardItemModel *model = (QStandardItemModel *)ui->treeView->model();
-//		QStandardItem *item = model->itemFromIndex(index);
-		const QStandardItem *item = model->item(index.row(), 0);
-		if (item == nullptr)
-			return;
-		QString qs = item->text();
+		std::vector<std::string> selectedArray;
+		for (int i = 0; i < count; i++) {
+			const QStandardItem *item = model->item(indexes[i].row(), FINGERPRINT_SHA256_COLUMN);
+			selectedArray.push_back(item->text().toStdString());
+		}
 
-		std::string s = qs.toStdString();
-#if 0
-		std::string::size_type p = s.find_last_of(' ');
-		s = s.substr(0, p);
-#endif
-		std::string::size_type p = s.find_first_of(' ');
-		if (p != std::string::npos) {
-			p++;
-			p = s.find_first_of(' ', p);
-			if (p != std::string::npos) {
-				p++;
-				p = s.find_first_of(' ', p);
+		std::string ok_keys;
+		std::string ng_keys;
+		std::string to_clipboard_str;
+		for (const auto &fp_sha256 : selectedArray) {
+			char *pubkey = pageant_get_pubkey(fp_sha256.c_str());
+			if (pubkey != nullptr) {
+				to_clipboard_str += pubkey;
+				free(pubkey);
+				ok_keys += fp_sha256;
+				ok_keys += "\n";
+			} else {
+				ng_keys += fp_sha256;
+				ng_keys + "\n";
 			}
-			s = s.substr(0, p);
 		}
-
-		char *pubkey = pageant_get_pubkey(s.c_str());
-		if (pubkey != nullptr) {
-			QApplication::clipboard()->setText(QString(pubkey));
-			free(pubkey);
-			message_box(L"OpenSSH形式の公開鍵をクリップボードにコピーしました", L"pageant+", MB_OK);
-		} else {
-			message_box(L"公開鍵の取得に失敗しました", L"pageant+", MB_OK);
+		QApplication::clipboard()->setText(
+			QString::fromStdString(to_clipboard_str));
+		std::string msg;
+		if (!ok_keys.empty()) {
+			msg = ok_keys;
+			msg += u8"OpenSSH形式の公開鍵をクリップボードにコピーしました";
 		}
-
-		break;
-	}
-	default:
-		message_box(L"1つだけ選択してください", L"pageant+", MB_OK);
-		break;
+		if (!ng_keys.empty()) {
+			msg += "\n";
+			msg += ng_keys;
+			msg += u8"公開鍵の取得に失敗しました";
+		}
+		std::wstring msg_w = mb_to_wc(msg);
+		message_box(msg_w.c_str(), L"pageant+", MB_OK);
 	}
 }
 

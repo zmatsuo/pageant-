@@ -3,13 +3,15 @@
 
 #include "ssh.h"	// for ssh2_userkey
 
+#if defined(__cplusplus)
+
 class ckey {
 public:
     ckey();
     ckey(const ckey &rhs);
+    ckey(ssh2_userkey *key);
     ckey &operator=(const ckey &rhs);
     ~ckey();
-    ckey(ssh2_userkey *key);
     std::string fingerprint() const;
     std::string alg_name() const;
     int bits() const;
@@ -47,6 +49,21 @@ public:
 };
 
 std::vector<KeyListItem> keylist_update2();
+
+#endif
+
+#if defined(__cplusplus)
+extern "C"
+{
+#endif
+
+//[[deprecated("use ckey")]]
+__declspec(deprecated("use ckey"))
+char *ssh2_fingerprint_sha256(const struct ssh2_userkey *key);
+
+#if defined(__cplusplus)
+}
+#endif
 
 // Local Variables:
 // mode: c++

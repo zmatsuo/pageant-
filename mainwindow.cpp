@@ -46,6 +46,7 @@
 #include "codeconvert.h"
 #include "ckey.h"
 #include "puttymem.h"
+#include "passphrases.h"
 #pragma warning(push)
 #pragma warning(disable:4127)
 #pragma warning(disable:4251)
@@ -646,8 +647,8 @@ bool MainWindow::nativeEventFilter(const QByteArray &eventType, void *message, l
 						 w);
 			if (w == PBT_APMSUSPEND) {
 				if (setting_get_bool("Passphrase/forget_when_terminal_locked", false)) {
-					pageant_forget_passphrases();
-					setting_remove_passphrases();
+					passphrase_forget();
+					passphrase_remove_setting();
 				}
 				if (setting_get_bool("SmartCardPin/forget_when_terminal_locked", false)) {
 					cert_forget_pin();
@@ -672,8 +673,8 @@ bool MainWindow::nativeEventFilter(const QByteArray &eventType, void *message, l
 						 w);
 			if (w == WTS_SESSION_LOCK) {
 				if (setting_get_bool("Passphrase/forget_when_terminal_locked", false)) {
-					pageant_forget_passphrases();
-					setting_remove_passphrases();
+					passphrase_forget();
+					passphrase_remove_setting();
 				}
 				if (setting_get_bool("SmartCardPin/forget_when_terminal_locked", false)) {
 					cert_forget_pin();
@@ -776,63 +777,73 @@ void add_keyfile(const Filename *fn)
         goto done;
     } else if (ret == PAGEANT_ACTION_FAILURE) {
 		goto error;
-    }
-	// PAGEANT_ACTION_NEED_PP
+    } else if (ret == PAGEANT_ACTION_NEED_PP) {
+		auto passphrases = passphrase_get_array();
+		for(auto &&passphrase : passphrases) {
+			ret = pageant_add_keyfile(fn, passphrase.c_str(), &err);
+			passphrase.clear();
+			if (ret == PAGEANT_ACTION_OK) {
+				passphrases.clear();
+				goto done;
+			}
+		}
+		passphrases.clear();
 
-    /*
-     * OK, a passphrase is needed, and we've been given the key
-     * comment to use in the passphrase prompt.
-     */
-	comment = err;
-	comment += "\n";
-	comment += wc_to_mb(std::wstring(fn->path));
-    while (1) {
-		char *_passphrase;
-        struct PassphraseDlgInfo pps;
-		pps.passphrase = &_passphrase;
-		pps.caption = "pageant+";
-		pps.text = comment.c_str();
-		pps.save = 0;
-		pps.saveAvailable = setting_get_bool("Passphrase/save_enable", false);
-		DIALOG_RESULT_T r;
+		/*
+		 * OK, a passphrase is needed, and we've been given the key
+		 * comment to use in the passphrase prompt.
+		 */
+//		comment = err;
+//		comment += "\n";
+		comment += wc_to_mb(std::wstring(fn->path));
+		while (1) {
+			char *_passphrase;
+			struct PassphraseDlgInfo pps;
+			pps.passphrase = &_passphrase;
+			pps.caption = "pageant+";
+			pps.text = comment.c_str();
+			pps.save = 0;
+			pps.saveAvailable = setting_get_bool("Passphrase/save_enable", false);
+			DIALOG_RESULT_T r;
 #if 0
-		{
-			r = passphraseDlg(&pps);
-		}
+			{
+				r = passphraseDlg(&pps);
+			}
 #else
-		{
-			passphrase dlg(gWin, &pps);
-			showAndBringFront(&dlg);
-			int r2 = dlg.exec();
-			r = r2 == QDialog::Accepted ? DIALOG_RESULT_OK : DIALOG_RESULT_CANCEL;
-		}
+			{
+				passphrase dlg(gWin, &pps);
+				showAndBringFront(&dlg);
+				int r2 = dlg.exec();
+				r = r2 == QDialog::Accepted ? DIALOG_RESULT_OK : DIALOG_RESULT_CANCEL;
+			}
 		
 #endif
-		if (r == DIALOG_RESULT_CANCEL) {
-			// cancell	
-			goto done;
-		}
-
-        sfree(err);
-		err = NULL;
-
-        assert(_passphrase != NULL);
-
-        ret = pageant_add_keyfile(fn, _passphrase, &err);
-        if (ret == PAGEANT_ACTION_OK) {
-			if (pps.save != 0) {
-				add_passphrase(_passphrase);
-				save_passphrases(_passphrase);
+			if (r == DIALOG_RESULT_CANCEL) {
+				// cancell	
+				goto done;
 			}
-			goto done;
-        } else if (ret == PAGEANT_ACTION_FAILURE) {
-			goto error;
-        }
 
-        smemclr(_passphrase, strlen(_passphrase));
-        sfree(_passphrase);
-        _passphrase = NULL;
-    }
+			sfree(err);
+			err = NULL;
+
+			assert(_passphrase != NULL);
+
+			ret = pageant_add_keyfile(fn, _passphrase, &err);
+			if (ret == PAGEANT_ACTION_OK) {
+				if (pps.save != 0) {
+					passphrase_add(_passphrase);
+					passphrase_save_setting(_passphrase);
+				}
+				goto done;
+			} else if (ret == PAGEANT_ACTION_FAILURE) {
+				goto error;
+			}
+
+			smemclr(_passphrase, strlen(_passphrase));
+			sfree(_passphrase);
+			_passphrase = NULL;
+		}
+	}
 
 error:
     message_boxA(err, APPNAME, MB_OK | MB_ICONERROR, 0);

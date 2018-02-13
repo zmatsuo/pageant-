@@ -1,5 +1,4 @@
-#ifndef BTSELECTDLG_H
-#define BTSELECTDLG_H
+﻿#pragma once
 
 #include "bt_agent_proxy.h"
 
@@ -12,7 +11,7 @@ namespace Ui {
 class BtSelectDlg;
 }
 
-class BtSelectDlg : public QDialog
+class BtSelectDlg : public QDialog ,bta_deviceinfo_listener
 {
     Q_OBJECT
 
@@ -21,15 +20,26 @@ public:
     ~BtSelectDlg();
 
 private slots:
-    void on_pushButton_2_clicked();
-    void on_pushButton_clicked();
     void on_buttonBox_accepted();
+    void on_pushButton_clicked();
+    void on_pushButton_4_clicked();
+    void on_pushButton_5_clicked();
+    void on_treeView_clicked(const QModelIndex &index);
+    void showDeviceList();
+
+signals:
+    void updateSignal();
 
 private:
     Ui::BtSelectDlg *ui;
 
     std::vector<DeviceInfoType> deviceInfos_;
-    void update();
+    void showKeys();
+    void update(const std::vector<DeviceInfoType> &deivceInfos);
 };
 
-#endif // BTSELECTDLG_H
+// Local Variables:
+// mode: c++
+// coding: utf-8-with-signature
+// tab-width: 4
+// End:

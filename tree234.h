@@ -37,7 +37,7 @@ extern "C" {
  */
 typedef struct tree234_Tag tree234;
 
-typedef int (*cmpfn234) (void *, void *);
+typedef int (*cmpfn234) (const void *, const void *);
 
 /*
  * Create a 2-3-4 tree. If `cmp' is NULL, the tree is unsorted, and
@@ -130,10 +130,10 @@ void *index234(tree234 * t, int index);
 enum {
     REL234_EQ, REL234_LT, REL234_LE, REL234_GT, REL234_GE
 };
-void *find234(tree234 * t, void *e, cmpfn234 cmp);
+void *find234(tree234 * t, const void *e, cmpfn234 cmp);
 void *findrel234(tree234 * t, void *e, cmpfn234 cmp, int relation);
 void *findpos234(tree234 * t, void *e, cmpfn234 cmp, int *index);
-void *findrelpos234(tree234 * t, void *e, cmpfn234 cmp, int relation,
+void *findrelpos234(tree234 * t, const void *e, cmpfn234 cmp, int relation,
 		    int *index);
 
 /*

@@ -671,19 +671,6 @@ int dsa_generate(struct dss_key *key, int bits, progfn_t pfn,
 Bignum primegen(int bits, int modulus, int residue, Bignum factor,
 		int phase, progfn_t pfn, void *pfnparam);
 
-
-/*
- * zlib compression.
- */
-void *zlib_compress_init(void);
-void zlib_compress_cleanup(void *);
-void *zlib_decompress_init(void);
-void zlib_decompress_cleanup(void *);
-int zlib_compress_block(void *, unsigned char *block, int len,
-			unsigned char **outblock, int *outlen);
-int zlib_decompress_block(void *, unsigned char *block, int len,
-			  unsigned char **outblock, int *outlen);
-
 /*
  * SSH-1 agent messages.
  */

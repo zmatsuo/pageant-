@@ -1,5 +1,4 @@
-﻿#ifndef KEYVIEWDLG_H
-#define KEYVIEWDLG_H
+﻿#pragma once
 
 #pragma warning(push)
 #pragma warning(disable:4127)
@@ -7,11 +6,13 @@
 #include <QDialog>
 #pragma warning(pop)
 
+#include "keystore.h"
+
 namespace Ui {
 class keyviewdlg;
 }
 
-class keyviewdlg : public QDialog
+class keyviewdlg : public QDialog, KeystoreListener
 {
 	Q_OBJECT
 
@@ -20,8 +21,8 @@ public:
 	~keyviewdlg();
 
 private slots:
+	void keylistUpdate();
     void on_buttonBox_accepted();
-	void keylist_update();
 	void on_pushButtonRemoveKey_clicked();
 	void on_pushButtonAddKey_clicked();
 	void on_actionhelp_triggered();
@@ -29,12 +30,14 @@ private slots:
 	void on_pushButton_2_clicked();
 	void on_pushButton_3_clicked();
 	void on_pushButton_4_clicked();
-	
+
+signals:
+	void keylistUpdateSignal();
+
 private:
 	Ui::keyviewdlg *ui;
+	void change();
 };
-
-#endif // KEYVIEWDLG_H
 
 // Local Variables:
 // mode: c++

@@ -49,8 +49,6 @@ static void crt_set_debugflag(void)
 }
 #endif
 
-void test();
-
 int main(int argc, char *argv[])
 {
 #ifdef _DEBUG
@@ -175,7 +173,7 @@ int main(int argc, char *argv[])
 	}
 
 	if (setting_get_bool("bt/enable", false)) {
-		bt_agent_proxy_main_init();
+		bt_agent_proxy_main_init(setting_get_int("bt/timeout", 10*1000));
 	}
 
 	if (setting_get_bool("ssh-agent_tcp/enable", false)) {
@@ -191,13 +189,14 @@ int main(int argc, char *argv[])
 	//w.show();
 
 	// 鍵ファイル一覧を設定より取得
-	setting_get_keyfiles(keyfileAry);
+	if (setting_get_bool("key/enable_loading_when_startup", false)) {
+		setting_get_keyfiles(keyfileAry);
+	}
 
 	// 鍵ファイル読み込み
 	add_keyfile(keyfileAry);
 
 	int r = a.exec();
-//	int r = 0;
 	dbgprintf("main leave %d\n", r);
 
 	// stop threads

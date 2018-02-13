@@ -42,7 +42,6 @@
 #include "ssh.h"
 #include "keyviewdlg.h"
 #include "bt_agent_proxy_main.h"
-#include "debug.h"
 #include "codeconvert.h"
 #include "ckey.h"
 #include "puttymem.h"
@@ -56,6 +55,7 @@
 #include "confirmacceptdlg.h"
 #include "btselectdlg.h"
 #pragma warning(pop)
+#include "keystore.h"
 
 #include "ui_mainwindow.h"
 
@@ -72,7 +72,7 @@ extern "C" {
 #define APPNAME			APP_NAME	// in pageant+.h
 
 static MainWindow *gWin;
-void add_keyfile(const Filename *fn);
+static bool add_keyfile(const Filename *fn);
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
@@ -93,12 +93,13 @@ MainWindow::MainWindow(QWidget *parent) :
 #if defined(__MINGW32__)
     BOOL r = WTSRegisterSessionNotification(
         (HWND)winId(), NOTIFY_FOR_ALL_SESSIONS);
-    debug("WTSRegisterSessionNotification() %d\n", r);
+    dbgprintf("WTSRegisterSessionNotification() %d\n", r);
 #else
 	BOOL r = WTSRegisterSessionNotificationEx(
 		WTS_CURRENT_SERVER, (HWND)winId(), NOTIFY_FOR_ALL_SESSIONS);
-	debug("WTSRegisterSessionNotificationEx() %d\n", r);
+	dbgprintf("WTSRegisterSessionNotificationEx() %d\n", r);
 #endif
+	(void)r;		// TODO check return code
 }
 
 MainWindow::~MainWindow()
@@ -212,19 +213,12 @@ static QString get_ssh_folder()
 
 //////////////////////////////////////////////////////////////////////////////
 
-/*
- * This function loads a key from a file and adds it.
- */
-void MainWindow::add_keyfile(const QString &filename)
-{
-	Filename *fn = filename_from_str(filename.toStdString().c_str());
-	::add_keyfile(fn);
-}
-
-//////////////////////////////////////////////////////////////////////////////
-
 static void addStartupKeyfile(const std::wstring &fn)
 {
+	if (!setting_get_bool("key/enable_loading_when_startup", false)) {
+		return;
+	}
+
 	std::vector<std::wstring> flist;
 	setting_get_keyfiles(flist);
 
@@ -255,176 +249,27 @@ void MainWindow::on_pushButtonAddKey_clicked()
     QStringList files = QFileDialog::getOpenFileNames(this, caption, folder, filter);
 
     dbgprintf("select count %d\n", files.size());
+	if (files.size() == 0) {
+		// cancel
+		return;
+	}
+
+	std::vector<std::wstring> files_ws;
 	for (auto &f: files) {
-		add_keyfile(f);
+		std::wstring wsf = f.toStdWString();
+		Filename *fn = filename_from_wstr(wsf.c_str());
+		bool r = ::add_keyfile(fn);
+		filename_free(fn);
+		if (r == true) {
+			files_ws.push_back(wsf);
+		}
     }
-#if 0
-	keylist_update();
-#endif
-	if (files.size() > 0) {
-		for (const auto &f: files) {
-			addStartupKeyfile(f.toStdWString());
+	if (files_ws.size() > 0) {
+		for (const auto &f: files_ws) {
+			addStartupKeyfile(f);
 		}
 	}
 }
-
-static bool parse_public_keys(
-	const void *data, size_t len,	
-	std::vector<ckey> &keys,
-	const char **fail_reason)
-{
-	keys.clear();
-	const unsigned char *msg = (unsigned char *)data;
-	if (len < 4) {
-		*fail_reason = "too short";
-		return false;
-	}
-	int count = toint(GET_32BIT(msg));
-	msg += 4;
-	len -= 4;
-	printf("key count=%d\n", count);
-
-	for(int i=0; i<count; i++) {
-		if (len < 4) {
-			*fail_reason = "too short";
-			return false;
-		}
-		size_t key_len = toint(GET_32BIT(msg));
-		if (len < key_len) {
-			*fail_reason = "too short";
-			return false;
-		}
-		const unsigned char *key_blob = msg + 4;
-		ckey key;
-		bool r = key.parse_one_public_key(key_blob, key_len, fail_reason);	// TODO:コメント分の長さを処理していない
-		if (r == false) {
-			return false;
-		}
-		keys.push_back(key);
-		msg += key_len;
-		len -= key_len + 4;
-	}
-
-	return true;
-}
-
-#if 1
-static void bt_agent_query_synchronous_fn(void *in, size_t inlen, void **out, size_t *outlen)
-{
-	size_t reply_len = inlen;
-	void *reply = bt_agent_proxy_main_handle_msg(in, &reply_len);	// todo: size_tに変更
-	*out = reply;
-	*outlen = reply_len;
-}
-
-// TODO: BTファイルに持っていく
-bool bt_agent_proxy_main_get_key(
-	const wchar_t *target_device,
-	std::vector<ckey> &keys)
-{
-	keys.clear();
-
-	bool r = bt_agent_proxy_main_connect(target_device);
-	if (!r) {
-		std::wostringstream oss;
-		oss << L"bluetooth 接続失敗\n"
-			<< target_device;
-		message_boxW(oss.str().c_str(), L"pageant+", MB_OK, 0);
-		return false;
-	}
-
-	// BT問い合わせする
-	pagent_set_destination(bt_agent_query_synchronous_fn);
-	int length;
-	void *p = pageant_get_keylist2(&length);
-	pagent_set_destination(nullptr);
-	if (p == nullptr) {
-		// 応答なし
-		return false;
-	}
-	std::vector<uint8_t> from_bt((uint8_t *)p, ((uint8_t *)p) + length);
-	sfree(p);
-	p = &from_bt[0];
-
-
-	debug_memdump(p, length, 1);
-
-	std::string target_device_utf8 = wc_to_utf8(target_device);
-
-	// 鍵を抽出
-	const char *fail_reason = nullptr;
-	r = parse_public_keys(p, length, keys, &fail_reason);
-	if (r == false) {
-		printf("err %s\n", fail_reason);
-		return false;
-	}
-
-	// ファイル名をセット
-	for(ckey &key : keys) {
-		std::ostringstream oss;
-		oss << "btspp://" << target_device_utf8 << "/" << key.fingerprint_sha1();
-		key.set_fname(oss.str().c_str());
-	}
-
-	for(const ckey &key : keys) {
-		printf("key\n");
-		printf(" '%s'\n", key.fingerprint().c_str());
-		printf(" md5 %s\n", key.fingerprint_md5().c_str());
-		printf(" sha1 %s\n", key.fingerprint_sha1().c_str());
-		printf(" alg %s %d\n", key.alg_name().c_str(), key.bits());
-		printf(" comment %s\n", key.key_comment().c_str());
-		printf(" comment2 %s\n", key.key_comment2().c_str());
-	}
-
-	return true;
-}
-
-// BTファイルに持っていく
-bool bt_agent_proxy_main_add_key(
-	const std::vector<std::string> &fnames)
-{
-	// デバイス一覧を取得
-	std::vector<std::string> target_devices_utf8;
-	{
-		std::regex re(R"(btspp://(.+)/)");
-		std::smatch match;
-		for(auto key : fnames) {
-			if (std::regex_search(key, match, re)) {
-				target_devices_utf8.push_back(match[1]);
-			}
-		}
-	}
-	std::sort(target_devices_utf8.begin(), target_devices_utf8.end());
-	target_devices_utf8.erase(
-		std::unique(target_devices_utf8.begin(), target_devices_utf8.end()),
-		target_devices_utf8.end());
-
-	// デバイスごとに公開鍵を取得
-	for (auto target_device_utf8: target_devices_utf8) {
-
-		std::wstring target_device = utf8_to_wc(target_device_utf8);
-
-		std::vector<ckey> keys;
-		bool r = bt_agent_proxy_main_get_key(target_device.c_str(), keys);
-		if (r == false) {
-			return false;
-		}
-
-		for(auto fnamae : fnames) {
-			for(auto key : keys) {
-				if (key.key_comment() == fnamae) {
-					ssh2_userkey *key_st;
-					key.get_raw_key(&key_st);
-					if (!pageant_add_ssh2_key(key_st)) {
-						printf("err\n");
-					}
-				}
-			}
-		}
-	}
-	return true;
-}
-#endif
 
 void MainWindow::on_pushButtonAddBTKey_clicked()
 {
@@ -535,9 +380,6 @@ void MainWindow::on_pushButton_clicked()
 		return;
 	Filename *fn = filename_from_str(szCert);
 	::add_keyfile(fn);
-#if 0
-	keylist_update();
-#endif
 	addStartupKeyfile(fn->path);
 
 	filename_free(fn);
@@ -560,9 +402,6 @@ void MainWindow::on_pushButton_2_clicked()
 			return;
 		Filename *fn = filename_from_str(szCert);
 		::add_keyfile(fn);
-#if 0
-		keylist_update();
-#endif
 
 		addStartupKeyfile(fn->path);
 
@@ -582,13 +421,14 @@ void MainWindow::on_actionsetting_triggered()
     bool unixdomain_enable_prev = setting_get_bool("ssh-agent/cygwin_sock");
     bool pageant_enable_prev = setting_get_bool("ssh-agent/pageant");
 	bool ms_agent_enable_prev = setting_get_bool("ssh-agent/ms_ssh");
+	bool bt_agent_enable_prev = setting_get_bool("bt/enable");
 	SettingDlg dlg(this);
     dlg.exec();
 
-	// サービス再起動が必要
+	// 環境変数が変化している?
 	const bool reboot_services = (unixdomain_path != _getenv(L"SSH_AUTH_SOCK"));
     if (reboot_services) {
-		// すべて止める
+		// 環境変数に関連するサービスは再起動が必要なのですべて止める
 		winpgnt_stop();
 		ssh_agent_cygwin_unixdomain_stop();
 		pipe_th_stop();
@@ -597,9 +437,7 @@ void MainWindow::on_actionsetting_triggered()
 		ms_agent_enable_prev = false;
 	}
 
-    bool unixdomain_enable = setting_get_bool("ssh-agent/cygwin_sock");
-    bool pageant_enable = setting_get_bool("ssh-agent/pageant");
-	bool ms_agent_enable = setting_get_bool("ssh-agent/ms_ssh");
+    const bool pageant_enable = setting_get_bool("ssh-agent/pageant");
     if (pageant_enable_prev != pageant_enable) {
 		if (pageant_enable) {
 			winpgnt_start();
@@ -607,6 +445,8 @@ void MainWindow::on_actionsetting_triggered()
 			winpgnt_stop();
 		}
 	}
+
+    const bool unixdomain_enable = setting_get_bool("ssh-agent/cygwin_sock");
 	if (unixdomain_enable_prev != unixdomain_enable) {
 		if (unixdomain_enable) {
 			ssh_agent_cygwin_unixdomain_start(unixdomain_path.c_str());
@@ -614,6 +454,8 @@ void MainWindow::on_actionsetting_triggered()
 			ssh_agent_cygwin_unixdomain_stop();
 		}
 	}
+
+	const bool ms_agent_enable = setting_get_bool("ssh-agent/ms_ssh");
 	if (ms_agent_enable_prev != ms_agent_enable) {
 		if (ms_agent_enable) {
 			pipe_th_start(unixdomain_path.c_str());
@@ -622,9 +464,29 @@ void MainWindow::on_actionsetting_triggered()
 		}
 	}
 
-	bt_agent_proxy_main_exit();
-	if (setting_get_bool("bt/enable", false)) {
-		bt_agent_proxy_main_init();
+	const bool bt_agent_enable = setting_get_bool("bt/enable");
+	if (bt_agent_enable_prev != bt_agent_enable) {
+		if (bt_agent_enable) {
+			bt_agent_proxy_main_init(setting_get_int("bt/timeout", 10*1000));
+		} else {
+			bt_agent_proxy_main_exit();
+		}
+	}
+}
+
+void MainWindow::lockTerminal()
+{
+	if (setting_get_bool("key/forget_when_terminal_locked", false)) {
+		setting_clear_keyfiles();
+		pageant_delete_ssh1_key_all();
+		pageant_delete_ssh2_key_all();
+	}
+	if (setting_get_bool("Passphrase/forget_when_terminal_locked", false)) {
+		passphrase_forget();
+		passphrase_remove_setting();
+	}
+	if (setting_get_bool("SmartCardPin/forget_when_terminal_locked", false)) {
+		cert_forget_pin();
 	}
 }
 
@@ -646,13 +508,7 @@ bool MainWindow::nativeEventFilter(const QByteArray &eventType, void *message, l
 						 "??",
 						 w);
 			if (w == PBT_APMSUSPEND) {
-				if (setting_get_bool("Passphrase/forget_when_terminal_locked", false)) {
-					passphrase_forget();
-					passphrase_remove_setting();
-				}
-				if (setting_get_bool("SmartCardPin/forget_when_terminal_locked", false)) {
-					cert_forget_pin();
-				}
+				lockTerminal();
 			}
 			break;
 		case WM_WTSSESSION_CHANGE:
@@ -672,13 +528,7 @@ bool MainWindow::nativeEventFilter(const QByteArray &eventType, void *message, l
 						 "??",
 						 w);
 			if (w == WTS_SESSION_LOCK) {
-				if (setting_get_bool("Passphrase/forget_when_terminal_locked", false)) {
-					passphrase_forget();
-					passphrase_remove_setting();
-				}
-				if (setting_get_bool("SmartCardPin/forget_when_terminal_locked", false)) {
-					cert_forget_pin();
-				}
+				lockTerminal();
 			}
 			break;
 		case WM_DEVICECHANGE:
@@ -750,22 +600,15 @@ DIALOG_RESULT_T passphraseDlg(struct PassphraseDlgInfo *info)
 	return r == QDialog::Accepted ? DIALOG_RESULT_OK : DIALOG_RESULT_CANCEL;
 }
 
-void keylist_update(void)
-{
-	// TODO key listが開いているとき、内容の更新を行う
-#if 0
-	gWin->keylist_update();
-#endif
-}
-
 HWND get_hwnd()
 {
 	return (HWND)gWin->winId();
 }
 
-void add_keyfile(const Filename *fn)
+static bool add_keyfile(const Filename *fn)
 {
 	std::string comment;
+	bool result = false;
 	/*
      * Try loading the key without a passphrase. (Or rather, without a
      * _new_ passphrase; pageant_add_keyfile will take care of trying
@@ -774,20 +617,24 @@ void add_keyfile(const Filename *fn)
     char *err;
     int ret = pageant_add_keyfile(fn, NULL, &err);
     if (ret == PAGEANT_ACTION_OK) {
+		result = true;
         goto done;
     } else if (ret == PAGEANT_ACTION_FAILURE) {
 		goto error;
     } else if (ret == PAGEANT_ACTION_NEED_PP) {
-		auto passphrases = passphrase_get_array();
-		for(auto &&passphrase : passphrases) {
-			ret = pageant_add_keyfile(fn, passphrase.c_str(), &err);
-			passphrase.clear();
-			if (ret == PAGEANT_ACTION_OK) {
-				passphrases.clear();
-				goto done;
+		{
+			auto passphrases = passphrase_get_array();
+			for(auto &&passphrase : passphrases) {
+				ret = pageant_add_keyfile(fn, passphrase.c_str(), &err);
+				passphrase.clear();
+				if (ret == PAGEANT_ACTION_OK) {
+					passphrases.clear();
+					result = true;
+					goto done;
+				}
 			}
+			passphrases.clear();
 		}
-		passphrases.clear();
 
 		/*
 		 * OK, a passphrase is needed, and we've been given the key
@@ -834,6 +681,7 @@ void add_keyfile(const Filename *fn)
 					passphrase_add(_passphrase);
 					passphrase_save_setting(_passphrase);
 				}
+				result = true;
 				goto done;
 			} else if (ret == PAGEANT_ACTION_FAILURE) {
 				goto error;
@@ -847,8 +695,10 @@ void add_keyfile(const Filename *fn)
 
 error:
     message_boxA(err, APPNAME, MB_OK | MB_ICONERROR, 0);
+	result = false;
 done:
     sfree(err);
+	return result;
 }
 
 void add_keyfile(const wchar_t *filename)
@@ -856,9 +706,6 @@ void add_keyfile(const wchar_t *filename)
 	Filename *fn = filename_from_wstr(filename);
 	add_keyfile(fn);
 	filename_free(fn);
-#if 0
-	keylist_update();
-#endif
 }
 
 void add_keyfile(const std::vector<std::wstring> &keyfileAry)
@@ -885,17 +732,8 @@ void add_keyfile(const std::vector<std::wstring> &keyfileAry)
 
 	// BTを読み込み
 	if (setting_get_bool("bt/enable", false)) {
-		for(const auto &f: normal_files) {
-			Filename *fn = filename_from_wstr(f.c_str());
-			add_keyfile(fn);
-			filename_free(fn);
-		}
 		bt_agent_proxy_main_add_key(bt_files);
 	}
-
-#if 0
-	keylist_update();
-#endif
 }
 
 

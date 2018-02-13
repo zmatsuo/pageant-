@@ -1,4 +1,4 @@
-/**
+ï»¿/**
    misc.c
    from putty
    Platform-independent routines shared between all PuTTY programs.
@@ -332,7 +332,7 @@ char *dupprintf(const char *fmt, ...)
     return ret;
 }
 
-// ƒ[ƒJƒ‹‚¾‚¯A
+// ãƒ­ãƒ¼ã‚«ãƒ«ã ã‘ã€
 #if 1
 typedef struct strbuf {
     char *s;
@@ -992,20 +992,15 @@ char *buildinfo(const char *newline)
     strbuf_catf(buf, "%sCompiler: gcc %s", newline, __VERSION__);
 #elif defined _MSC_VER
     strbuf_catf(buf, "%sCompiler: Visual Studio", newline);
-#if _MSC_VER == 1911
+#if (_MSC_VER == 1911) || (_MSC_VER == 1912)
     strbuf_catf(buf, " 2017 / MSVC++ 15.0");
     strbuf_catf(buf, " (%s)",
-		(_MSC_FULL_VER == 191125547) ? "15.4.3(15.4.5?)" :
+		(_MSC_FULL_VER == 191225835) ? "15.5.5" :
 		"_MSC_FULL_VER=" xstr( _MSC_FULL_VER));
 #elif _MSC_VER == 1900
     strbuf_catf(buf, " 2015 / MSVC++ 14.0");
     strbuf_catf(buf, " (%s)",
 		(_MSC_FULL_VER == 190024215) ? "Update 3(KB3165756)" :
-		(_MSC_FULL_VER == 190024213) ? "Update 3(KB3022398)" :	// ‘½•ª
-		(_MSC_FULL_VER == 190024210) ? "Update 3" :
-		(_MSC_FULL_VER == 190023918) ? "Update 2" :
-		(_MSC_FULL_VER == 190023506) ? "Update 1" :
-		(_MSC_FULL_VER == 190023026) ? "update 0" :
 		"(" xstr( _MSC_FULL_VER) ")" );
 #elif _MSC_VER == 1800
     strbuf_catf(buf, " 2013 / MSVC++ 12.0");
@@ -1099,6 +1094,35 @@ int filename_equal(const Filename *f1, const Filename *f2)
 int filename_is_null(const Filename *fn)
 {
     return !*fn->path;
+}
+#endif
+
+#if 0
+Filename filename_from_str(const char *str)
+{
+    Filename ret;
+    strncpy(ret.path, str, sizeof(ret.path));
+    ret.path[sizeof(ret.path)-1] = '\0';
+    return ret;
+}
+#endif
+
+#if 0
+const char *filename_to_str(const Filename *fn)
+{
+    return fn->path;
+}
+#endif
+
+#if 0
+int filename_equal(Filename f1, Filename f2)
+{
+    return !strcmp(f1.path, f2.path);
+}
+
+int filename_is_null(Filename fn)
+{
+    return !*fn.path;
 }
 #endif
 

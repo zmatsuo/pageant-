@@ -1,5 +1,9 @@
 ﻿
+#include <winsock2.h>
+#include <ws2bth.h>
+
 #include <stdint.h>
+
 #include <vector>
 #include <thread>
 #include <chrono>
@@ -15,19 +19,26 @@
 #endif
 #endif
 
+#define ENABLE_DEBUG_PRINT
+#include "debug.h"
 #include "codeconvert.h"
+#include "gui_stuff.h"
+#include "pageant.h"
+#include "keystore.h"
 
 #include "bt_agent_proxy.h"
 
 #include "bt_agent_proxy_main.h"
-#include "bt_agent_proxy_main2.h"
-
 
 static bt_agent_proxy_t *hBta_;
+//static int timeoutMs;
+static std::chrono::milliseconds timeoutMs;
 static std::vector<uint8_t> receive_buf(7*1024);
 static size_t receive_size;
 static bool receive_event;
-static bool connect_flag;
+static bool connect_finish_flag;
+static bool connect_result_flag;
+static bool disconnect_finish_flag;
 
 static int notify_func(
     bt_agent_proxy_t *hBta,
@@ -37,14 +48,18 @@ static int notify_func(
     switch(notify->type)
     {
     case BTA_NOTIFY_CONNECT:
-		printf("connect %S!\n", notify->u.connect.name );
-		connect_flag = true;
+		dbgprintf("connect %S %s\n",
+				  notify->u.connect.name,
+				  notify->u.connect.result ? "ok" : "fail"
+			);
+		connect_finish_flag = true;
+		connect_result_flag = notify->u.connect.result;
 //	notify->send_data = (uint8_t *)"data";
 //	notify->send_len = 4;
 		break;
     case BTA_NOTIFY_RECV:
     {
-		printf("受信 %zd\n", receive_size);
+		dbgprintf("受信 %zd\n", receive_size);
 		receive_size = notify->u.recv.size;
 		receive_event = true;
 		notify->u.recv.ptr = &receive_buf[0];
@@ -52,7 +67,10 @@ static int notify_func(
 		break;
     }
     case BTA_NOTIFY_SEND:
-		printf("送信完了\n");
+		dbgprintf("送信完了\n");
+		break;
+	case BTA_NOTIFY_DISCONNECT_COMPLATE:
+		disconnect_finish_flag = true;
 		break;
     default:
 		break;
@@ -60,7 +78,7 @@ static int notify_func(
     return 0;
 }
 
-void bt_agent_proxy_main_init()
+void bt_agent_proxy_main_init(int timeout)
 {
     bta_init_t init_info = {
 		/*.size =*/	sizeof(bta_init_t),
@@ -70,7 +88,8 @@ void bt_agent_proxy_main_init()
     init_info.recv_size = receive_buf.size();
     hBta_ = bta_init(&init_info);
 
-	connect_flag = false;
+	timeoutMs = (std::chrono::milliseconds)timeout;
+	connect_finish_flag = false;
 }
 
 void bt_agent_proxy_main_exit()
@@ -81,7 +100,7 @@ void bt_agent_proxy_main_exit()
 	}
 }
 
-bool bt_agent_proxy_main_send(const uint8_t *data, size_t len)
+static bool bt_agent_proxy_main_send(const uint8_t *data, size_t len)
 {
     return bta_send(hBta_, data, len);
 }
@@ -94,13 +113,25 @@ void *bt_agent_proxy_main_handle_msg(const void *msgv, size_t *replylen)
 		*replylen = 0;
 		return nullptr;
 	}
+	auto start = std::chrono::system_clock::now();
     while(!receive_event) {
-		Sleep(10);
+		std::this_thread::sleep_for(std::chrono::microseconds(1));
+		auto now = std::chrono::system_clock::now();
+		auto elapse =
+			std::chrono::duration_cast<std::chrono::milliseconds>(now - start);
+		if (elapse >= timeoutMs) {
+			break;
+		}
     }
-    *replylen = receive_size;
-    void *p = malloc(receive_size);
-    memcpy(p, &receive_buf[0], receive_size);
-    return p;
+	if (receive_event) {
+		*replylen = receive_size;
+		void *p = malloc(receive_size);
+		memcpy(p, &receive_buf[0], receive_size);
+		return p;
+	} else {
+		*replylen = 0;
+		return nullptr;
+	}
 }
 
 bt_agent_proxy_t *bt_agent_proxy_main_get_handle()
@@ -108,42 +139,118 @@ bt_agent_proxy_t *bt_agent_proxy_main_get_handle()
 	return hBta_;
 }
 
-bool bt_agent_proxy_main_check_connect()
+static bool bt_agent_proxy_main_check_connect()
 {
-	bool f = connect_flag;
-	connect_flag = false;
+	bool f = connect_finish_flag;
+	connect_finish_flag = false;
 	return f;
 }
 
 //////////////////////////////////////////////////////////////////////////////
 
+static void get_device_info(
+	bt_agent_proxy_t *hBta,
+	std::vector<DeviceInfoType> &deviceInfos)
+{
+	bta_deviceinfo(hBta, deviceInfos);
+	if (deviceInfos.size() == 0) {
+		auto start = std::chrono::system_clock::now();
+		while(1) {
+			auto now = std::chrono::system_clock::now();
+			auto elapse =
+				std::chrono::duration_cast<std::chrono::milliseconds>(now - start);
+			if (elapse >= timeoutMs) {
+				break;
+			}
+			std::this_thread::sleep_for(std::chrono::microseconds(1));
+
+			bta_deviceinfo(hBta, deviceInfos);
+			if (deviceInfos.size() != 0) {
+				break;
+			}
+		}
+	}
+}
+	
 bool bt_agent_proxy_main_connect(const DeviceInfoType &deviceInfo)
 {
 	bt_agent_proxy_t *hBta = bt_agent_proxy_main_get_handle();
 	if (hBta == nullptr) {
-		printf("bt?\n");
+		dbgprintf("bt?\n");
 		return false;
 	}
 
+	if (deviceInfo.connected) {
+		// 接続済み
+		dbgprintf("接続済みデバイス\n");
+		return true;
+	}
+
 	// 接続する
-	if (!deviceInfo.connected) {
-		BTH_ADDR deviceAddr = deviceInfo.deviceAddr;
-		bool r = bta_connect(hBta, &deviceAddr);
-		printf("bta_connect() %d\n", r);
-		if (r == false) {
-			dbgprintf("connect fail\n");
-			return false;
-		} else {
-			// 接続待ち
-			while (1) {
-				// TODO タイムアウト
-				if (bt_agent_proxy_main_check_connect() == true) {
-					break;
-				}
-				Sleep(1);
-			}
+	dbgprintf("bta_connect(%S(%S))\n",
+		deviceInfo.deviceName.c_str(),
+		deviceInfo.deviceAddrStr.c_str());
+	BTH_ADDR deviceAddr = deviceInfo.deviceAddr;
+	bool r = bta_connect(hBta, &deviceAddr);
+	dbgprintf("result %d(%s)\n",
+			  r, r == false ? "fail" : "ok");
+	if (r == false) {
+		dbgprintf("connect fail\n");
+		return false;
+	}
+
+	// 接続待ち
+	auto start = std::chrono::system_clock::now();
+	while (1) {
+		// TODO タイムアウト
+		if (bt_agent_proxy_main_check_connect() == true) {
+			break;
+		}
+		std::this_thread::sleep_for(std::chrono::microseconds(1));
+		auto now = std::chrono::system_clock::now();
+		auto elapsed =
+			std::chrono::duration_cast<std::chrono::milliseconds>(now - start);
+		if (elapsed > timeoutMs) {
+			bta_connect_request_cancel(hBta);
+			connect_result_flag = false;
+			dbgprintf("timeout\n");
+			break;
 		}
 	}
+	dbgprintf("connect %s\n", connect_result_flag ? "ok" : "ng");
+	return connect_result_flag;
+}
+
+bool bt_agent_proxy_main_disconnect(const DeviceInfoType &deviceInfo)
+{
+	bt_agent_proxy_t *hBta = bt_agent_proxy_main_get_handle();
+	if (hBta == nullptr) {
+		dbgprintf("bt?\n");
+		return false;
+	}
+
+	if (!deviceInfo.connected) {
+		// 未接続
+		return true;
+	}
+
+	// 切断する
+	disconnect_finish_flag = false;
+	bool r = bta_disconnect(hBta);
+	if (r == false) {
+		dbgprintf("切断失敗\n");
+		return false;
+	}
+
+	// 切断待ち
+	while (1) {
+		// TODO つくる
+		if (disconnect_finish_flag == true) {
+			break;
+		}
+		std::this_thread::sleep_for(std::chrono::microseconds(1));
+	}
+
 	return true;
 }
 
@@ -151,34 +258,16 @@ bool bt_agent_proxy_main_connect(const wchar_t *target_device)
 {
 	bt_agent_proxy_t *hBta = bt_agent_proxy_main_get_handle();
 	if (hBta == nullptr) {
-		printf("bt?\n");
+		dbgprintf("bt?\n");
 		return false;
 	}
 
 	// デバイス一覧を取得
 	std::vector<DeviceInfoType> deviceInfos;
-	bta_deviceinfo(hBta, deviceInfos);
+	get_device_info(hBta, deviceInfos);
 	if (deviceInfos.size() == 0) {
-		auto start = std::chrono::system_clock::now();
-		while(1) {
-			auto now = std::chrono::system_clock::now();
-			auto elapse =
-				std::chrono::duration_cast<std::chrono::seconds>(
-					now - start);
-			if (elapse >= (std::chrono::seconds)10) {
-				break;
-			}
-			std::this_thread::sleep_for(std::chrono::microseconds(10));
-
-			bta_deviceinfo(hBta, deviceInfos);
-			if (deviceInfos.size() != 0) {
-				break;
-			}
-		}
-		if (deviceInfos.size() == 0) {
-			// 見つからなかった
-			return false;
-		}
+		// 見つからなかった
+		return false;
 	}
 	
 	DeviceInfoType deviceInfo;
@@ -196,8 +285,47 @@ bool bt_agent_proxy_main_connect(const wchar_t *target_device)
 	return bt_agent_proxy_main_connect(deviceInfo);
 }
 
-#if 0
-// TODO: BTファイルに持っていく
+bool bt_agent_proxy_main_disconnect(const wchar_t *target_device)
+{
+	bt_agent_proxy_t *hBta = bt_agent_proxy_main_get_handle();
+	if (hBta == nullptr) {
+		dbgprintf("bt?\n");
+		return false;
+	}
+
+	// デバイス一覧を取得
+	std::vector<DeviceInfoType> deviceInfos;
+	get_device_info(hBta, deviceInfos);
+	if (deviceInfos.size() == 0) {
+		// 見つからなかった
+		return false;
+	}
+	
+	DeviceInfoType deviceInfo;
+	for (const auto &device : deviceInfos) {
+		if (device.deviceName == target_device) {
+			deviceInfo = device;
+			break;
+		}
+	}
+	if (deviceInfo.deviceName != target_device) {
+		// 見つからなかった
+		return false;
+	}
+
+	return bt_agent_proxy_main_disconnect(deviceInfo);
+}
+
+#if 1
+static void bt_agent_query_synchronous_fn(void *in, size_t inlen, void **out, size_t *outlen)
+{
+	size_t reply_len = inlen;
+	void *reply = bt_agent_proxy_main_handle_msg(in, &reply_len);	// todo: size_tに変更
+	*out = reply;
+	*outlen = reply_len;
+}
+
+// 鍵取得
 bool bt_agent_proxy_main_get_key(
 	const wchar_t *target_device,
 	std::vector<ckey> &keys)
@@ -218,6 +346,11 @@ bool bt_agent_proxy_main_get_key(
 	int length;
 	void *p = pageant_get_keylist2(&length);
 	pagent_set_destination(nullptr);
+	if (p == nullptr) {
+		// 応答なし
+		dbgprintf("BT応答なし\n");
+		return false;
+	}
 	std::vector<uint8_t> from_bt((uint8_t *)p, ((uint8_t *)p) + length);
 	sfree(p);
 	p = &from_bt[0];
@@ -231,11 +364,11 @@ bool bt_agent_proxy_main_get_key(
 	const char *fail_reason = nullptr;
 	r = parse_public_keys(p, length, keys, &fail_reason);
 	if (r == false) {
-		printf("err %s\n", fail_reason);
+		dbgprintf("err %s\n", fail_reason);
 		return false;
 	}
 
-	// ファイル名をセット
+	// ファイル名をセット TODO:ここでやる?
 	for(ckey &key : keys) {
 		std::ostringstream oss;
 		oss << "btspp://" << target_device_utf8 << "/" << key.fingerprint_sha1();
@@ -243,24 +376,16 @@ bool bt_agent_proxy_main_get_key(
 	}
 
 	for(const ckey &key : keys) {
-		printf("key\n");
-		printf(" '%s'\n", key.fingerprint().c_str());
-		printf(" md5 %s\n", key.fingerprint_md5().c_str());
-		printf(" sha1 %s\n", key.fingerprint_sha1().c_str());
-		printf(" alg %s %d\n", key.alg_name().c_str(), key.bits());
-		printf(" comment %s\n", key.key_comment().c_str());
-		printf(" comment2 %s\n", key.key_comment2().c_str());
+		dbgprintf("key\n");
+		dbgprintf(" '%s'\n", key.fingerprint().c_str());
+		dbgprintf(" md5 %s\n", key.fingerprint_md5().c_str());
+		dbgprintf(" sha256 %s\n", key.fingerprint_sha256().c_str());
+		dbgprintf(" alg %s %d\n", key.alg_name().c_str(), key.bits());
+		dbgprintf(" comment %s\n", key.key_comment().c_str());
+		dbgprintf(" comment2 %s\n", key.key_comment2().c_str());
 	}
 
 	return true;
-}
-
-static void bt_agent_query_synchronous_fn(void *in, size_t inlen, void **out, size_t *outlen)
-{
-	size_t reply_len = inlen;
-	void *reply = bt_agent_proxy_main_handle_msg(in, &reply_len);	// todo: size_tに変更
-	*out = reply;
-	*outlen = reply_len;
 }
 
 // BTファイルに持っていく
@@ -291,7 +416,7 @@ bool bt_agent_proxy_main_add_key(
 		std::vector<ckey> keys;
 		bool r = bt_agent_proxy_main_get_key(target_device.c_str(), keys);
 		if (r == false) {
-			return false;
+			continue;
 		}
 
 		for(auto fnamae : fnames) {
@@ -300,7 +425,7 @@ bool bt_agent_proxy_main_add_key(
 					ssh2_userkey *key_st;
 					key.get_raw_key(&key_st);
 					if (!pageant_add_ssh2_key(key_st)) {
-						printf("err\n");
+						dbgprintf("key %s add err\n", key.fingerprint_sha256().c_str());
 					}
 				}
 			}
@@ -309,7 +434,6 @@ bool bt_agent_proxy_main_add_key(
 	return true;
 }
 #endif
-
 
 // Local Variables:
 // mode: c++

@@ -34,38 +34,16 @@ void pageant_exit(void);
  * Returns a fully formatted message as output, *with* its initial
  * length field, and sets *outlen to the full size of that message.
  */
+#if 0
 void *pageant_handle_msg(const void *msg, int msglen, int *outlen,
                          void *logctx, pageant_logfn_t logfn);
+#endif
 
 /*
  * Construct a failure response. Useful for agent front ends which
  * suffer a problem before they even get to pageant_handle_msg.
  */
 void *pageant_failure_msg(int *outlen);
-
-/*
- * Construct a list of public keys, just as the two LIST_IDENTITIES
- * requests would have returned them.
- */
-void *pageant_make_keylist1(int *length);
-void *pageant_make_keylist2(int *length);
-
-/*
- * Accessor functions for Pageant's internal key lists. Fetch the nth
- * key; count the keys; attempt to add a key (returning true on
- * success, in which case the ownership of the key structure has been
- * taken over by pageant.c); attempt to delete a key (returning true
- * on success, in which case the ownership of the key structure is
- * passed back to the client).
- */
-struct RSAKey *pageant_nth_ssh1_key(int i);
-struct ssh2_userkey *pageant_nth_ssh2_key(int i);
-int pageant_count_ssh1_keys(void);
-int pageant_count_ssh2_keys(void);
-int pageant_add_ssh1_key(struct RSAKey *rkey);
-int pageant_add_ssh2_key(struct ssh2_userkey *skey);
-int pageant_delete_ssh1_key(struct RSAKey *rkey);
-int pageant_delete_ssh2_key(struct ssh2_userkey *skey);
 
 /*
  * This callback must be provided by the Pageant front end code.
@@ -128,38 +106,12 @@ enum {
 int pageant_add_keyfile(const Filename *filename, const char *passphrase,
                         char **retstr);
 
-struct pageant_pubkey {
-    /* Everything needed to identify a public key found by
-     * pageant_enum_keys and pass it back to the agent or other code
-     * later */
-    void *blob;
-    int bloblen;
-    char *comment;
-    int ssh_version;
-};
-struct pageant_pubkey *pageant_pubkey_copy(struct pageant_pubkey *key);
-void pageant_pubkey_free(struct pageant_pubkey *key);
-
-typedef void (*pageant_key_enum_fn_t)(void *ctx,
-                                      const char *fingerprint,
-                                      const char *comment,
-                                      struct pageant_pubkey *key);
-int pageant_enum_keys(pageant_key_enum_fn_t callback, void *callback_ctx,
-                      char **retstr);
-int pageant_delete_key(struct pageant_pubkey *key, char **retstr);
-int pageant_delete_all_keys(char **retstr);
-
-void pageant_delete_key2(int selectedCount, const int *selectedArray);
-
 void *pageant_handle_msg_2(const void *msgv, int *replylen);
 
 void add_keyfile(const wchar_t *filename);
 
 void set_confirm_any_request(int _bool);
 int get_confirm_any_request(void);
-
-void pageant_del_key(const char *fingerprint);
-char *pageant_get_pubkey(const char *fingerprint);
 
 typedef void (*agent_query_synchronous_fn)(void *in, size_t inlen, void **out, size_t *outlen);
 void pagent_set_destination(agent_query_synchronous_fn fn);
@@ -190,3 +142,5 @@ void add_keyfile(const std::vector<std::wstring> &keyfileAry);
 void removeKey(const char *fingerprint);
 
 #endif
+
+#include "keystore2.h"

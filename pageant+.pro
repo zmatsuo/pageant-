@@ -54,7 +54,7 @@ SOURCES += main.cpp\
     libunixdomain/sock_server.c \
     libunixdomain/ud_socket.c \
     ssh-agent_emu.cpp \
-    pageant.c \
+    pageant.cpp \
     pageant_cpp.cpp \
     sshsh256.c \
     sshecc.c \
@@ -75,7 +75,9 @@ SOURCES += main.cpp\
     ckey.cpp \
     codeconvert.cpp \
     obfuscate.cpp \
-    passphrases.cpp
+    passphrases.cpp \
+    keystore.cpp \
+    keystore2.cpp
 
 HEADERS  += mainwindow.h \
     passphrasedlg.h \
@@ -93,7 +95,9 @@ HEADERS  += mainwindow.h \
     ckey.h \
     codeconvert.h \
     obfuscate.h \
-    passphrases.h
+    passphrases.h \
+    keystore.h \
+    keystore2.h
     
 FORMS    += mainwindow.ui \
     passphrasedlg.ui \

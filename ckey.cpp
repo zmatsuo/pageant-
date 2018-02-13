@@ -416,6 +416,62 @@ char *getfingerprint(int type, const void *key)
 }
 #endif
 
+bool parse_public_keys(
+	const void *data, size_t len,	
+	std::vector<ckey> &keys,
+	const char **fail_reason)
+{
+	keys.clear();
+	const unsigned char *msg = (unsigned char *)data;
+	if (len < 4) {
+		*fail_reason = "too short";
+		return false;
+	}
+	int count = toint(GET_32BIT(msg));
+	msg += 4;
+	len -= 4;
+	dbgprintf("key count=%d\n", count);
+
+	for(int i=0; i<count; i++) {
+		if (len < 4) {
+			*fail_reason = "too short";
+			return false;
+		}
+		size_t key_len = toint(GET_32BIT(msg));
+		if (len < key_len) {
+			*fail_reason = "too short";
+			return false;
+		}
+		msg += 4;
+		len -= 4;
+		const unsigned char *key_blob = msg;
+		ckey key;
+		bool r = key.parse_one_public_key(key_blob, key_len, fail_reason);
+		if (r == false) {
+			return false;
+		}
+		msg += key_len;
+		len -= key_len;
+		if (len < 4) {
+			*fail_reason = "too short";
+			return false;
+		}
+		size_t comment_len = toint(GET_32BIT(msg));
+		msg += 4;
+		len -= 4;
+		if (len < comment_len) {
+			*fail_reason = "too short";
+			return false;
+		}
+		// TODO:コメントを処理していない
+		msg += comment_len;
+		len -= comment_len;
+		keys.push_back(key);
+	}
+
+	return true;
+}
+
 // Local Variables:
 // mode: c++
 // coding: utf-8-with-signature

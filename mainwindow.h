@@ -48,6 +48,8 @@ private slots:
 private:
     void createTrayIcon();
     void trayIconMenu();
+    bool nativeEventFilter(const QByteArray &eventType, void *message, long *result);
+	void lockTerminal();
 
     Ui::MainWindow *ui;
 
@@ -60,10 +62,6 @@ public:
 
     int passphraseDlg(struct PassphraseDlgInfo *info);
     int confirmAcceptDlg(struct ConfirmAcceptDlgInfo *info);
-    void add_keyfile(const QString &filename);
-
-private:
-    bool nativeEventFilter(const QByteArray &eventType, void *message, long *result);
 };
 
 #endif // MAINWINDOW_H

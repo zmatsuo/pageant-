@@ -34,28 +34,6 @@ extern "C" {
 #include "ui_settingdlg.h"
 #pragma warning(pop)
 
-void SettingDlg::dispSetting()
-{
-	QString text;
-	QString s1;
-	text += u8"Qt version: ";
-	text += QT_VERSION_STR;
-	text += "\n";
-	text += u8"Qt dll version: ";
-	text += qVersion();
-	text += "\n";
-
-	{
-		char *buildinfo_text = buildinfo("\n");
-		s1 = buildinfo_text;
-		sfree(buildinfo_text);
-	}
-
-	text += s1;
-	
-	ui->plainTextEdit->insertPlainText(text);
-}
-
 static QString get_recommended_ssh_sock_path()
 {
 	std::vector<QString> path_list;
@@ -111,8 +89,6 @@ SettingDlg::SettingDlg(QWidget *parent) :
 			_ExpandEnvironmentStrings("%TEMP%").c_str();
 		ui->label_3->setText(text);
     }
-
-	dispSetting();
 
 	// startup
 	{
@@ -182,14 +158,12 @@ SettingDlg::SettingDlg(QWidget *parent) :
 
 	// relay系
 	{
-#if !defined(DEVELOP_VERSION)
-		ui->checkBox_6->setEnabled(false);
-		ui->spinBox->setEnabled(false);
-#endif
 		ui->checkBox_6->setChecked(
 			setting_get_bool("bt/enable", false));
 		ui->spinBox->setValue(
 			setting_get_int("bt/timeoute", 10));
+		ui->checkBox_17->setChecked(
+			setting_get_bool("bt/auto_connect", false));
 	}
 
 	// localhost
@@ -201,8 +175,16 @@ SettingDlg::SettingDlg(QWidget *parent) :
 				std::to_string(
 					setting_get_int("ssh-agent_tcp/port_no", 8080))));
 	}
-	
-	showTab(false);
+
+	// key
+	{
+		ui->checkBox_16->setChecked(
+			setting_get_bool("key/enable_loading_when_startup", false));
+		ui->checkBox_15->setChecked(
+			setting_get_bool("key/forget_when_terminal_locked", false));
+	}
+
+	showDetail(false);
 }
 
 SettingDlg::~SettingDlg()
@@ -285,26 +267,7 @@ void SettingDlg::on_buttonBox_accepted()
 	}
 	
 	// startup
-	{
-		if (ui->checkBox_13->isChecked() == false) {
-			setting_set_startup(false);
-		} else {
-			bool setup_startup = true;
-			const int startup = setting_get_startup();
-			if (startup == 2) {
-				std::wstring text =
-					L"スタートアップに他のexeのパスが設定されています\n"
-					"設定しますか?";
-				int r = message_boxW(text.c_str(), L"" "Pageant+", MB_YESNO, 0);
-				if (r == IDNO) {
-					setup_startup = false;
-				}
-			}
-			if (setup_startup == true) {
-				setting_set_startup(true);
-			}
-		}
-	}
+	setting_set_startup(ui->checkBox_13->isChecked());
 
 	// debug
 	{
@@ -319,6 +282,7 @@ void SettingDlg::on_buttonBox_accepted()
 	{
 		setting_set_bool("bt/enable", ui->checkBox_6->isChecked());
 		setting_set_int("bt/timeoute", ui->spinBox->value());
+		setting_set_bool("bt/auto_connect", ui->checkBox_17->isChecked());
 	}
 
 	// localhost
@@ -330,6 +294,14 @@ void SettingDlg::on_buttonBox_accepted()
 							ui->lineEdit_3->text().toStdString()));
 	}
 	
+	// key
+	{
+		setting_set_bool("key/enable_loading_when_startup",
+						 ui->checkBox_16->isChecked());
+		setting_set_bool("key/forget_when_terminal_locked", 
+						 ui->checkBox_15->isChecked());
+	}
+
 	//const char *ssh_auth_sock = getenv("SSH_AUTH_SOCK");
     std::wstring ssh_auth_sock;
     reg_read_cur_user(L"Environment", L"SSH_AUTH_SOCK", ssh_auth_sock);
@@ -524,7 +496,7 @@ void SettingDlg::on_pushButton_14_clicked()
     cert_forget_pin();
 }
 
-void SettingDlg::showTab(bool show)
+void SettingDlg::showDetail(bool show)
 {
 	const int index_from = 4;
 	const int index_to = 6;
@@ -536,6 +508,7 @@ void SettingDlg::showTab(bool show)
 			n--;
 		}
 		invisibleTabs_.clear();
+		ui->pushButton_5->show();
 	} else {
 		// hide
 		int current_index = ui->tabWidget->currentIndex();
@@ -549,6 +522,7 @@ void SettingDlg::showTab(bool show)
 			invisibleTabs_.push_back(info);
 			ui->tabWidget->removeTab(i);
 		}
+		ui->pushButton_5->hide();
 	}
 }
 
@@ -556,9 +530,41 @@ void SettingDlg::on_checkBox_5_clicked()
 {
 	if (ui->checkBox_5->isChecked()) {
 		// show detail
-		showTab(true);
+		showDetail(true);
 	} else {
-		showTab(false);
+		showDetail(false);
+	}
+}
+
+// キーのクリア
+void SettingDlg::on_pushButton_15_clicked()
+{
+	setting_clear_keyfiles();
+}
+
+void SettingDlg::on_pushButton_5_clicked()
+{
+	setting_remove_all();
+	close();
+}
+
+// startup
+void SettingDlg::on_checkBox_13_clicked()
+{
+	if (ui->checkBox_13->isChecked() == true) {
+		const int startup = setting_get_startup();
+		if (startup == 2) {
+			std::wstring startupPath;
+			setting_get_startup_exe_path(startupPath);
+			std::wstring text =
+				L"スタートアップに他のexeのパスが設定されています\n"
+				"設定しますか?\n";
+			text += L"現在の登録されているexe: " + startupPath;
+			int r = message_boxW(text.c_str(), L"" "Pageant+", MB_YESNO, 0);
+			if (r == IDNO) {
+				ui->checkBox_13->setChecked(false);
+			}
+		}
 	}
 }
 
@@ -567,4 +573,3 @@ void SettingDlg::on_checkBox_5_clicked()
 // coding: utf-8-with-signature
 // tab-width: 4
 // End:
-

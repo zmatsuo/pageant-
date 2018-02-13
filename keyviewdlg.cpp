@@ -28,6 +28,7 @@
 #include "ssh.h"
 #include "ckey.h"
 #include "codeconvert.h"
+#include "keystore.h"
 
 #include "keyviewdlg.h"
 #pragma warning(push)
@@ -35,6 +36,8 @@
 #pragma warning(disable:4251)
 #include "ui_keyviewdlg.h"
 #pragma warning(pop)
+
+static keyviewdlg *gWin;
 
 keyviewdlg::keyviewdlg(QWidget *parent) :
 	QDialog(parent),
@@ -45,21 +48,49 @@ keyviewdlg::keyviewdlg(QWidget *parent) :
 		ui->pushButton_4->setVisible(false);
 	}
 
-	keylist_update();
+	keylistUpdate();
+
+	keystoreRegistListener(this);
+
+	gWin = this;
+
+	connect(this, &keyviewdlg::keylistUpdateSignal,
+			this, &keyviewdlg::keylistUpdate,
+			Qt::QueuedConnection);
 }
 
 keyviewdlg::~keyviewdlg()
 {
+	gWin = nullptr;
+
+	keystoreUnRegistListener(this);
 	delete ui;
 }
 
 #define FINGERPRINT_SHA256_COLUMN	3
 
-void keyviewdlg::keylist_update()
+void keyviewdlg::change()
 {
+	debug_printf("change() enter\n");
+	debug_printf("KeystoreListener change!!\n");
+	emit keylistUpdateSignal();
+	debug_printf("change() leave\n");
+}
+
+void keyviewdlg::keylistUpdate()
+{
+	debug_printf("keylistUpdate() enter\n");
 	std::vector<KeyListItem> k = keylist_update2();
 	QStandardItemModel *model;
 
+	if (k.size() == 0) {
+		model = new QStandardItemModel(1, 1, this);
+		QStandardItem *item = new QStandardItem(QString(u8"no key"));
+		model->setItem(0, 0, item);
+		ui->treeView->setHeaderHidden(true);
+		ui->treeView->setModel(model);
+		return;
+	}
 	model = new QStandardItemModel((int)k.size(), 5, this);
 	int n = 0;
 //	model->setHeaderData(n++, Qt::Horizontal, QObject::tr("key"));
@@ -88,7 +119,9 @@ void keyviewdlg::keylist_update()
 		colum++;
 	}
 
+	ui->treeView->setHeaderHidden(false);
 	ui->treeView->setModel(model);
+	debug_printf("keylistUpdate() leave\n");
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -96,21 +129,21 @@ void keyviewdlg::keylist_update()
 void keyviewdlg::on_pushButtonAddKey_clicked()
 {
 	addFileCert();
-	keylist_update();
+	keylistUpdate();
 }
 
 // CAPI Cert
 void keyviewdlg::on_pushButton_clicked()
 {
 	addCAPICert();
-	keylist_update();
+	keylistUpdate();
 }
 
 // PKCS Cert
 void keyviewdlg::on_pushButton_2_clicked()
 {
 	addPKCSCert();
-	keylist_update();
+	keylistUpdate();
 }
 
 void keyviewdlg::on_pushButton_4_clicked()
@@ -187,7 +220,7 @@ void keyviewdlg::on_pushButtonRemoveKey_clicked()
 
 		pageant_delete_key2((int)selectedArray.size(), &selectedArray[0]);
 	}
-	keylist_update();
+	keylistUpdate();
 }
 
 //////////////////////////////////////////////////////////////////////////////

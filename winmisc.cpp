@@ -40,35 +40,6 @@ char *platform_get_x_display(void) {
 #endif
 
 #if 0
-Filename filename_from_str(const char *str)
-{
-    Filename ret;
-    strncpy(ret.path, str, sizeof(ret.path));
-    ret.path[sizeof(ret.path)-1] = '\0';
-    return ret;
-}
-#endif
-
-#if 0
-const char *filename_to_str(const Filename *fn)
-{
-    return fn->path;
-}
-#endif
-
-#if 0
-int filename_equal(Filename f1, Filename f2)
-{
-    return !strcmp(f1.path, f2.path);
-}
-
-int filename_is_null(Filename fn)
-{
-    return !*fn.path;
-}
-#endif
-
-#if 0
 char *get_username(void)
 {
     DWORD namelen;
@@ -444,6 +415,12 @@ bool reg_delete(HKEY hKey, const wchar_t *_subkey)
 	}
 	RegCloseKey(hRegKey);
 	return ret_value;
+}
+
+bool reg_delete_tree(HKEY hKey, const wchar_t *subkey)
+{
+	LONG r = RegDeleteTreeW(hKey, subkey);
+	return (r == ERROR_SUCCESS) ? true : false;
 }
 
 bool reg_delete_cur_user(const wchar_t *subkey, const wchar_t *valuename)

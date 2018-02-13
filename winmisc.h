@@ -47,6 +47,7 @@ bool reg_write_cur_user(const wchar_t *subkey, const wchar_t *valuename,
 						int _int);
 bool reg_delete(HKEY hKey, const wchar_t *subkey, const wchar_t *valuename);
 bool reg_delete(HKEY hKey, const wchar_t *subkey);
+bool reg_delete_tree(HKEY hKey, const wchar_t *subkey);
 bool reg_delete_cur_user(const wchar_t *subkey, const wchar_t *valuename);
 bool reg_delete_cur_user(const wchar_t *key);
 bool reg_enum_key(

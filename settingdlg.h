@@ -36,18 +36,20 @@ private slots:
     void on_pushButton_12_clicked();
     void on_pushButton_13_clicked();
     void on_pushButton_14_clicked();
-
-
     void on_checkBox_5_clicked();
+    void on_pushButton_5_clicked();
+
+    void on_pushButton_15_clicked();
+
+    void on_checkBox_13_clicked();
 
 private:
     Ui::SettingDlg *ui;
 
     void dispSockPath(const std::string &path);
-    void dispSetting();
     void arrengePassphraseUI(bool enable);
 
-    void showTab(bool show);
+    void showDetail(bool show);
     typedef struct {
 	QWidget *tab;
 	QString label;

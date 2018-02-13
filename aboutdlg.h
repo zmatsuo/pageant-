@@ -25,6 +25,7 @@ private slots:
     void on_buttonBox_helpRequested();
 
 private:
+    void versionDetail();
     Ui::AboutDlg *ui;
 };
 

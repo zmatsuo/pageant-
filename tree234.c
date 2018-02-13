@@ -512,7 +512,7 @@ void *index234(tree234 * t, int index)
  * as NULL, in which case the compare function from the tree proper
  * will be used.
  */
-void *findrelpos234(tree234 * t, void *e, cmpfn234 cmp,
+void *findrelpos234(tree234 * t, const void *e, cmpfn234 cmp,
 		    int relation, int *index)
 {
     node234 *n;
@@ -620,7 +620,7 @@ void *findrelpos234(tree234 * t, void *e, cmpfn234 cmp,
 	*index = idx;
     return ret;
 }
-void *find234(tree234 * t, void *e, cmpfn234 cmp)
+void *find234(tree234 * t, const void *e, cmpfn234 cmp)
 {
     return findrelpos234(t, e, cmp, REL234_EQ, NULL);
 }

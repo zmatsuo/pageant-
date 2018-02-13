@@ -2,21 +2,16 @@
 #pragma once
 
 #include <stdint.h>
-#if 1
-#include <winsock2.h>
-#include <ws2bth.h>
-#endif
 
 #include <vector>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+class bta_deviceinfo_listener;
 
-typedef struct bt_agent_proxy_tag {
-	int dummy_;
+class bt_agent_proxy_t {
+public:
 	void *impl_;
-} bt_agent_proxy_t;
+//	std::vector<bta_deviceinfo_listener *> listeners_;
+};
 
 typedef enum {
 	BTA_NOTIFY_CONNECT,
@@ -26,22 +21,17 @@ typedef enum {
 	BTA_NOTIFY_DISCONNECT,		// disconnect from client
 	BTA_NOTIFY_CLOSE,			// cleanup
 	BTA_NOTIFY_TIMEOUT,
+	BTA_NOTIFY_DISCONNECT_COMPLATE,		// 自分で切断完了
 	BTA_NOTIFY_DEVICEINFO_UPDATE
 } bta_notify_t;
 
 typedef struct bta_notify_param_st {
 	bta_notify_t type;
-#if 0
-#if defined(_MSC_VER) || defined(__MINGW32__)
-	SOCKET sock;
-#else
-	int sock;
-#endif
-#endif
 	union {
 		struct {
 			const wchar_t *name;
 			const wchar_t *addr_str;
+			bool result;
 		} connect;
 		struct {
 			uint8_t *ptr;			// @param[in,out] receive buf / next receive buf
@@ -65,29 +55,33 @@ typedef struct bta_init_st {
 
 typedef struct {
 	std::wstring deviceName;
-	BTH_ADDR deviceAddr;
+	uint64_t deviceAddr;	// BTH_ADDR=ULONGLONG=uint64_t
 	std::wstring deviceAddrStr;
 	bool connected;
+	bool handled;
 } DeviceInfoType;
 
 bt_agent_proxy_t *bta_init(const bta_init_t *init_info);
-bool bta_connect(bt_agent_proxy_t *hBta, const BTH_ADDR *deviceAddr);
-bool bta_disconnect(bt_agent_proxy_t *hBta);
 void bta_exit(bt_agent_proxy_t *hBta);
+
+bool bta_connect(bt_agent_proxy_t *hBta, const uint64_t *deviceAddr);
+bool bta_connect_request_cancel(bt_agent_proxy_t *hBta);
+bool bta_disconnect(bt_agent_proxy_t *hBta);
+
 bool bta_send(bt_agent_proxy_t *hBta, const uint8_t *data, size_t len);
 void bta_deviceinfo(bt_agent_proxy_t *hBta, std::vector<DeviceInfoType> &deivceInfo);
 
+class bta_deviceinfo_listener {
+public:
+	virtual void update(const std::vector<DeviceInfoType> &deivceInfos) = 0;
+};
 
-#ifdef __cplusplus
-}
-#endif
+void bta_regist_deviceinfo_listener(bt_agent_proxy_t *hBta, bta_deviceinfo_listener *listener);
+void bta_unregist_deviceinfo_listener(bt_agent_proxy_t *hBta, bta_deviceinfo_listener *listener);
 
 
 // todo:妥当なヘッダへ!
-#if defined(__cplusplus)
 bt_agent_proxy_t *bt_agent_proxy_main_get_handle();
-#endif
-
 
 // Local Variables:
 // mode: c++

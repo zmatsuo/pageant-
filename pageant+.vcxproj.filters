@@ -154,9 +154,6 @@
     <ClCompile Include="sshsha.c">
       <Filter>ssh</Filter>
     </ClCompile>
-    <ClCompile Include="pageant.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="sshsh256.c">
       <Filter>ssh</Filter>
     </ClCompile>
@@ -254,6 +251,15 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="passphrases.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="keystore.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="pageant.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="keystore2.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -446,6 +452,12 @@
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="sstring.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="keystore.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="keystore2.h">
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>

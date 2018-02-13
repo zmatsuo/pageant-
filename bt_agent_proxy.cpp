@@ -8,7 +8,7 @@
 
 #include <thread>
 #include <vector>
-#include <list>
+#include <algorithm>
 
 #include <assert.h>
 #include <crtdbg.h>
@@ -22,8 +22,9 @@
 #endif
 
 #include "bt_agent_proxy.h"
-//#define ENABLE_DEBUG_PRINT
+#define ENABLE_DEBUG_PRINT
 #include "debug.h"
+//#define ENABLE_BT_DEVICE_INQUIRY_DEBUG_PRINT
 
 typedef struct bt_agent_proxy_impl_tag {
 	bt_agent_proxy_t *hBta_;
@@ -38,6 +39,7 @@ typedef struct bt_agent_proxy_impl_tag {
 	int connectedCount_;
 	// クライアント
 	SOCKET clientSocket_;
+	uint64_t clientAddr_;
 	// buffer
 	std::vector<uint8_t> send_pool_;
 	size_t send_top_;
@@ -53,8 +55,12 @@ typedef struct bt_agent_proxy_impl_tag {
 	// disconnect req
 	bool disconnect_req_;
 	//
+	//std::vector<bta_deviceinfo_listener *> listeners_;
+	//
 	std::vector<DeviceInfoType> deivceInfo_;
 } bt_agent_proxy_impl_t;
+
+static std::vector<bta_deviceinfo_listener *> listeners_;
 
 static bt_agent_proxy_impl_t *get_impl_ptr(bt_agent_proxy_t *hBta)
 {
@@ -231,7 +237,7 @@ static std::vector<DeviceInfoType> PerformInquiry()
 			break;
 		}
 
-#if 1
+#if defined(ENABLE_BT_DEVICE_INQUIRY_DEBUG_PRINT)
 		dbgprintf("InstanceName `%S`\n", pwsaResults->lpszServiceInstanceName);
 		dbgprintf("OutputFlags 0x%08lx(%s|%s|%s)\n",
 			   pwsaResults->dwOutputFlags,
@@ -280,6 +286,7 @@ static std::vector<DeviceInfoType> PerformInquiry()
 		_deviceInfo.deviceAddr = btAddr;
 		_deviceInfo.deviceAddrStr = remote_address;
 		_deviceInfo.connected = connected;
+		_deviceInfo.handled = false;
 		_retDeviceInfoList.push_back( _deviceInfo );
 
 #if 0
@@ -422,10 +429,17 @@ static void exec_notify(
 	}
 }
 
+/**
+ *	connect_result
+ *		0	接続失敗
+ *		1	接続成功
+ *		2	cancel
+ */
 static bool connect_i(
 	bt_agent_proxy_impl_t *impl,
 	std::wstring &name,
-	BTH_ADDR &addr)
+	BTH_ADDR &addr,
+	int connect_result)
 {
 	if (name.empty()) {
 		get_device_name(impl, addr, name);
@@ -434,16 +448,45 @@ static bool connect_i(
 		get_device_adr(impl, name, addr);
 	}
 	std::wstring addr_str = getAdr(impl->connect_req_);
-	dbgprintf("接続 %S(%S)\n",
-		   name.c_str(),
-		   addr_str.c_str());
+	dbgprintf("接続 %S(%S) result %d(%s)\n",
+			  name.c_str(),
+			  addr_str.c_str(),
+			  connect_result,
+			  connect_result == 0 ? "error" :
+			  connect_result == 1 ? "ok" : "cancel");
 
-	bta_notify_param_t notify_param;
-	notify_param.type = BTA_NOTIFY_CONNECT;
-	notify_param.u.connect.name = name.c_str();
-	notify_param.u.connect.addr_str = addr_str.c_str();
-	exec_notify(impl, &notify_param);
+	if (connect_result == 0 || connect_result == 1) {
+		bta_notify_param_t notify_param;
+		notify_param.type = BTA_NOTIFY_CONNECT;
+		notify_param.u.connect.name = name.c_str();
+		notify_param.u.connect.addr_str = addr_str.c_str();
+		notify_param.u.connect.result = connect_result == 0 ? false : true;
+		exec_notify(impl, &notify_param);
+	}
 	return true;
+}
+
+static bool compDeviceInfo(const DeviceInfoType &lh, const DeviceInfoType &rh)
+{
+	return lh.deviceAddr < rh.deviceAddr;
+}
+
+static bool equalDeviceInfo(const DeviceInfoType &lh, const DeviceInfoType &rh)
+{
+	return
+		lh.deviceAddr == rh.deviceAddr &&
+		lh.connected == rh.connected;
+}
+
+static void callListeners(
+	const std::vector<bta_deviceinfo_listener *> &listeners,
+	const std::vector<DeviceInfoType> &deivceInfos)
+{
+	// TODO: lock
+	for (auto listener : listeners) {
+		if (listener != nullptr)		// todo ?
+			listener->update(deivceInfos);
+	}
 }
 
 static void bta_main(bt_agent_proxy_impl_t *impl)
@@ -451,6 +494,7 @@ static void bta_main(bt_agent_proxy_impl_t *impl)
 	bta_listen(impl);
 	impl->connectedCount_ = 0;
 	impl->clientSocket_ = INVALID_SOCKET;
+	impl->clientAddr_ = 0;
 
 	impl->hListenEvent_ = WSACreateEvent();
 	impl->hClientEvent_ = WSACreateEvent();
@@ -468,7 +512,6 @@ static void bta_main(bt_agent_proxy_impl_t *impl)
 			hEvntArray[2] = impl->hClientEvent_;
 			eventArrayCount++;
 		}
-		dbgprintf("enter WSAWaitForMultipleEvents()\n");
 		DWORD dwResult =
 			WSAWaitForMultipleEvents(eventArrayCount, hEvntArray, FALSE, timeout, FALSE);
 		switch(dwResult) {
@@ -480,7 +523,21 @@ static void bta_main(bt_agent_proxy_impl_t *impl)
 		{
 			std::vector<DeviceInfoType> deviceInfo;
 			deviceInfo = PerformInquiry();
-			impl->deivceInfo_ = deviceInfo;
+			if (impl->connectedCount_ > 0) {
+				for(auto &d : deviceInfo) {
+					if (d.deviceAddr == impl->clientAddr_) {
+						d.handled = true;
+					}
+				}
+			}
+			std::sort(deviceInfo.begin(), deviceInfo.end(), compDeviceInfo);
+			if (!std::equal(deviceInfo.begin(), deviceInfo.end(),
+							impl->deivceInfo_.begin(), impl->deivceInfo_.end(),
+							equalDeviceInfo))
+			{
+				impl->deivceInfo_ = deviceInfo;
+				callListeners(listeners_, impl->deivceInfo_);
+			}
 
 			bta_notify_param_t notify_param;
 			notify_param.type = BTA_NOTIFY_DEVICEINFO_UPDATE;
@@ -509,28 +566,44 @@ static void bta_main(bt_agent_proxy_impl_t *impl)
 				sa.serviceClassId = SerialPortServiceClass_UUID;
 				sa.port = BT_PORT_ANY;
 
-				int r = connect(client, (SOCKADDR *)&sa, sizeof(sa));
-				if (r == SOCKET_ERROR) {
-					dbgprintf("connect失敗\n");
+				dbgprintf("connect() enter\n");
+				int r = connect(client, (SOCKADDR *)&sa, sizeof(sa));	// block
+				if (impl->connect_req_ == 0) {
+					// キャンセルされた
+					dbgprintf("connect() cancel\n");
 					closesocket(client);
+					r = 2;
+				} else if (r == SOCKET_ERROR) {
+					dbgprintf("connect() error\n");
+					closesocket(client);
+					r = 0;
 				} else {
+					dbgprintf("connect() ok\n");
 					u_long val = 1;
 					ioctlsocket(client, FIONBIO, &val);		// non block mode
 					WSAEventSelect(client, impl->hClientEvent_, FD_READ|FD_WRITE|FD_CLOSE);
 					impl->connectedCount_++;
 					impl->clientSocket_ = client;
+					impl->clientAddr_ = impl->connect_req_;
+					r = 1;
 				}
 
 				std::wstring device_name;
 				BTH_ADDR addr = impl->connect_req_;
-				connect_i(impl, device_name, addr);
+				connect_i(impl, device_name, addr, r);
 				impl->connect_req_ = 0;
 			}
 			if (impl->disconnect_req_) {
+				dbgprintf("disconnectリクエスト実行\n");
 				SOCKET client = impl->clientSocket_;
 				closesocket(client);
 				impl->connectedCount_--;
 				impl->clientSocket_ = INVALID_SOCKET;
+				impl->disconnect_req_ = false;
+
+				bta_notify_param_t notify_param;
+				notify_param.type = BTA_NOTIFY_DISCONNECT_COMPLATE;
+				exec_notify(impl, &notify_param);
 			}
 
 			break;
@@ -543,23 +616,28 @@ static void bta_main(bt_agent_proxy_impl_t *impl)
 
 			SOCKADDR_STORAGE sockAddr;
 			int nAddrLen = sizeof(SOCKADDR_STORAGE);
-			SOCKET client = accept(impl->listen_sock_, (LPSOCKADDR)&sockAddr, &nAddrLen);
+			int result;
+			SOCKET client = accept(impl->listen_sock_,
+								   (LPSOCKADDR)&sockAddr, &nAddrLen);
+			SOCKADDR_BTH *p = (SOCKADDR_BTH *)&sockAddr;
+			BTH_ADDR clientAddr = p->btAddr;
+			std::wstring name;
 			if (impl->connectedCount_ > 0) {
 				// 接続数管理
 				// TODO:今のところ1クライアントだけ
 				closesocket(client);
+				result = 0;
 			} else {
 				u_long val = 1;
 				ioctlsocket(client, FIONBIO, &val);		// non block mode
 				WSAEventSelect(client, impl->hClientEvent_, FD_READ|FD_WRITE|FD_CLOSE);
 				impl->connectedCount_++;
 				impl->clientSocket_ = client;
+				impl->clientAddr_ = clientAddr;
 
-				SOCKADDR_BTH *p = (SOCKADDR_BTH *)&sockAddr;
-				BTH_ADDR clientAddr = p->btAddr;
-				std::wstring name;
-				connect_i(impl, name, clientAddr);
+				result = 1;
 			}
+			connect_i(impl, name, clientAddr, result);
 			break;
 		}
 		case WSA_WAIT_EVENT_0 + 2:
@@ -574,6 +652,7 @@ static void bta_main(bt_agent_proxy_impl_t *impl)
 				closesocket(client);
 				impl->clientSocket_ = INVALID_SOCKET;
 				impl->connectedCount_--;
+				impl->clientAddr_ = 0;
 				dbgprintf("close\n");
 			}
 			if (events.lNetworkEvents & FD_READ) {
@@ -658,7 +737,7 @@ void bta_exit(bt_agent_proxy_t *hBta)
 	WSACleanup();
 }
 
-bool bta_connect(bt_agent_proxy_t *hBta, const BTH_ADDR *deviceAddr)
+bool bta_connect(bt_agent_proxy_t *hBta, const uint64_t *deviceAddr)
 {
 	bt_agent_proxy_impl_t *impl = get_impl_ptr(hBta);
 	impl->connect_req_ = *deviceAddr;
@@ -671,6 +750,13 @@ bool bta_disconnect(bt_agent_proxy_t *hBta)
 	bt_agent_proxy_impl_t *impl = get_impl_ptr(hBta);
 	impl->disconnect_req_ = true;
 	WSASetEvent(impl->hEventExit_);
+	return true;
+}
+
+bool bta_connect_request_cancel(bt_agent_proxy_t *hBta)
+{
+	bt_agent_proxy_impl_t *impl = get_impl_ptr(hBta);
+	impl->connect_req_ = 0;
 	return true;
 }
 
@@ -702,6 +788,17 @@ void bta_deviceinfo(bt_agent_proxy_t *hBta, std::vector<DeviceInfoType> &deivceI
 {
 	bt_agent_proxy_impl_t *impl = get_impl_ptr(hBta);
 	deivceInfo = impl->deivceInfo_;
+}
+
+void bta_regist_deviceinfo_listener(bt_agent_proxy_t *hBta, bta_deviceinfo_listener *listener)
+{
+	bt_agent_proxy_impl_t *impl = get_impl_ptr(hBta);
+	listeners_.push_back(listener);
+}
+
+void bta_unregist_deviceinfo_listener(bt_agent_proxy_t *hBta, bta_deviceinfo_listener *listener)
+{
+	listeners_.erase(std::remove(listeners_.begin(), listeners_.end(), listener), listeners_.end());
 }
 
 // Local Variables:

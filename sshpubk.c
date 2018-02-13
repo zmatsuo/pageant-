@@ -556,21 +556,21 @@ static char *read_body(FILE * fp)
     text[len] = '\0';
 
     while (1) {
-	c = fgetc(fp);
-	if (c == '\r' || c == '\n' || c == EOF) {
-	    if (c != EOF) {
 		c = fgetc(fp);
-		if (c != '\r' && c != '\n')
-		    ungetc(c, fp);
-	    }
-	    return text;
-	}
-	if (len + 1 >= size) {
-	    size += 128;
-	    text = sresize(text, size, char);
-	}
-	text[len++] = c;
-	text[len] = '\0';
+		if (c == '\r' || c == '\n' || c == EOF) {
+			if (c != EOF) {
+				c = fgetc(fp);
+				if (c != '\r' && c != '\n')
+					ungetc(c, fp);
+			}
+			return text;
+		}
+		if (len + 1 >= size) {
+			size += 128;
+			text = sresize(text, size, char);
+		}
+		text[len++] = c;
+		text[len] = '\0';
     }
 }
 
@@ -585,27 +585,27 @@ static unsigned char *read_blob(FILE * fp, int nlines, int *bloblen)
     blob = snewn(48 * nlines, unsigned char);
     len = 0;
     for (i = 0; i < nlines; i++) {
-	line = read_body(fp);
-	if (!line) {
-	    sfree(blob);
-	    return NULL;
-	}
-	linelen = strlen(line);
-	if (linelen % 4 != 0 || linelen > 64) {
-	    sfree(blob);
-	    sfree(line);
-	    return NULL;
-	}
-	for (j = 0; j < linelen; j += 4) {
-	    k = base64_decode_atom(line + j, blob + len);
-	    if (!k) {
+		line = read_body(fp);
+		if (!line) {
+			sfree(blob);
+			return NULL;
+		}
+		linelen = strlen(line);
+		if (linelen % 4 != 0 || linelen > 64) {
+			sfree(blob);
+			sfree(line);
+			return NULL;
+		}
+		for (j = 0; j < linelen; j += 4) {
+			k = base64_decode_atom(line + j, blob + len);
+			if (!k) {
+				sfree(line);
+				sfree(blob);
+				return NULL;
+			}
+			len += k;
+		}
 		sfree(line);
-		sfree(blob);
-		return NULL;
-	    }
-	    len += k;
-	}
-	sfree(line);
     }
     *bloblen = len;
     return blob;
@@ -652,7 +652,8 @@ struct ssh2_userkey *ssh2_load_userkey(
     struct ssh2_userkey *ret;
     int cipher, cipherblk;
     unsigned char *public_blob, *private_blob;
-    int public_blob_len, private_blob_len;
+    int public_blob_len;
+	int private_blob_len = 0;
     int i, is_mac, old_fmt;
     int passlen = passphrase ? strlen(passphrase) : 0;
     const char *error = NULL;
@@ -1308,54 +1309,54 @@ int ssh2_userkey_encrypted(const Filename *filename, char **commentptr)
     int ret;
 
     if (commentptr)
-	*commentptr = NULL;
+		*commentptr = NULL;
 
     fp = f_open(filename, "rb", FALSE);
     if (!fp)
-	return 0;
+		return 0;
     if (!read_header(fp, header)
-	|| (0 != strcmp(header, "PuTTY-User-Key-File-2") &&
-	    0 != strcmp(header, "PuTTY-User-Key-File-1"))) {
-	fclose(fp);
-	return 0;
+		|| (0 != strcmp(header, "PuTTY-User-Key-File-2") &&
+			0 != strcmp(header, "PuTTY-User-Key-File-1"))) {
+		fclose(fp);
+		return 0;
     }
     if ((b = read_body(fp)) == NULL) {
-	fclose(fp);
-	return 0;
+		fclose(fp);
+		return 0;
     }
     sfree(b);			       /* we don't care about key type here */
     /* Read the Encryption header line. */
     if (!read_header(fp, header) || 0 != strcmp(header, "Encryption")) {
-	fclose(fp);
-	return 0;
+		fclose(fp);
+		return 0;
     }
     if ((b = read_body(fp)) == NULL) {
-	fclose(fp);
-	return 0;
+		fclose(fp);
+		return 0;
     }
 
     /* Read the Comment header line. */
     if (!read_header(fp, header) || 0 != strcmp(header, "Comment")) {
-	fclose(fp);
-	sfree(b);
-	return 1;
+		fclose(fp);
+		sfree(b);
+		return 1;
     }
     if ((comment = read_body(fp)) == NULL) {
-	fclose(fp);
-	sfree(b);
-	return 1;
+		fclose(fp);
+		sfree(b);
+		return 1;
     }
 
     if (commentptr)
-	*commentptr = comment;
+		*commentptr = comment;
     else
         sfree(comment);
 
     fclose(fp);
     if (!strcmp(b, "aes256-cbc"))
-	ret = 1;
+		ret = 1;
     else
-	ret = 0;
+		ret = 0;
     sfree(b);
     return ret;
 }

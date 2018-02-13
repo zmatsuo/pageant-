@@ -128,6 +128,19 @@ private:
 	}
 	
 public:
+	bool setting_remove_all()
+	{
+		if (type_ == TYPE_REG) {
+			bool r = reg_delete_tree(HKEY_CURRENT_USER, base_.c_str());
+			return r;
+		}
+		if (type_ == TYPE_INI) {
+			BOOL r = DeleteFileW(base_.c_str());
+			return r == FALSE ? false : true;
+		}
+		return false;
+	}
+
 	bool setting_get_strs(const char *_key, std::vector<std::wstring> &strs)
 	{
 		std::wstring section;
@@ -199,9 +212,11 @@ public:
 			// 全削除
 			_WritePrivateProfileString(section.c_str(), nullptr, base_.c_str(), nullptr);
 			std::wstring key_local = key;
+			// 個数書き込み
 			key_local += L"_count";
 			_WritePrivateProfileString(section.c_str(), key_local.c_str(), base_.c_str(),
 									   std::to_wstring(strs.size()).c_str());
+			// 個数分キーを書き込み
 			int n = 0;
 			for (auto s : strs) {
 				key_local = key;
@@ -214,11 +229,24 @@ public:
 	}
 
 	/**
+	 *	使い方1
+	 *		section/keyへ文字列設定
+	 *
 	 *	@param _key		"section/key" の文字列
-	 *					削除時(str==nullptr)、"section"(key省略)の場合、セクションを全て削除
 	 *	@param	str		書き込む文字列
-	 *					nullptr時、キー(orセクション)を削除
-	 *	TODO レジストリ時削除未テスト
+	 *
+	 *	使い方2
+	 *		section/keyの文字列削除
+	 *
+	 *	@param _key		"section/key" の文字列
+	 *	@param	str		nullptr
+	 *					
+	 *	使い方2
+	 *		sectionの文字列削除
+	 *
+	 *	@param _key		"section" の文字列
+	 *	@param	str		nullptr
+	 *					
 	 */
 	bool setting_set_str(const char *_key, const wchar_t *str)
 	{
@@ -515,7 +543,7 @@ static void set_default()
 	}
 	key = "ssh-agent/ms_ssh";
 	if (setting_isempty(key)) {
-		setting_set_bool(key, true);
+		setting_set_bool(key, false);
 	}
 }
 
@@ -834,7 +862,7 @@ void setting_get_keyfiles(std::vector<std::wstring> &list)
 void setting_add_keyfile(const wchar_t *_file)
 {
 	std::vector<std::wstring> list;
-	setting_get_keyfiles(list);
+	setting_get_strs("Keyfile/file", list);
 
 	std::wstring file(_file);
 	for (auto &f: list) {
@@ -846,6 +874,11 @@ void setting_add_keyfile(const wchar_t *_file)
 	list.push_back(file);
 
 	ini_->setting_set_strs("Keyfile/file", list);
+}
+
+void setting_clear_keyfiles()
+{
+	ini_->setting_set_str("Keyfile", nullptr);
 }
 
 /* Un-munge session names out of the registry. */
@@ -923,6 +956,11 @@ static const wchar_t *startup_subkey =
 	L"Software\\Microsoft\\Windows\\CurrentVersion\\Run";
 static const wchar_t *startup_valuename = L"pageant+";
 
+bool setting_get_startup_exe_path(std::wstring &exePath)
+{
+    return reg_read_cur_user(startup_subkey, startup_valuename, exePath);
+}
+
 /**
  *	@retval 0	設定されていない
  *	@retval 1	設定されている
@@ -936,9 +974,9 @@ int setting_get_startup()
 		return 0;
 	}
 	if (str == setting_get_my_fullpath()) {
-		return 2;
+		return 1;
 	}
-	return 1;
+	return 2;
 }
 
 void setting_set_startup(bool enable)
@@ -949,6 +987,11 @@ void setting_set_startup(bool enable)
 	} else {
 		reg_delete_cur_user(startup_subkey, startup_valuename);
 	}
+}
+
+void setting_remove_all()
+{
+	ini_->setting_remove_all();
 }
 
 // Local Variables:

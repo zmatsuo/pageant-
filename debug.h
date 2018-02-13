@@ -10,6 +10,9 @@
  * important (say because you'll be recording pointer values later
  * on).  dmemdump() is more concise.
  */
+#pragma once
+
+#include <stdarg.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -34,16 +37,21 @@ extern "C" {
 
 // wrapper
 #if defined(ENABLE_DEBUG_PRINT)
-#define dbgprintf(...) 		debug_printf(__VA_ARGS__)
+#define dbgprintf(...) 			debug_fl_printf(__FILE__, __LINE__, __VA_ARGS__)
+//#define dbgprintf(...) 			debug_printf(__VA_ARGS__)
+#define dbgvprintf(fmt, ap) 	debug_vprintf(fmt, ap)
 #else
 #define dbgprintf(...)
+#define dbgvprintf(fmt, ap)
 #endif
 
 
 // 存在する関数
 void debug_printf(const char *fmt, ...);
+void debug_vprintf(const char *fmt, va_list ap);
 void debug_memdump(const void *buf, int len, int L);
 void dputs(const char *buf);
+void debug_fl_printf(const char *fn, int line, const char *fmt, ...);
 
 void debug_console_show(int show);
 

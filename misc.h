@@ -130,10 +130,10 @@ char *buildinfo(const char *newline);
 #define GET_32BIT(cp) GET_32BIT_MSB_FIRST(cp)
 
 #define PUT_32BIT_MSB_FIRST(cp, value) ( \
-  (cp)[0] = (unsigned char)((value) >> 24), \
-  (cp)[1] = (unsigned char)((value) >> 16), \
-  (cp)[2] = (unsigned char)((value) >> 8), \
-  (cp)[3] = (unsigned char)(value) )
+  (cp)[0] = (unsigned char)(((value) >> 24) & 0xff),	\
+  (cp)[1] = (unsigned char)(((value) >> 16) & 0xff),	\
+  (cp)[2] = (unsigned char)(((value) >>  8) & 0xff),	\
+  (cp)[3] = (unsigned char)(((value)      ) & 0xff) )
 
 #define PUT_32BIT(cp, value) PUT_32BIT_MSB_FIRST(cp, value)
 

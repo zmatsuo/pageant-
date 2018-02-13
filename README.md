@@ -9,6 +9,8 @@ Windows用のssh-agentです。
 - ssh-agent Microsoft (0.0.17.0以降は未対応)
 - ssh-agent TCP接続 (socat(WSL)からの接続用)
 
+秘密鍵をandroidデバイス上に保存しておくBT pageant+も利用できます
+
 まだまだ気になるところはありますが、概ね動作します。
 
 # できること
@@ -17,6 +19,7 @@ Windows用のssh-agentです。
 - ほとんどのsshクライアントと通信できる
 - スマートカードを使うことができる
 - WSLのssh-agentとして利用[ここを参照ください](https://github.com/zmatsuo/pageant-/wiki/WSL%E3%81%8B%E3%82%89-pageant---%E3%82%92%E5%88%A9%E7%94%A8%E3%81%99%E3%82%8B)
+- BT pageant+を利用できます
 
 ## 大雑把な使い方
 
@@ -50,6 +53,15 @@ Windows用のssh-agentです。
 - クリップボードにコピーされた文字列を、
   サーバーの `~/.ssh/authorized_keys` に追加する
 - pinは、利用者証明用電子証明書(マイナポータルへのログインなどに使用)に設定したもの
+
+### BT pageant+
+
+- `Add BT`ボタンを押す
+- BT pageant+が動作しているデバイスを選択
+- `connect`ボタンを押す
+- デバイスを選択
+- 鍵を選択
+- `鍵取込`ボタンを押す
 
 ## 動作確認できたスマートカード
 
@@ -186,14 +198,6 @@ Cygwin/Xを使っていて、cygwin系の`ssh -Y`を使用するとX11 Forwardin
 
 `startxwin -- -listen tcp`などでtcp経由で接続できるようになります。
 - http://x.cygwin.com/docs/faq/cygwin-x-faq.html#q-xserver-nolisten-tcp-default
-
-# やりたかったこと、これからやりたいこと
-
-- スマートカード+sshを使いたかった
-- できるようになったが、カードを持ち歩くことに疑問を感じる
-- 持ち歩いているスマホに秘密キーを入れておけばokでは?
-- BT経由でスマホと通信、基礎実験はできた状態
-- WSLを使ってみたところ良さそうだったので、socat経由で受け付ける口を追加
 
 # license
 

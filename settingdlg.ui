@@ -51,7 +51,7 @@
        <x>20</x>
        <y>50</y>
        <width>231</width>
-       <height>20</height>
+       <height>16</height>
       </rect>
      </property>
      <property name="text">
@@ -90,7 +90,7 @@
        <x>20</x>
        <y>70</y>
        <width>211</width>
-       <height>20</height>
+       <height>16</height>
       </rect>
      </property>
      <property name="text">
@@ -101,7 +101,7 @@
      <property name="geometry">
       <rect>
        <x>10</x>
-       <y>100</y>
+       <y>120</y>
        <width>331</width>
        <height>351</height>
       </rect>
@@ -195,7 +195,7 @@
      <property name="geometry">
       <rect>
        <x>350</x>
-       <y>100</y>
+       <y>120</y>
        <width>120</width>
        <height>80</height>
       </rect>
@@ -226,6 +226,19 @@
        <string>TCP port no</string>
       </property>
      </widget>
+    </widget>
+    <widget class="QCheckBox" name="checkBox_6">
+     <property name="geometry">
+      <rect>
+       <x>20</x>
+       <y>90</y>
+       <width>211</width>
+       <height>16</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Bluetooth SSH Agent</string>
+     </property>
     </widget>
    </widget>
    <widget class="QWidget" name="tab_2">
@@ -403,7 +416,7 @@
     <widget class="QGroupBox" name="groupBox_5">
      <property name="geometry">
       <rect>
-       <x>10</x>
+       <x>240</x>
        <y>10</y>
        <width>221</width>
        <height>181</height>
@@ -488,7 +501,7 @@
      <property name="geometry">
       <rect>
        <x>10</x>
-       <y>210</y>
+       <y>180</y>
        <width>221</width>
        <height>191</height>
       </rect>
@@ -543,7 +556,7 @@
      <property name="geometry">
       <rect>
        <x>240</x>
-       <y>10</y>
+       <y>200</y>
        <width>221</width>
        <height>111</height>
       </rect>
@@ -597,6 +610,129 @@
       </property>
      </widget>
     </widget>
+    <widget class="QGroupBox" name="groupBox_3">
+     <property name="geometry">
+      <rect>
+       <x>240</x>
+       <y>320</y>
+       <width>221</width>
+       <height>111</height>
+      </rect>
+     </property>
+     <property name="title">
+      <string>Bluetooth</string>
+     </property>
+     <widget class="QSpinBox" name="spinBox">
+      <property name="geometry">
+       <rect>
+        <x>103</x>
+        <y>17</y>
+        <width>40</width>
+        <height>22</height>
+       </rect>
+      </property>
+      <property name="maximum">
+       <number>20</number>
+      </property>
+      <property name="value">
+       <number>5</number>
+      </property>
+     </widget>
+     <widget class="QLabel" name="label_11">
+      <property name="geometry">
+       <rect>
+        <x>10</x>
+        <y>20</y>
+        <width>81</width>
+        <height>16</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>time out(sec)</string>
+      </property>
+     </widget>
+     <widget class="QCheckBox" name="checkBox_17">
+      <property name="geometry">
+       <rect>
+        <x>10</x>
+        <y>43</y>
+        <width>171</width>
+        <height>20</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>署名時自動的に接続する</string>
+      </property>
+     </widget>
+    </widget>
+    <widget class="QGroupBox" name="groupBox_4">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>10</y>
+       <width>221</width>
+       <height>161</height>
+      </rect>
+     </property>
+     <property name="title">
+      <string>key</string>
+     </property>
+     <widget class="QCheckBox" name="checkBox_15">
+      <property name="geometry">
+       <rect>
+        <x>10</x>
+        <y>50</y>
+        <width>201</width>
+        <height>31</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>端末ロックで
+現在読み込んでいるキーを忘れる</string>
+      </property>
+     </widget>
+     <widget class="QCheckBox" name="checkBox_16">
+      <property name="geometry">
+       <rect>
+        <x>10</x>
+        <y>20</y>
+        <width>201</width>
+        <height>31</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>起動時に読み込む
+設定に追加保存する</string>
+      </property>
+     </widget>
+     <widget class="QPushButton" name="pushButton_15">
+      <property name="geometry">
+       <rect>
+        <x>10</x>
+        <y>125</y>
+        <width>121</width>
+        <height>23</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>クリア</string>
+      </property>
+     </widget>
+     <widget class="QLabel" name="label_10">
+      <property name="geometry">
+       <rect>
+        <x>10</x>
+        <y>90</y>
+        <width>201</width>
+        <height>31</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>起動時に読み込むキーを
+設定からクリアする</string>
+      </property>
+     </widget>
+    </widget>
    </widget>
    <widget class="QWidget" name="tab_4">
     <attribute name="title">
@@ -636,66 +772,11 @@
     <attribute name="title">
      <string>実験的実装</string>
     </attribute>
-    <widget class="QCheckBox" name="checkBox_6">
-     <property name="geometry">
-      <rect>
-       <x>20</x>
-       <y>20</y>
-       <width>211</width>
-       <height>16</height>
-      </rect>
-     </property>
-     <property name="text">
-      <string>Enable Bluetooth SSH Agent relay</string>
-     </property>
-    </widget>
-    <widget class="QLabel" name="label_11">
-     <property name="geometry">
-      <rect>
-       <x>40</x>
-       <y>50</y>
-       <width>81</width>
-       <height>16</height>
-      </rect>
-     </property>
-     <property name="text">
-      <string>time out(sec)</string>
-     </property>
-    </widget>
-    <widget class="QSpinBox" name="spinBox">
-     <property name="geometry">
-      <rect>
-       <x>120</x>
-       <y>50</y>
-       <width>42</width>
-       <height>22</height>
-      </rect>
-     </property>
-     <property name="maximum">
-      <number>20</number>
-     </property>
-     <property name="value">
-      <number>5</number>
-     </property>
-    </widget>
    </widget>
    <widget class="QWidget" name="tab_3">
     <attribute name="title">
      <string>debug info</string>
     </attribute>
-    <widget class="QPlainTextEdit" name="plainTextEdit">
-     <property name="geometry">
-      <rect>
-       <x>10</x>
-       <y>30</y>
-       <width>391</width>
-       <height>141</height>
-      </rect>
-     </property>
-     <property name="readOnly">
-      <bool>true</bool>
-     </property>
-    </widget>
     <widget class="QCheckBox" name="checkBox_4">
      <property name="geometry">
       <rect>
@@ -722,6 +803,19 @@
    </property>
    <property name="text">
     <string>Advance</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="pushButton_5">
+   <property name="geometry">
+    <rect>
+     <x>90</x>
+     <y>536</y>
+     <width>75</width>
+     <height>23</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>設定初期化</string>
    </property>
   </widget>
  </widget>

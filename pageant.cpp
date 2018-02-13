@@ -6,9 +6,9 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <malloc.h>	// for alloca
-#include <stdbool.h>
+#include <regex>
 
-#include "tree234.h"
+#define ENABLE_DEBUG_PRINT
 #include "ssh.h"
 #include "pageant.h"
 #include "pageant_.h"
@@ -17,9 +17,14 @@
 #include "setting.h"
 #include "passphrases.h"
 #include "ckey.h"
+#include "debug.h"
+#include "keystore.h"
+#include "codeconvert.h"
 
 #ifdef PUTTY_CAC
+extern "C" {
 #include "cert/cert_common.h"
+}
 #endif // PUTTY_CAC
 
 #include "bt_agent_proxy_main.h"
@@ -47,238 +52,7 @@ static agent_query_synchronous_fn agent_query_synchronous_p
 //	= agent_query_synchronous;
 static bool pageant_local = false;
 
-/*
- * rsakeys stores SSH-1 RSA keys. ssh2keys stores all SSH-2 keys.
- */
-static tree234 *rsakeys;
-static tree234 *ssh2keys;
-
-/*
- * Blob structure for passing to the asymmetric SSH-2 key compare
- * function, prototyped here.
- */
-struct blob {
-    const unsigned char *blob;
-    int len;
-};
-static int cmpkeys_ssh2_asymm(void *av, void *bv);
-
-/*
- * Key comparison function for the 2-3-4 tree of RSA keys.
- */
-static int cmpkeys_rsa(void *av, void *bv)
-{
-    struct RSAKey *a = (struct RSAKey *) av;
-    struct RSAKey *b = (struct RSAKey *) bv;
-    Bignum am, bm;
-    int alen, blen;
-
-    am = a->modulus;
-    bm = b->modulus;
-    /*
-     * Compare by length of moduli.
-     */
-    alen = bignum_bitcount(am);
-    blen = bignum_bitcount(bm);
-    if (alen > blen)
-	return +1;
-    else if (alen < blen)
-	return -1;
-    /*
-     * Now compare by moduli themselves.
-     */
-    alen = (alen + 7) / 8;	       /* byte count */
-    while (alen-- > 0) {
-	int abyte, bbyte;
-	abyte = bignum_byte(am, alen);
-	bbyte = bignum_byte(bm, alen);
-	if (abyte > bbyte)
-	    return +1;
-	else if (abyte < bbyte)
-	    return -1;
-    }
-    /*
-     * Give up.
-     */
-    return 0;
-}
-
-/*
- * Key comparison function for the 2-3-4 tree of SSH-2 keys.
- */
-static int cmpkeys_ssh2(void *av, void *bv)
-{
-    struct ssh2_userkey *a = (struct ssh2_userkey *) av;
-    struct ssh2_userkey *b = (struct ssh2_userkey *) bv;
-    int i;
-    int alen, blen;
-    unsigned char *ablob, *bblob;
-    int c;
-
-    /*
-     * Compare purely by public blob.
-     */
-    ablob = a->alg->public_blob(a->data, &alen);
-    bblob = b->alg->public_blob(b->data, &blen);
-
-    c = 0;
-    for (i = 0; i < alen && i < blen; i++) {
-	if (ablob[i] < bblob[i]) {
-	    c = -1;
-	    break;
-	} else if (ablob[i] > bblob[i]) {
-	    c = +1;
-	    break;
-	}
-    }
-    if (c == 0 && i < alen)
-	c = +1;			       /* a is longer */
-    if (c == 0 && i < blen)
-	c = -1;			       /* a is longer */
-
-    sfree(ablob);
-    sfree(bblob);
-
-    return c;
-}
-
-/*
- * Key comparison function for looking up a blob in the 2-3-4 tree
- * of SSH-2 keys.
- */
-static int cmpkeys_ssh2_asymm(void *av, void *bv)
-{
-    struct blob *a = (struct blob *) av;
-    struct ssh2_userkey *b = (struct ssh2_userkey *) bv;
-    int i;
-    int alen, blen;
-    const unsigned char *ablob;
-    unsigned char *bblob;
-    int c;
-
-    /*
-     * Compare purely by public blob.
-     */
-    ablob = a->blob;
-    alen = a->len;
-    bblob = b->alg->public_blob(b->data, &blen);
-
-    c = 0;
-    for (i = 0; i < alen && i < blen; i++) {
-	if (ablob[i] < bblob[i]) {
-	    c = -1;
-	    break;
-	} else if (ablob[i] > bblob[i]) {
-	    c = +1;
-	    break;
-	}
-    }
-    if (c == 0 && i < alen)
-	c = +1;			       /* a is longer */
-    if (c == 0 && i < blen)
-	c = -1;			       /* a is longer */
-
-    sfree(bblob);
-
-    return c;
-}
-
-/*
- * Create an SSH-1 key list in a malloc'ed buffer; return its
- * length.
- */
-void *pageant_make_keylist1(int *length)
-{
-    int i, nkeys;
-	size_t len;
-    struct RSAKey *key;
-    unsigned char *blob, *p, *ret;
-    int bloblen;
-
-    /*
-     * Count up the number and length of keys we hold.
-     */
-    len = 4;
-    nkeys = 0;
-    for (i = 0; NULL != (key = index234(rsakeys, i)); i++) {
-		nkeys++;
-		blob = rsa_public_blob(key, &bloblen);
-		len += bloblen;
-		sfree(blob);
-		len += 4 + strlen(key->comment);
-    }
-
-    /* Allocate the buffer. */
-    p = ret = snewn(len, unsigned char);
-    if (length) *length = len;
-
-    PUT_32BIT(p, nkeys);
-    p += 4;
-    for (i = 0; NULL != (key = index234(rsakeys, i)); i++) {
-		blob = rsa_public_blob(key, &bloblen);
-		memcpy(p, blob, bloblen);
-		p += bloblen;
-		sfree(blob);
-		PUT_32BIT(p, strlen(key->comment));
-		memcpy(p + 4, key->comment, strlen(key->comment));
-		p += 4 + strlen(key->comment);
-    }
-
-    assert(p - ret == len);
-    return ret;
-}
-
-/*
- * Create an SSH-2 key list in a malloc'ed buffer; return its
- * length.
- */
-void *pageant_make_keylist2(int *length)
-{
-    struct ssh2_userkey *key;
-    int i, nkeys;
-	size_t len;
-    unsigned char *blob, *p, *ret;
-    int bloblen;
-
-    /*
-     * Count up the number and length of keys we hold.
-     */
-    len = 4;
-    nkeys = 0;
-    for (i = 0; NULL != (key = index234(ssh2keys, i)); i++) {
-		nkeys++;
-		len += 4;	       /* length field */
-		blob = key->alg->public_blob(key->data, &bloblen);
-		len += bloblen;
-		sfree(blob);
-		len += 4 + strlen(key->comment);
-    }
-
-    /* Allocate the buffer. */
-    p = ret = snewn(len, unsigned char);
-    if (length) *length = len;
-
-    /*
-     * Packet header is the obvious five bytes, plus four
-     * bytes for the key count.
-     */
-    PUT_32BIT(p, nkeys);
-    p += 4;
-    for (i = 0; NULL != (key = index234(ssh2keys, i)); i++) {
-		blob = key->alg->public_blob(key->data, &bloblen);
-		PUT_32BIT(p, bloblen);
-		p += 4;
-		memcpy(p, blob, bloblen);
-		p += bloblen;
-		sfree(blob);
-		PUT_32BIT(p, strlen(key->comment));
-		memcpy(p + 4, key->comment, strlen(key->comment));
-		p += 4 + strlen(key->comment);
-    }
-
-    assert(p - ret == len);
-    return ret;
-}
+//#include "keystore.c"
 
 static void plog(void *logctx, pageant_logfn_t logfn, const char *fmt, ...)
 #ifdef __GNUC__
@@ -444,7 +218,7 @@ bool parse_one_key(
 	size_t msglen,
 	const char **fail_reason)
 {
-	const unsigned char *p = msg;
+	const unsigned char *p = (unsigned char *)msg;
 	const unsigned char *msgend = p + msglen;
 
 	if (msgend < p+4) {
@@ -509,14 +283,15 @@ bool parse_one_key(
 	return true;
 }
 
-void *pageant_handle_msg(const void *msg, int msglen, int *outlen,
-                         void *logctx, pageant_logfn_t logfn)
+static void *pageant_handle_msg(
+	const void *msg, int msglen, int *outlen,
+	void *logctx, pageant_logfn_t logfn)
 {
-    const unsigned char *p = msg;
+    const unsigned char *p = (unsigned char *)msg;
     const unsigned char *msgend;
     unsigned char *ret = snewn(AGENT_MAX_MSGLEN, unsigned char);
     int type;
-    const char *fail_reason;
+    const char *fail_reason = NULL;
 
     msgend = p + msglen;
 
@@ -666,7 +441,8 @@ void *pageant_handle_msg(const void *msg, int msglen, int *outlen,
 			rsa_fingerprint(fingerprint, sizeof(fingerprint), &reqkey);
 			plog(logctx, logfn, "requested key: %s", fingerprint);
 		}
-		if ((key = find234(rsakeys, &reqkey, NULL)) == NULL) {
+		key = pageant_get_ssh1_key(&reqkey);
+		if (key == NULL) {
 			freebn(reqkey.exponent);
 			freebn(reqkey.modulus);
 			freebn(challenge);
@@ -714,7 +490,8 @@ void *pageant_handle_msg(const void *msg, int msglen, int *outlen,
 		 */
 	{
 	    struct ssh2_userkey *key;
-	    struct blob b;
+		const unsigned char *blob;
+		size_t blob_len;
 	    const unsigned char *data;
 		unsigned char *signature;
 	    int datalen, siglen, len;
@@ -725,14 +502,14 @@ void *pageant_handle_msg(const void *msg, int msglen, int *outlen,
 			fail_reason = "request truncated before public key";
 			goto failure;
 		}
-	    b.len = toint(GET_32BIT(p));
-		if (b.len < 0 || b.len > msgend - (p+4)) {
+	    blob_len = toint(GET_32BIT(p));
+		if (blob_len < 0 || blob_len > msgend - (p+4)) {
 			fail_reason = "request truncated before public key";
 			goto failure;
 		}
 	    p += 4;
-	    b.blob = p;
-	    p += b.len;
+	    blob = p;
+	    p += blob_len;
 	    if (msgend < p+4) {
 			fail_reason = "request truncated before string to sign";
 			goto failure;
@@ -745,11 +522,11 @@ void *pageant_handle_msg(const void *msg, int msglen, int *outlen,
 		}
 	    data = p;
 		if (logfn) {
-			char *fingerprint = ssh2_fingerprint_blob(b.blob, b.len);
+			char *fingerprint = ssh2_fingerprint_blob(blob, blob_len);
 			plog(logctx, logfn, "requested key: %s", fingerprint);
 			sfree(fingerprint);
 		}
-	    key = find234(ssh2keys, &b, cmpkeys_ssh2_asymm);
+		key = pageant_get_ssh2_key_from_blob(blob, blob_len);
 	    if (!key) {
 			fail_reason = "key not found";
 			goto failure;
@@ -766,85 +543,107 @@ void *pageant_handle_msg(const void *msg, int msglen, int *outlen,
 	    }
 	    else
 #endif
-			if (strncmp("btspp://", key->comment, 8) == 0)  {
-				// BTへ投げる
-				int result = 1;
-				size_t replylen;
-				const unsigned char *msg2;
-				void *reply;
-				int len_s;
+		if (strncmp("btspp://", key->comment, 8) == 0) {
+			int result = 1;
 
-				msg2 = msg;
-				msg2 -= 4;			// TODO: なぜ4引く?
+			// 接続
+			if (setting_get_bool("bt/enable", false) &&
+				setting_get_bool("bt/auto_connect", false))
+			{
+				std::wstring deviceName;
+				std::regex re(R"(btspp://(.+)/)");
+				std::smatch match;
+				const std::string &f = key->comment;
+				if (std::regex_search(f, match, re)) {
+					deviceName = utf8_to_wc(match[1].str());
+				}
+
+				bool r = bt_agent_proxy_main_connect(deviceName.c_str());
+				if (r == false) {
+					dbgprintf("接続失敗 %ls\n", deviceName.c_str());
+					result = 0;
+				}
+			}
+
+			// BTへ投げる
+			size_t replylen;
+			const unsigned char *msg2;
+			void *reply;
+
+			if (result == 1) {
+				msg2 = (unsigned char *)msg;
+				msg2 -= 4;			// TODO: check
 				replylen = msglen;
 				reply = bt_agent_proxy_main_handle_msg(msg2, &replylen);
+				if (reply == NULL){
+					goto failure;
+				}
+			}
 
-				// 応答チェック
-				if (result == 1) {
-					msg2 = (unsigned char *)reply;
-					len_s = GET_32BIT(msg2);
-					msg2 += 4;
-					if (*msg2 != SSH2_AGENT_SIGN_RESPONSE) {	// 0x0e
-						result = 0;
-					}
-				}
-				// データ長チェック
-				if (result == 1) {
-					msg2++;
-					len_s = GET_32BIT(msg2);
-					msg2 += 4;
-					if (replylen <= len_s + 4) {
-						result = 0;
-					}
-				}
-				// 種別チェック
-				if (result == 1) {
-					len_s = GET_32BIT(msg2);
-					msg2 += 4;
-					if (len_s != 7 &&
-						strncmp((char *)msg2, "ssh-rsa", 7) != 0)
-					{
-						result = 0;
-					} else {
-						msg2 += 7;
-					}
-				}
-				// 署名部チェック
-				if (result == 1) {
-					len_s = GET_32BIT(msg2);
-					if (len_s != 0x100) {
-						result = 0;
-					} else {
-						msg2 += 4;
-					}
-				}
-				// 応答作成
-				if (result == 1) {
-					unsigned char *p2;
-					siglen = 4 + 7 + 4 + 0x100;
-					signature = snewn(siglen, unsigned char);
-					p2 = signature;
-					PUT_32BIT(p2, 7);
-					p2 += 4;
-					memcpy(p2, "ssh-rsa", 7);
-					p2 += 7;
-					PUT_32BIT(p2, 0x100);
-					p2 += 4;
-					memcpy(p2, msg2, 0x100);
-				}
-				// 応答エラー?
-				if (result == 0) {
-					// todo: ??知らない応答
-					siglen = 0;
-					signature = NULL;
+			// 応答チェック
+			int len_s;
+			if (result == 1) {
+				msg2 = (unsigned char *)reply;
+				len_s = GET_32BIT(msg2);
+				msg2 += 4;
+				if (*msg2 != SSH2_AGENT_SIGN_RESPONSE) {	// 0x0e
+					result = 0;
 				}
 			}
-			else
-			{
-				signature = key->alg->sign(key->data, (const char *)data,
-										   datalen, &siglen);
+			// データ長チェック
+			if (result == 1) {
+				msg2++;
+				len_s = GET_32BIT(msg2);
+				msg2 += 4;
+				if (replylen <= len_s + 4) {
+					result = 0;
+				}
 			}
-	    // todo: error
+			// 種別チェック
+			if (result == 1) {
+				len_s = GET_32BIT(msg2);
+				msg2 += 4;
+				if (len_s != 7 &&
+					strncmp((char *)msg2, "ssh-rsa", 7) != 0)
+				{
+					result = 0;
+				} else {
+					msg2 += 7;
+				}
+			}
+			// 署名部チェック
+			if (result == 1) {
+				len_s = GET_32BIT(msg2);
+				if (len_s != 0x100) {
+					result = 0;
+				} else {
+					msg2 += 4;
+				}
+			}
+			// 応答作成
+			if (result == 1) {
+				unsigned char *p2;
+				siglen = 4 + 7 + 4 + 0x100;
+				signature = snewn(siglen, unsigned char);
+				p2 = signature;
+				PUT_32BIT(p2, 7);
+				p2 += 4;
+				memcpy(p2, "ssh-rsa", 7);
+				p2 += 7;
+				PUT_32BIT(p2, 0x100);
+				p2 += 4;
+				memcpy(p2, msg2, 0x100);
+			}
+			// エラー
+			if (result == 0) {
+				goto failure;
+			}
+		}
+		else
+		{
+			signature = key->alg->sign(key->data, (const char *)data,
+									   datalen, &siglen);
+		}
 	    len = 5 + 4 + siglen;
 	    PUT_32BIT(ret, len - 4);
 	    ret[4] = SSH2_AGENT_SIGN_RESPONSE;
@@ -955,8 +754,7 @@ void *pageant_handle_msg(const void *msg, int msglen, int *outlen,
 			plog(logctx, logfn, "submitted key: %s", fingerprint);
 		}
 
-	    if (add234(rsakeys, key) == key) {
-			keylist_update();
+		if (pageant_add_ssh1_key(key)) {
 			PUT_32BIT(ret, 1);
 			ret[4] = SSH_AGENT_SUCCESS;
 
@@ -999,8 +797,7 @@ void *pageant_handle_msg(const void *msg, int msglen, int *outlen,
 			sfree(fingerprint);
 		}
 
-	    if (add234(ssh2keys, key) == key) {
-			keylist_update();
+	    if (pageant_add_ssh2_key(key)) {
 			PUT_32BIT(ret, 1);
 			ret[4] = SSH_AGENT_SUCCESS;
 
@@ -1040,7 +837,7 @@ void *pageant_handle_msg(const void *msg, int msglen, int *outlen,
 			plog(logctx, logfn, "unwanted key: %s", fingerprint);
 		}
 
-	    key = find234(rsakeys, &reqkey, NULL);
+		key = pageant_get_ssh1_key(&reqkey);
 	    freebn(reqkey.exponent);
 	    freebn(reqkey.modulus);
 	    PUT_32BIT(ret, 1);
@@ -1054,8 +851,7 @@ void *pageant_handle_msg(const void *msg, int msglen, int *outlen,
 			}
 			plog(logctx, logfn, "found with comment: %s", key->comment);
 
-			del234(rsakeys, key);
-			keylist_update();
+			pageant_delete_ssh1_key(key);
 			freersakey(key);
 			sfree(key);
 			ret[4] = SSH_AGENT_SUCCESS;
@@ -1075,7 +871,8 @@ void *pageant_handle_msg(const void *msg, int msglen, int *outlen,
 		 */
 	{
 	    struct ssh2_userkey *key;
-	    struct blob b;
+		const unsigned char *blob;
+		size_t blob_len;
 
 		plog(logctx, logfn, "request: SSH2_AGENTC_REMOVE_IDENTITY");
 
@@ -1083,23 +880,23 @@ void *pageant_handle_msg(const void *msg, int msglen, int *outlen,
 			fail_reason = "request truncated before public key";
 			goto failure;
 		}
-	    b.len = toint(GET_32BIT(p));
+	    blob_len = toint(GET_32BIT(p));
 	    p += 4;
 
-	    if (b.len < 0 || b.len > msgend - p) {
+	    if (blob_len < 0 || blob_len > msgend - p) {
 			fail_reason = "request truncated before public key";
 			goto failure;
 		}
-	    b.blob = p;
-	    p += b.len;
+	    blob = p;
+	    p += blob_len;
 
 		if (logfn) {
-			char *fingerprint = ssh2_fingerprint_blob(b.blob, b.len);
+			char *fingerprint = ssh2_fingerprint_blob(blob, blob_len);
 			plog(logctx, logfn, "unwanted key: %s", fingerprint);
 			sfree(fingerprint);
 		}
 
-	    key = find234(ssh2keys, &b, cmpkeys_ssh2_asymm);
+		key = pageant_get_ssh2_key_from_blob(blob, blob_len);
 	    if (!key) {
 			fail_reason = "key not found";
 			goto failure;
@@ -1112,8 +909,7 @@ void *pageant_handle_msg(const void *msg, int msglen, int *outlen,
 
 		plog(logctx, logfn, "found with comment: %s", key->comment);
 
-		del234(ssh2keys, key);
-		keylist_update();
+		pageant_delete_ssh2_key(key);
 		key->alg->freekey(key->data);
 		sfree(key);
 	    PUT_32BIT(ret, 1);
@@ -1132,17 +928,10 @@ void *pageant_handle_msg(const void *msg, int msglen, int *outlen,
 			goto failure;
 		}
 		{
-			struct RSAKey *rkey;
-
             plog(logctx, logfn, "request:"
 				 " SSH1_AGENTC_REMOVE_ALL_RSA_IDENTITIES");
 
-			while ((rkey = index234(rsakeys, 0)) != NULL) {
-				del234(rsakeys, rkey);
-				freersakey(rkey);
-				sfree(rkey);
-			}
-			keylist_update();
+			pageant_delete_ssh1_key_all();
 
 			PUT_32BIT(ret, 1);
 			ret[4] = SSH_AGENT_SUCCESS;
@@ -1155,16 +944,9 @@ void *pageant_handle_msg(const void *msg, int msglen, int *outlen,
 		 * Remove all SSH-2 keys. Always returns success.
 		 */
 	{
-	    struct ssh2_userkey *skey;
-
 		plog(logctx, logfn, "request: SSH2_AGENTC_REMOVE_ALL_IDENTITIES");
 
-	    while ((skey = index234(ssh2keys, 0)) != NULL) {
-			del234(ssh2keys, skey);
-			skey->alg->freekey(skey->data);
-			sfree(skey);
-	    }
-	    keylist_update();
+		pageant_delete_ssh2_key_all();
 
 	    PUT_32BIT(ret, 1);
 	    ret[4] = SSH_AGENT_SUCCESS;
@@ -1203,120 +985,12 @@ void *pageant_failure_msg(int *outlen)
 void pageant_init(void)
 {
     pageant_local = true;
-    rsakeys = newtree234(cmpkeys_rsa);
-    ssh2keys = newtree234(cmpkeys_ssh2);
-}
-
-static void free_mem(tree234 *tree)
-{
-    if (tree == NULL)
-        return;
-
-    while (count234(tree) > 0) {
-	char *pp = index234(tree, 0);
-//	smemclr(pp, strlen(pp));		// TODO メモリクリア
-	delpos234(tree, 0);
-	sfree(pp);
-    }
-    sfree(tree);
+	keystore_init();
 }
 
 void pageant_exit(void)
 {
-    free_mem(rsakeys);
-    rsakeys = NULL;
-    free_mem(ssh2keys);
-    ssh2keys = NULL;
-}
-
-struct RSAKey *pageant_nth_ssh1_key(int i)
-{
-    return index234(rsakeys, i);
-}
-
-struct ssh2_userkey *pageant_nth_ssh2_key(int i)
-{
-    return index234(ssh2keys, i);
-}
-
-int pageant_count_ssh1_keys(void)
-{
-    return count234(rsakeys);
-}
-
-int pageant_count_ssh2_keys(void)
-{
-    return count234(ssh2keys);
-}
-
-int pageant_add_ssh1_key(struct RSAKey *rkey)
-{
-    return add234(rsakeys, rkey) == rkey;
-}
-
-int pageant_add_ssh2_key(struct ssh2_userkey *skey)
-{
-    return add234(ssh2keys, skey) == skey;
-}
-
-int pageant_delete_ssh1_key(struct RSAKey *rkey)
-{
-    struct RSAKey *deleted = del234(rsakeys, rkey);
-    if (!deleted)
-        return FALSE;
-    assert(deleted == rkey);
-    return TRUE;
-}
-
-int pageant_delete_ssh2_key(struct ssh2_userkey *skey)
-{
-    struct ssh2_userkey *deleted = del234(ssh2keys, skey);
-    if (!deleted)
-        return FALSE;
-    assert(deleted == skey);
-    return TRUE;
-}
-
-static int pageant_search_fingerprint(void *av, void *bv)
-{
-	const char *search_fingerprint = (const char *)av;
-	struct ssh2_userkey *key = (struct ssh2_userkey *) bv;
-	char *fingerprint = ssh2_fingerprint(key->alg, key->data);
-	int c = 1;
-	if (strcmp(search_fingerprint, fingerprint) == 0) {
-		c = 0;
-	}
-	sfree(fingerprint);
-	return c;
-}
-
-static int pageant_search_fingerprint_sha256(void *av, void *bv)
-{
-	const char *search_fingerprint = (const char *)av;
-	struct ssh2_userkey *key = (struct ssh2_userkey *) bv;
-	char *fingerprint = ssh2_fingerprint_sha256(key);
-	int c = 1;
-	if (strcmp(search_fingerprint, fingerprint) == 0) {
-		c = 0;
-	}
-	sfree(fingerprint);
-	return c;
-}
-
-// @retval	ssh2_userey
-// @retval	nullptr		見つからなかった
-struct ssh2_userkey *pageant_get_ssh2_key_from_fp(const char *fingerprint)
-{
-    struct ssh2_userkey *key;
-    key = find234(ssh2keys, fingerprint, pageant_search_fingerprint);
-    return key;
-}
-
-struct ssh2_userkey *pageant_get_ssh2_key_from_fp_sha256(const char *fingerprint)
-{
-    struct ssh2_userkey *key;
-    key = find234(ssh2keys, fingerprint, pageant_search_fingerprint_sha256);
-    return key;
+	keystore_exit();
 }
 
 /* ----------------------------------------------------------------------
@@ -1547,7 +1221,7 @@ void *pageant_get_keylist1(int *length)
 		PUT_32BIT(request, 1);
 
         agent_query_synchronous_p(request, 5, &vresponse, &resplen);
-		response = vresponse;
+		response = (unsigned char *)vresponse;
 		if (resplen < 5 || response[4] != SSH1_AGENT_RSA_IDENTITIES_ANSWER) {
             sfree(response);
 			return NULL;
@@ -1578,7 +1252,7 @@ void *pageant_get_keylist2(int *length)
 		PUT_32BIT(request, 1);
 
 		agent_query_synchronous_p(request, 5, &vresponse, &resplen);
-		response = vresponse;
+		response = (unsigned char *)vresponse;
 		if (resplen < 5 || response[4] != SSH2_AGENT_IDENTITIES_ANSWER) {
             sfree(response);
 			return NULL;
@@ -1609,7 +1283,7 @@ int pageant_add_keyfile(const Filename *filename, const char *passphrase,
     int needs_pass;
     int ret;
     int attempts;
-    char *comment;
+    char *comment = NULL;
     const char *error = NULL;
     int type;
 
@@ -1636,7 +1310,7 @@ int pageant_add_keyfile(const Filename *filename, const char *passphrase,
                 *retstr = dupprintf("Couldn't load private key (%s)", error);
                 return PAGEANT_ACTION_FAILURE;
 			}
-			keylist = pageant_get_keylist1(&keylistlen);
+			keylist = (unsigned char *)pageant_get_keylist1(&keylistlen);
 		} else {
 			unsigned char *blob2;
 			blob = ssh2_userkey_loadpub(filename, NULL, &bloblen,
@@ -1652,7 +1326,7 @@ int pageant_add_keyfile(const Filename *filename, const char *passphrase,
 			sfree(blob);
 			blob = blob2;
 
-			keylist = pageant_get_keylist2(&keylistlen);
+			keylist = (unsigned char *)pageant_get_keylist2(&keylistlen);
 		}
 		if (keylist) {
 			if (keylistlen < 4) {
@@ -1833,7 +1507,7 @@ int pageant_add_keyfile(const Filename *filename, const char *passphrase,
 			PUT_32BIT(request, reqlen - 4);
 
 			agent_query_synchronous_p(request, reqlen, &vresponse, &resplen);
-			response = vresponse;
+			response = (unsigned char *)vresponse;
 			if (resplen < 5 || response[4] != SSH_AGENT_SUCCESS) {
 				*retstr = dupstr("The already running Pageant "
                                  "refused to add the key.");
@@ -1886,7 +1560,7 @@ int pageant_add_keyfile(const Filename *filename, const char *passphrase,
 			PUT_32BIT(request, reqlen - 4);
 
 			agent_query_synchronous_p(request, reqlen, &vresponse, &resplen);
-			response = vresponse;
+			response = (unsigned char *)vresponse;
 			if (resplen < 5 || response[4] != SSH_AGENT_SUCCESS) {
 				*retstr = dupstr("The already running Pageant "
                                  "refused to add the key.");
@@ -1915,7 +1589,7 @@ int pageant_enum_keys(pageant_key_enum_fn_t callback, void *callback_ctx,
     char *comment;
     struct pageant_pubkey cbkey;
 
-    keylist = pageant_get_keylist1(&keylistlen);
+    keylist = (unsigned char *)pageant_get_keylist1(&keylistlen);
     if (keylistlen < 4) {
         *retstr = dupstr("Received broken SSH-1 key list from agent");
         sfree(keylist);
@@ -1981,7 +1655,7 @@ int pageant_enum_keys(pageant_key_enum_fn_t callback, void *callback_ctx,
         return PAGEANT_ACTION_FAILURE;
     }
 
-    keylist = pageant_get_keylist2(&keylistlen);
+    keylist = (unsigned char *)pageant_get_keylist2(&keylistlen);
     if (keylistlen < 4) {
         *retstr = dupstr("Received broken SSH-2 key list from agent");
         sfree(keylist);
@@ -2076,7 +1750,7 @@ int pageant_delete_key(struct pageant_pubkey *key, char **retstr)
     }
 
     agent_query_synchronous_p(request, reqlen, &vresponse, &resplen);
-    response = vresponse;
+    response = (unsigned char *)vresponse;
     if (resplen < 5 || response[4] != SSH_AGENT_SUCCESS) {
         *retstr = dupstr("Agent failed to delete key");
         ret = PAGEANT_ACTION_FAILURE;
@@ -2099,7 +1773,7 @@ int pageant_delete_all_keys(char **retstr)
     request[4] = SSH2_AGENTC_REMOVE_ALL_IDENTITIES;
     reqlen = 5;
     agent_query_synchronous_p(request, reqlen, &vresponse, &resplen);
-    response = vresponse;
+    response = (unsigned char *)vresponse;
     success = (resplen >= 4 && response[4] == SSH_AGENT_SUCCESS);
     sfree(response);
     if (!success) {
@@ -2111,7 +1785,7 @@ int pageant_delete_all_keys(char **retstr)
     request[4] = SSH1_AGENTC_REMOVE_ALL_RSA_IDENTITIES;
     reqlen = 5;
     agent_query_synchronous_p(request, reqlen, &vresponse, &resplen);
-    response = vresponse;
+    response = (unsigned char *)vresponse;
     success = (resplen >= 4 && response[4] == SSH_AGENT_SUCCESS);
     sfree(response);
     if (!success) {
@@ -2125,285 +1799,181 @@ int pageant_delete_all_keys(char **retstr)
 
 //////////////////////////////////////////////////////////////////////////////
 
-#if 0
-struct pageant_pubkey *pageant_pubkey_copy(struct pageant_pubkey *key)
-{
-    struct pageant_pubkey *ret = snew(struct pageant_pubkey);
-    ret->blob = snewn(key->bloblen, unsigned char);
-    memcpy(ret->blob, key->blob, key->bloblen);
-    ret->bloblen = key->bloblen;
-    ret->comment = key->comment ? dupstr(key->comment) : NULL;
-    ret->ssh_version = key->ssh_version;
-    return ret;
-}
-
-void pageant_pubkey_free(struct pageant_pubkey *key)
-{
-    sfree(key->comment);
-    sfree(key->blob);
-    sfree(key);
-}
-#endif
-
-void pageant_delete_key2(int selectedCount, const int *selectedArray)
-{
-    struct RSAKey *rkey;
-    struct ssh2_userkey *skey;
-
-    int itemNum = selectedCount;
-    if (itemNum == 0) {
-		return;
-    }
-
-    int rCount = pageant_count_ssh1_keys();
-    int sCount = pageant_count_ssh2_keys();
-		
-    /* go through the non-rsakeys until we've covered them all, 
-     * and/or we're out of selected items to check. note that
-     * we go *backwards*, to avoid complications from deleting
-     * things hence altering the offset of subsequent items
-     */
-    for (int i = sCount - 1; (itemNum > 0) && (i >= 0); i--) {
-		skey = pageant_nth_ssh2_key(i);
-			
-		if (selectedArray[itemNum-1] == rCount + i) {
-			pageant_delete_ssh2_key(skey);
-			skey->alg->freekey(skey->data);
-			sfree(skey);
-			itemNum--;
-		}
-    }
-		
-    /* do the same for the rsa keys */
-    for (int i = rCount - 1; (itemNum >= 0) && (i >= 0); i--) {
-		rkey = pageant_nth_ssh1_key(i);
-
-		if(selectedArray[itemNum] == i) {
-			pageant_delete_ssh1_key(rkey);
-			freersakey(rkey);
-			sfree(rkey);
-			itemNum--;
-		}
-    }
-}
-
-//int pageant_delete_key(struct pageant_pubkey *key, char **retstr)
-//int pageant_delete_ssh2_key(struct ssh2_userkey *skey)
-
-void pageant_del_key(const char *fingerprint)
-{
-    struct ssh2_userkey *key = pageant_get_ssh2_key_from_fp(fingerprint);
-    if (key == NULL) {
-		return;
-    }
-
-    char *fingerprint2 = ssh2_fingerprint(key->alg, key->data);
-    printf("f %s %s\n", fingerprint, fingerprint2);
-    sfree(fingerprint2);
-
-    pageant_delete_ssh2_key(key);
-}
-
-char *pageant_get_pubkey(const char *fingerprint_sha256)
-{
-    struct ssh2_userkey *key = pageant_get_ssh2_key_from_fp_sha256(fingerprint_sha256);
-    if (key == NULL) {
-		return NULL;
-    }
-
-    int blob_len;
-    char *blob = key->alg->public_blob(key->data, &blob_len);
-    const size_t comment_len = strlen(key->comment);
-    const size_t base64_len = 8 + blob_len * 4 / 3 + 1 + comment_len + 2 + 1;
-    char *base64_ptr = malloc(base64_len);
-
-    char *p = base64_ptr;
-    memcpy(p, "ssh-rsa ", 8);
-    p += 8;
-    int i = 0;
-    while (i < blob_len) {
-		int n = (blob_len - i < 3 ? blob_len - i : 3);
-		base64_encode_atom(blob + i, n, p);
-		p += 4;
-		i += n;
-    }
-    *p++ = ' ';
-    memcpy(p, key->comment, comment_len);
-    p += comment_len;
-    *p++ = '\r';
-    *p++ = '\n';
-    *p   = '\0';
-    return base64_ptr;
-}
-
-//////////////////////////////////////////////////////////////////////////////
-
 /**
  * dump
  */
 #if defined(_DEBUG)
 void dump_msg(const void *msg)
 {
-    const unsigned char *top = msg;
-    const unsigned char *p = msg;
+    const unsigned char *top = (unsigned char *)msg;
+    const unsigned char *p = (unsigned char *)msg;
     int length = GET_32BIT(p);
 
     if (length == 0) {
-	debug("message length is zero\n");
-	return;
+		debug("message length is zero\n");
+		return;
     }
     
     int type = p[4];
 	
     switch (type) {
     case SSH2_AGENTC_REQUEST_IDENTITIES:
-	/*
-	 * Reply with SSH2_AGENT_IDENTITIES_ANSWER.
-	 */
-	debug("SSH2_AGENTC_REQUEST_IDENTITIES(0x%x)\n", type);
-	debug("msg len=0x%04x(%d)\n", length, length);
-	debug_memdump(p, 4 + 1, 1);
-	p += 5;
-	break;
+		/*
+		 * Reply with SSH2_AGENT_IDENTITIES_ANSWER.
+		 */
+		debug("SSH2_AGENTC_REQUEST_IDENTITIES(0x%x)\n", type);
+		debug("msg len=0x%04x(%d)\n", length, length);
+		debug_memdump(p, 4 + 1, 1);
+		p += 5;
+		break;
     case SSH2_AGENT_IDENTITIES_ANSWER:
     {
-	debug("SSH2_AGENT_IDENTITIES_ANSWER(0x%x)\n", type);
-	debug("msg len=0x%04x(%d)\n", length, length);
-	debug_memdump(p, 4 + 1, 1);
-	p += 5;
-	int nkey = GET_32BIT(p);
-	debug("key count %d\n", nkey);
-	debug_memdump(p, 4, 1);
-	p += 4;
-	for (int i=0; i < nkey; i++) {
-	    debug("%d/%d\n", i, nkey);
-	    int blob_len = GET_32BIT(p);
-	    debug_memdump(p, 4, 1);
-	    p += 4;
-	    debug(" blob\n");
-	    debug_memdump(p, blob_len, 1);
-	    p += blob_len;
-	    int comment_len = GET_32BIT(p);
-	    debug_memdump(p, 4, 1);
-	    p += 4;
-	    debug(" comment\n");
-	    debug_memdump(p, comment_len, 1);
-	    p += comment_len;
-	}
-	break;
+		debug("SSH2_AGENT_IDENTITIES_ANSWER(0x%x)\n", type);
+		debug("msg len=0x%04x(%d)\n", length, length);
+		debug_memdump(p, 4 + 1, 1);
+		p += 5;
+		int nkey = GET_32BIT(p);
+		debug("key count %d\n", nkey);
+		debug_memdump(p, 4, 1);
+		p += 4;
+		for (int i=0; i < nkey; i++) {
+			debug("%d/%d\n", i, nkey);
+			int blob_len = GET_32BIT(p);
+			debug_memdump(p, 4, 1);
+			p += 4;
+			debug(" blob\n");
+			debug_memdump(p, blob_len, 1);
+			p += blob_len;
+			int comment_len = GET_32BIT(p);
+			debug_memdump(p, 4, 1);
+			p += 4;
+			debug(" comment\n");
+			debug_memdump(p, comment_len, 1);
+			p += comment_len;
+		}
+		break;
     }
     case SSH2_AGENTC_SIGN_REQUEST:
     {
-	/*
-	 * Reply with either SSH2_AGENT_SIGN_RESPONSE or
-	 * SSH_AGENT_FAILURE, depending on whether we have that key
-	 * or not.
-	 */
-	debug("SSH2_AGENTC_SIGN_REQUEST(0x%x)\n", type);
-	debug("msg len=0x%04x(%d)\n", length, length);
-	debug_memdump(p, 4 + 1, 1);
-	p += 5;
-	int blob_len = GET_32BIT(p);
-	debug(" blob len=0x%04x(%d)\n", blob_len, blob_len);
-	debug_memdump(p, 4, 1);
-	p += 4;
-	debug_memdump(p, blob_len, 1);
-	p += blob_len;
-	int data_len = GET_32BIT(p);
-	debug(" data len=0x%04x(%d)\n", data_len, data_len);
-	debug_memdump(p, 4, 1);
-	p += 4;
-	debug_memdump(p, data_len, 1);
-	p += data_len;
-	break;
+		/*
+		 * Reply with either SSH2_AGENT_SIGN_RESPONSE or
+		 * SSH_AGENT_FAILURE, depending on whether we have that key
+		 * or not.
+		 */
+		debug("SSH2_AGENTC_SIGN_REQUEST(0x%x)\n", type);
+		debug("msg len=0x%04x(%d)\n", length, length);
+		debug_memdump(p, 4 + 1, 1);
+		p += 5;
+		int blob_len = GET_32BIT(p);
+		debug(" blob len=0x%04x(%d)\n", blob_len, blob_len);
+		debug_memdump(p, 4, 1);
+		p += 4;
+		debug_memdump(p, blob_len, 1);
+		p += blob_len;
+		int data_len = GET_32BIT(p);
+		debug(" data len=0x%04x(%d)\n", data_len, data_len);
+		debug_memdump(p, 4, 1);
+		p += 4;
+		debug_memdump(p, data_len, 1);
+		p += data_len;
+		break;
     }
     case SSH2_AGENT_SIGN_RESPONSE:
     {
-	debug("SSH2_AGENT_SIGN_RESPONSE(0x%x)\n", type);
-	debug("msg len=0x%04x(%d)\n", length, length);
-	debug_memdump(p, 4 + 1, 1);
-	p += 5;
-	int sign_len = GET_32BIT(p);
-	debug_memdump(p, 4, 1);
-	p += 4;
-	debug(" sign data len=0x%04x(%d)\n", sign_len, sign_len);
-	debug_memdump(p, sign_len, 1);
-	p += sign_len;
-	break;
+		debug("SSH2_AGENT_SIGN_RESPONSE(0x%x)\n", type);
+		debug("msg len=0x%04x(%d)\n", length, length);
+		debug_memdump(p, 4 + 1, 1);
+		p += 5;
+		int sign_len = GET_32BIT(p);
+		debug_memdump(p, 4, 1);
+		p += 4;
+		debug(" sign data len=0x%04x(%d)\n", sign_len, sign_len);
+		debug_memdump(p, sign_len, 1);
+		p += sign_len;
+		break;
     }
     ///////////////////
     case SSH1_AGENTC_REQUEST_RSA_IDENTITIES:
     case SSH1_AGENTC_RSA_CHALLENGE:
     case SSH1_AGENTC_ADD_RSA_IDENTITY:
-	/*
-	 * Add to the list and return SSH_AGENT_SUCCESS, or
-	 * SSH_AGENT_FAILURE if the key was malformed.
-	 */
+		/*
+		 * Add to the list and return SSH_AGENT_SUCCESS, or
+		 * SSH_AGENT_FAILURE if the key was malformed.
+		 */
     case SSH2_AGENTC_ADD_IDENTITY:
-	/*
-	 * Add to the list and return SSH_AGENT_SUCCESS, or
-	 * SSH_AGENT_FAILURE if the key was malformed.
-	 */
+		/*
+		 * Add to the list and return SSH_AGENT_SUCCESS, or
+		 * SSH_AGENT_FAILURE if the key was malformed.
+		 */
     case SSH1_AGENTC_REMOVE_RSA_IDENTITY:
-	/*
-	 * Remove from the list and return SSH_AGENT_SUCCESS, or
-	 * perhaps SSH_AGENT_FAILURE if it wasn't in the list to
-	 * start with.
-	 */
+		/*
+		 * Remove from the list and return SSH_AGENT_SUCCESS, or
+		 * perhaps SSH_AGENT_FAILURE if it wasn't in the list to
+		 * start with.
+		 */
     case SSH2_AGENTC_REMOVE_IDENTITY:
-	/*
-	 * Remove from the list and return SSH_AGENT_SUCCESS, or
-	 * perhaps SSH_AGENT_FAILURE if it wasn't in the list to
-	 * start with.
-	 */
+		/*
+		 * Remove from the list and return SSH_AGENT_SUCCESS, or
+		 * perhaps SSH_AGENT_FAILURE if it wasn't in the list to
+		 * start with.
+		 */
     case SSH1_AGENTC_REMOVE_ALL_RSA_IDENTITIES:
-	/*
-	 * Remove all SSH-1 keys. Always returns success.
-	 */
+		/*
+		 * Remove all SSH-1 keys. Always returns success.
+		 */
     case SSH2_AGENTC_REMOVE_ALL_IDENTITIES:
-	/*
-	 * Remove all SSH-2 keys. Always returns success.
-	 */
+		/*
+		 * Remove all SSH-2 keys. Always returns success.
+		 */
     default:
-	/*
-	 * Unrecognised message. Return SSH_AGENT_FAILURE.
-	 */
-	debug("type 0x%02x\n", type);
-	debug("msg len=%d(0x%x)\n", length, length);
-	debug_memdump(p, 4 + 1, 1);
-	p += 5;
-	if (length > 1) {
-	    int dump_len = length;
+		/*
+		 * Unrecognised message. Return SSH_AGENT_FAILURE.
+		 */
+		debug("type 0x%02x\n", type);
+		debug("msg len=%d(0x%x)\n", length, length);
+		debug_memdump(p, 4 + 1, 1);
+		p += 5;
+		if (length > 1) {
+			int dump_len = length;
 #if 0
 //#define AGENT_MAX_MSGLEN  8192
-	    if (dump_len > 0x80) {
-		debug("len is too large, clip 0x80\n");
-		dump_len = 0x80;
-	    }
+			if (dump_len > 0x80) {
+				debug("len is too large, clip 0x80\n");
+				dump_len = 0x80;
+			}
 #endif
-	    debug_memdump(p, dump_len, 1);
-	    p += length;
-	}
-	break;
+			debug_memdump(p, dump_len, 1);
+			p += length;
+		}
+		break;
     }
 
-    int actual_length = (p - top) - 4;
+    int actual_length = (int)(uintptr_t)(p - top) - 4;
     if (actual_length != length) {
-	debug("  last adr %p\n", p);
-	debug("  message length %04x(%d)\n", length, length);
-	debug("  actual  length %04x(%d)\n", actual_length, actual_length);
-	debug("  length  %s\n",
-	      length == actual_length ? "ok" :
-	      length < actual_length ? "message is small? dangerous!" :
-	      "message is large garbage on back?");
-	if (length > actual_length) {
-	    debug_memdump(p, length - actual_length, 1);
-	}
+		debug("  last adr %p\n", p);
+		debug("  message length %04x(%d)\n", length, length);
+		debug("  actual  length %04x(%d)\n", actual_length, actual_length);
+		debug("  length  %s\n",
+			  length == actual_length ? "ok" :
+			  length < actual_length ? "message is small? dangerous!" :
+			  "message is large garbage on back?");
+		if (length > actual_length) {
+			debug_memdump(p, length - actual_length, 1);
+		}
     }
 }
 #else
 #define	dump_msg(p)
 #endif
+
+static void pageant_logfn_test(void *logctx, const char *fmt, va_list ap)
+{
+	(void)logctx;
+	char buf[512];
+	strcpy(buf, fmt);
+	strcat(buf, "\n");
+	dbgvprintf(buf, ap);
+}
 
 // replyは smemclr(), sfree() すること
 #if 1
@@ -2422,7 +1992,8 @@ void *pageant_handle_msg_2(const void *msgv, int *_replylen)
     if (msglen > AGENT_MAX_MSGLEN) {
         reply = pageant_failure_msg(&replylen);
     } else {
-        reply = pageant_handle_msg(msg + 4, msglen, &replylen, NULL, NULL);
+		pageant_logfn_t logfn = pageant_logfn_test;
+        reply = pageant_handle_msg(msg + 4, msglen, &replylen, NULL, logfn);
         if (replylen > AGENT_MAX_MSGLEN) {
             smemclr(reply, replylen);
             sfree(reply);

@@ -173,6 +173,8 @@
     <ClCompile Include="GeneratedFiles\Release\moc_keyviewdlg.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="keystore.cpp" />
+    <ClCompile Include="keystore2.cpp" />
     <ClCompile Include="keyviewdlg.cpp" />
     <ClCompile Include="libunixdomain\sock_server.c" />
     <ClCompile Include="libunixdomain\ud_socket.c" />
@@ -211,7 +213,7 @@
     <ClCompile Include="mainwindow.cpp" />
     <ClCompile Include="misc.c" />
     <ClCompile Include="misc_cpp.cpp" />
-    <ClCompile Include="pageant.c" />
+    <ClCompile Include="pageant.cpp" />
     <ClCompile Include="pageant_cpp.cpp" />
     <ClCompile Include="passphrasedlg.cpp" />
     <ClCompile Include="passphrases.cpp" />
@@ -354,6 +356,8 @@
     <ClInclude Include="codeconvert.h" />
     <ClInclude Include="GeneratedFiles\ui_btselectdlg.h" />
     <ClInclude Include="gui_stuff.h" />
+    <ClInclude Include="keystore2.h" />
+    <ClInclude Include="keystore.h" />
     <ClInclude Include="passphrases.h" />
     <ClInclude Include="sstring.h" />
     <ClInclude Include="winutils_qt.h" />

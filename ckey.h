@@ -61,6 +61,11 @@ extern "C"
 __declspec(deprecated("use ckey"))
 char *ssh2_fingerprint_sha256(const struct ssh2_userkey *key);
 
+bool parse_public_keys(
+	const void *data, size_t len,	
+	std::vector<ckey> &keys,
+	const char **fail_reason);
+
 #if defined(__cplusplus)
 }
 #endif

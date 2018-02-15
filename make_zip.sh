@@ -10,6 +10,7 @@ zip=pageant+_${version}_`date +%y%m%d_%H%M%S`
 if [ -e ${dest} ]; then
 	rm -rf ${dest}
 fi
+. make_version.sh
 grep "^#define DEVELOP_VERSION" pageant+.h > /dev/null
 if [ "$?" -eq 0 ]; then
 	echo DEVELOP_VERSION

@@ -1,7 +1,10 @@
 setlocal 
 cd /d %~dp0
-set QTDIR=C:\Qt\5.10.0\msvc2017_64
+if not defined QTDIR (
+   set QTDIR=C:\Qt\5.10.0\msvc2017_64
+)
 set PATH=%QTDIR%\bin;%PATH%
+rem set SH=bash.exe
 rem set SH=c:\cygwin64\bin\bash.exe
 set SH="C:\Program Files\Git\usr\bin\bash.exe"
 

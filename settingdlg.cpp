@@ -4,13 +4,7 @@
 #endif
 
 #include <windows.h>
-
-#pragma warning(push)
-#pragma warning(disable:4127)
-#pragma warning(disable:4251)
-#include <QDir>
-#include <qmap.h>		// TODO newのdefineでエラーが出るので入れた
-#pragma warning(pop)
+#include <sstream>
 
 #include "pageant+.h"
 #include "debug.h"
@@ -22,101 +16,132 @@
 #include "misc_cpp.h"
 #include "misc.h"
 extern "C" {
-#include "cert_common.h"	// for cert_forget_pin()
+void cert_forget_pin(void);
+//#include "cert_common.h"	// for cert_forget_pin()
 }
 #include "passphrases.h"
+#include "rdp_ssh_relay.h"
 
 #include "settingdlg.h"
 #pragma warning(push)
-#pragma warning(disable:4127)
 #pragma warning(disable:4251)
-#pragma warning(disable:4244)
 #include "ui_settingdlg.h"
 #pragma warning(pop)
 
-static QString get_recommended_ssh_sock_path()
+static std::wstring get_recommended_ssh_sock_path()
 {
-	std::vector<QString> path_list;
-	QString s;
-	s =  QDir(QString::fromStdWString(_getenv(L"HOME"))).absolutePath() + "\\.ssh";
-	s.replace("/","\\");
-	path_list.push_back(s);
-	s = QString::fromStdWString(_SHGetKnownFolderPath(FOLDERID_Profile))
-		+ "\\.ssh";
-	s.replace("/","\\");
-	path_list.push_back(s);
-	path_list.push_back("c:\\cygwin64\\tmp");
-	path_list.push_back("c:\\msys64\\tmp");
-	path_list.push_back("c:\\tmp");
-    path_list.push_back(QString::fromStdWString(_SHGetKnownFolderPath(FOLDERID_LocalAppData)) + "\\temp");
+	std::vector<std::wstring> paths;
+	std::wstring s;
 
-	QDir dir;
-	QString path;
-	for(size_t i=0; i<path_list.size(); i++) {
-		dir.setPath(path_list[i]);
-		if (dir.exists()) {
-			path = dir.absolutePath() + "\\.ssh-pageant";
-			path.replace("/","\\");
-			break;
+	s = _getenv(L"HOME");
+	if (!s.empty()) {
+		s += L"\\.ssh";
+		replace(s.begin(), s.end(), L'/', L'\\');
+		paths.emplace_back(s);
+	}
+
+	s = _SHGetKnownFolderPath(FOLDERID_Profile) + L"\\.ssh";
+	replace(s.begin(), s.end(), L'/', L'\\');
+	paths.emplace_back(s);
+
+	bool r = reg_read_cur_user(L"Environment", L"SSH_AUTH_SOCK", s);
+	if (r == true) {
+		replace(s.begin(), s.end(), L'/', L'\\');
+		auto pos = s.rfind('\\');
+		if (pos != std::string::npos) {
+			s = s.substr(0, pos);
+			paths.emplace_back(s);
 		}
 	}
 
-	return path;
+    paths.emplace_back(_SHGetKnownFolderPath(FOLDERID_LocalAppData) + L"\\temp");
+	paths.emplace_back(L"c:\\cygwin64\\tmp");
+	paths.emplace_back(L"c:\\msys64\\tmp");
+	paths.emplace_back(L"c:\\tmp");
+
+	for (const auto &path : paths) {
+		if (_waccess(path.c_str(), 0) == 0) {
+			return path;
+		}
+	}
+
+	return L"c:\\tmp";
 }
 
 SettingDlg::SettingDlg(QWidget *parent) :
-    QDialog(parent),
-    ui(new Ui::SettingDlg)
+	QDialog(parent),
+	ui(new Ui::SettingDlg)
 {
-    ui->setupUi(this);
+	ui->setupUi(this);
 
-    {
-		QString text =
-			QString(u8"環境変数") + "\n" +
-			"%SSH_AUTH_SOCK% = " +
-			_ExpandEnvironmentStrings("%SSH_AUTH_SOCK%").c_str() + "\n" +
-			"%HOME% = " +
-			_ExpandEnvironmentStrings("%HOME%").c_str() + "\n" +
-			"%USERPROFILE% = " + 
-			_ExpandEnvironmentStrings("%USERPROFILE%").c_str() + "\n" +
-			"%HOMEDRIVE% = "+
-			_ExpandEnvironmentStrings("%HOMEDRIVE%").c_str() + "\n" +
-			"%HOMEPATH% = " +
-			_ExpandEnvironmentStrings("%HOMEPATH%").c_str() + "\n" +
-			"%TMP% = " +
-			_ExpandEnvironmentStrings("%TMP%").c_str() + "\n" +
-			"%TEMP% = " +
-			_ExpandEnvironmentStrings("%TEMP%").c_str();
-		ui->label_3->setText(text);
-    }
+	{
+		static const wchar_t *env[] = {
+			L"SSH_AUTH_SOCK",
+			L"HOME",
+			L"HOMEDRIVE",
+			L"HOMEPATH",
+			L"USERPROFILE",
+			L"APPDATA",
+			L"TMP",
+			L"TEMP",
+		};
+			
+		std::wostringstream oss;
+		oss << L"環境変数" << L"\n";
+		for (const auto &s : env) {
+			oss << s << " = "
+				<< _getenv(s) << L"\n";
+		};
+		ui->label_3->setText(QString::fromStdWString(oss.str()));
+	}
 
 	// startup
 	{
 		const int startup = setting_get_startup();
 		ui->checkBox_13->setChecked(startup == 1);
 	}
-	
-    ui->checkBox->setChecked(setting_get_bool("ssh-agent/cygwin_sock"));
+
+	ui->checkBox->setChecked(setting_get_bool("ssh-agent/cygwin_sock"));
 	ui->checkBox_3->setChecked(setting_get_bool("ssh-agent/pageant"));
 	ui->checkBox_2->setChecked(setting_get_bool("ssh-agent/ms_ssh"));
+	ui->checkBox_19->setChecked(
+		setting_get_bool("ssh-agent/native_unix_socket"));
 
-    std::wstring ssh_auth_sock;
-    bool r = reg_read_cur_user(L"Environment", L"SSH_AUTH_SOCK", ssh_auth_sock);
-	if (r == true) {
-		replace(ssh_auth_sock.begin(), ssh_auth_sock.end(), L'/', L'\\');
-		ui->lineEdit->setText(QString::fromStdWString(ssh_auth_sock));
-	} else {
-		QString ssh_auth_sock_rec = get_recommended_ssh_sock_path();
-		ui->lineEdit->setText(ssh_auth_sock_rec);
-		ui->label->setText(u8"SSH_AUTH_SOCKの値はおすすめの値です");
+	{
+		auto ssh_auth_sock_rec = get_recommended_ssh_sock_path();
+		std::wstring s;
+		if (!setting_get_str("ssh-agent/sock_path_cygwin", s)) {
+			s = ssh_auth_sock_rec + L"\\.ssh-agent-cygwin";
+		}
+		ui->lineEdit->setText(QString::fromStdWString(s));
+		
+		if (!setting_get_str("ssh-agent/sock_path", s)) {
+			s = ssh_auth_sock_rec + L"\\.ssh-agent";
+		}
+		ui->lineEdit_2->setText(QString::fromStdWString(s));
 	}
 
-#if defined(_DEBUG)
-	ui->checkBox_4->setChecked(setting_get_bool("debug/console_enable"));
-#else
-    ui->checkBox_4->setChecked(false);
-    ui->checkBox_4->setEnabled(false);
-#endif
+	// debug tab
+	{
+		// debug
+		{
+			// pageant+
+			ui->checkBox_4 ->setChecked(setting_get_bool("debug/console_enable"));
+			ui->checkBox_20->setChecked(setting_get_bool("debug/log"));
+			ui->checkBox_21->setChecked(setting_get_bool("debug/outputdebugstring"));
+			ui->lineEdit_4->setText(
+				QString::fromStdWString(setting_get_logfile(_GetModuleFileName(nullptr).c_str())));
+
+			// rdp
+			std::wstring rdp_client_dll;
+			rdpSshRelayCheckClientDll(rdp_client_dll);
+			ui->checkBox_24->setChecked(setting_get_bool("debug_rdp_client/console_enable"));
+			ui->checkBox_23->setChecked(setting_get_bool("debug_rdp_client/log"));
+			ui->checkBox_22->setChecked(setting_get_bool("debug_rdp_client/outputdebugstring"));
+			ui->lineEdit_5->setText(
+				QString::fromStdWString(setting_get_logfile(rdp_client_dll.c_str())));
+		}
+	}
 
 	ui->label_6->setText(QString::fromStdWString(setting_get_my_fullpath()));
 
@@ -184,6 +209,17 @@ SettingDlg::SettingDlg(QWidget *parent) :
 			setting_get_bool("key/forget_when_terminal_locked", false));
 	}
 
+	// rdp ssh relay
+	{
+		bool r = 
+			setting_get_bool("rdpvc-relay-client/enable", false) &&
+			rdpSshRelayCheckClient() ? true : false;
+
+		ui->checkBoxSshRDPRelayClient->setChecked(r);
+		ui->checkBoxSshRDPRelayServer->setChecked(
+			setting_get_bool("rdpvc-relay-server/enable", false));
+	}
+
 	showDetail(false);
 }
 
@@ -192,60 +228,13 @@ SettingDlg::~SettingDlg()
     delete ui;
 }
 
-void SettingDlg::dispSockPath(const std::string &path)
-{
-    std::string win_str = _ExpandEnvironmentStrings(path.c_str());
-    replace(win_str.begin(), win_str.end(), '/', '\\');
-
-    std::string win_str_drive;
-    std::string win_str_path;
-    bool path_ok = false;
-    
-    if (win_str.size() > 4 &&
-		win_str[1] == ':' && win_str[2] == '\\' &&
-		win_str[win_str.size()-1] != '\\')
-    {
-		// ok
-		win_str_drive = win_str[0];
-		win_str_path = &win_str[2];
-		if (!win_str_path.empty()) {
-			path_ok = true;
-		}
-    }
-
-    QString text;
-    if (path_ok) {
-		std::string cyg_str = "/cygdrive/" + win_str_drive + win_str_path;
-		replace(cyg_str.begin(), cyg_str.end(), '\\', '/');
-
-		std::string msys_str = "/" + win_str_drive + win_str_path;
-		replace(msys_str.begin(), msys_str.end(), '\\', '/');
-
-		text =	QString(
-			"Windows:\n"
-			"  %1\n"
-			"Cygwin:\n"
-			"  %2\n"
-			"msys:\n"
-			"  %3").arg(win_str.c_str()).arg(cyg_str.c_str()).arg(msys_str.c_str());
-    } else {
-		text = "path is incomplete";
-    }
-
-    ui->label->setText(text);
-}
-
-void SettingDlg::on_lineEdit_textChanged(const QString &arg1)
-{
-    std::string path = arg1.toStdString();
-    dispSockPath(path);
-}
-
 void SettingDlg::on_buttonBox_accepted()
 {
     setting_set_bool("ssh-agent/cygwin_sock", ui->checkBox->isChecked());
 	setting_set_bool("ssh-agent/pageant", ui->checkBox_3->isChecked());
 	setting_set_bool("ssh-agent/ms_ssh", ui->checkBox_2->isChecked());
+    setting_set_bool("ssh-agent/native_unix_socket",
+					 ui->checkBox_19->isChecked());
 
 	// passphrase系
 	setting_set_bool("Passphrase/save_enable",
@@ -269,13 +258,22 @@ void SettingDlg::on_buttonBox_accepted()
 	// startup
 	setting_set_startup(ui->checkBox_13->isChecked());
 
-	// debug
+	// debug tab
 	{
-#if defined(_DEBUG)
-		const bool check = ui->checkBox_4->isChecked();
-		setting_set_bool("debug/console_enable", check);
-		debug_console_show(check);
+		// debug
+		{
+			const bool check = ui->checkBox_4->isChecked();
+			setting_set_bool("debug/console_enable", check);
+#if defined(DEVELOP_VERSION)
+			debug_console_show(check);
 #endif
+			setting_set_bool("debug/log",ui->checkBox_20->isChecked());
+			setting_set_bool("debug/outputdebugstring", ui->checkBox_21->isChecked());
+
+			setting_set_bool("debug_rdp_client/console_enable",ui->checkBox_24->isChecked());
+			setting_set_bool("debug_rdp_client/log",ui->checkBox_23->isChecked());
+			setting_set_bool("debug_rdp_client/outputdebugstring",ui->checkBox_22->isChecked());
+		}
 	}
 
 	// bluetooth
@@ -302,55 +300,78 @@ void SettingDlg::on_buttonBox_accepted()
 						 ui->checkBox_15->isChecked());
 	}
 
-	//const char *ssh_auth_sock = getenv("SSH_AUTH_SOCK");
-    std::wstring ssh_auth_sock;
-    reg_read_cur_user(L"Environment", L"SSH_AUTH_SOCK", ssh_auth_sock);
-	std::wstring ui_ssh_auth_sock = ui->lineEdit->text().toStdWString();
-
-    if (ui_ssh_auth_sock != ssh_auth_sock)
-    {
-		std::wstring env = L"SSH_AUTH_SOCK=";
-		env += ui_ssh_auth_sock;
-		_wputenv(env.c_str());
-		reg_write_cur_user(L"Environment", L"SSH_AUTH_SOCK", ui_ssh_auth_sock.c_str());
-
-		const wchar_t *expandedInformation =
-			L"環境変数は各プログラムごとに管理されていて、\n"
-			"他のプログラムからは変更することができません。\n"
-			"環境変数の最初の値はプログラムを起動した親プログラムのから引き継ぎます。\n"
-			"プログラムによっては自分の環境変数を設定しますが\n"
-			"(bashなどのシェルプログラムは設定ファイルに従って環境変数を設定します)\n"
-			"初期値(設定前)は親プログラムが渡した値となります。\n"
-			"そしてユーザーが起動するプログラムの大半の親プログラムは、\n"
-			"デスクトップやスタートボタンを管理しているexplorerです\n"
-			"\n"
-			"explorerを含む一部のプログラムは\n"
-			"他のプログラムからの環境変数変更通知(Windowメッセージ WM_SETTINGCHANGE)を処理することで、\n"
-			"環境変数の再設定が可能です。\n"
-			"\n"
-			"すべてのウィンドウにメッセージを送信して環境変数の再設定をリクエストします\n"
-			"\n"
-			"<A HREF=\"http://d.hatena.ne.jp/ganaware/20111102/1320222616\">win-ssh-agent</a>の説明";
-		int ret = task_dialog(
-			L"pageant+",
-			L"環境変数の変更を全てのウィンドウに通知しますか?",
-			L"通知する場合は[yes]を押してください",
-			expandedInformation,
-			NULL,
-			TD_INFORMATION_ICON,
-			TDCBF_YES_BUTTON | TDCBF_NO_BUTTON,
-			TDCBF_YES_BUTTON, 1);
-
-		if (ret == IDYES) {
-			DWORD_PTR returnValue;
-			LRESULT Ret = SendMessageTimeoutW(
-				HWND_BROADCAST, WM_SETTINGCHANGE, 0,
-				reinterpret_cast<LPARAM>(L"Environment"),
-				SMTO_ABORTIFHUNG,
-				5000, &returnValue);
-			(void)Ret;
+	// rdp ssh relay
+	{
+		if (ui->checkBoxSshRDPRelayClient->isChecked()) {
+			bool r = rdpSshRelaySetupClient();
+			setting_set_bool("rdpvc-relay-client/enable", r);
+		} else {
+			rdpSshRelayTeardownClient();
+			setting_set_bool("rdpvc-relay-client/enable", false);
 		}
-    }
+		setting_set_bool("rdpvc-relay-server/enable",
+						 ui->checkBoxSshRDPRelayServer->isChecked());
+	}
+
+	{
+		setting_set_str("ssh-agent/sock_path_cygwin",
+						ui->lineEdit->text().toStdWString().c_str());
+		setting_set_str("ssh-agent/sock_path",
+						ui->lineEdit_2->text().toStdWString().c_str());
+	}
+	
+	// 環境変数を設定する
+	if (ui->checkBox_18->isChecked())
+	{
+		std::wstring ssh_auth_sock_env;
+		reg_read_cur_user(L"Environment", L"SSH_AUTH_SOCK", ssh_auth_sock_env);
+		std::wstring ssh_auth_sock_setting =
+			setting_get_str("ssh-agent/sock_path_cygwin", nullptr);
+		if (ssh_auth_sock_setting != ssh_auth_sock_env)
+		{
+			std::wstring env = L"SSH_AUTH_SOCK=";
+			env += ssh_auth_sock_setting;
+			_wputenv(env.c_str());
+			reg_write_cur_user(L"Environment", L"SSH_AUTH_SOCK", ssh_auth_sock_setting.c_str());
+
+			const wchar_t *expandedInformation =
+				L"環境変数は各プログラムごとに管理されていて、\n"
+				"他のプログラムからは変更することができません。\n"
+				"環境変数の最初の値はプログラムを起動した親プログラムのから引き継ぎます。\n"
+				"プログラムによっては自分の環境変数を設定しますが\n"
+				"(bashなどのシェルプログラムは設定ファイルに従って環境変数を設定します)\n"
+				"初期値(設定前)は親プログラムが渡した値となります。\n"
+				"そしてユーザーが起動するプログラムの大半の親プログラムは、\n"
+				"デスクトップやスタートボタンを管理しているexplorerです\n"
+				"\n"
+				"explorerを含む一部のプログラムは\n"
+				"他のプログラムからの環境変数変更通知(Windowメッセージ WM_SETTINGCHANGE)を処理することで、\n"
+				"環境変数の再設定が可能です。\n"
+				"\n"
+				"すべてのウィンドウにメッセージを送信して環境変数の再設定をリクエストします\n"
+				"\n"
+				"<A HREF=\"http://d.hatena.ne.jp/ganaware/20111102/1320222616\">win-ssh-agent</a>の説明";
+			int ret = task_dialog(
+				L"pageant+",
+				L"環境変数の変更を全てのウィンドウに通知しますか?",
+				L"通知する場合は[yes]を押してください",
+				expandedInformation,
+				NULL,
+				TD_INFORMATION_ICON,
+				TDCBF_YES_BUTTON | TDCBF_NO_BUTTON,
+				TDCBF_YES_BUTTON, 1);
+
+			if (ret == IDYES) {
+				DWORD_PTR returnValue;
+				LRESULT Ret = SendMessageTimeoutW(
+					HWND_BROADCAST, WM_SETTINGCHANGE, 0,
+					reinterpret_cast<LPARAM>(L"Environment"),
+					SMTO_ABORTIFHUNG,
+					5000, &returnValue);
+				(void)Ret;
+			}
+		}
+	}
 }
 
 // 環境変数
@@ -499,13 +520,11 @@ void SettingDlg::on_pushButton_14_clicked()
 void SettingDlg::showDetail(bool show)
 {
 	const int index_from = 4;
-	const int index_to = 6;
+	const int index_to = ui->tabWidget->count() - 1;
 	if (show) {
 		// show
-		int n = index_to;
 		for (const auto &a : invisibleTabs_) {
-			ui->tabWidget->insertTab(n, a.tab, a.label);
-			n--;
+			ui->tabWidget->insertTab(index_to + 1, a.tab, a.label);
 		}
 		invisibleTabs_.clear();
 		ui->pushButton_5->show();
@@ -519,7 +538,24 @@ void SettingDlg::showDetail(bool show)
 			invisiableTabsInfo_t info;
 			info.tab = ui->tabWidget->widget(i);
 			info.label = ui->tabWidget->tabText(i);
-			invisibleTabs_.push_back(info);
+			bool save = false;
+#if defined(_DEBUG)
+			save = true;
+#endif
+			if (!save) {
+				save = true;
+				if (info.label == "debug") {
+#if defined(DEVELOP_VERSION)
+					if ((GetAsyncKeyState(VK_LSHIFT) & 0x8000) == 0)
+#endif
+					{
+						save = false;
+					}
+				}
+			}
+			if (save) {
+				invisibleTabs_.push_back(info);
+			}
 			ui->tabWidget->removeTab(i);
 		}
 		ui->pushButton_5->hide();
@@ -564,6 +600,75 @@ void SettingDlg::on_checkBox_13_clicked()
 			if (r == IDNO) {
 				ui->checkBox_13->setChecked(false);
 			}
+		}
+	}
+}
+
+void SettingDlg::on_checkBox_3_clicked()
+{
+	if (!ui->checkBox_3->isChecked() &&
+		ui->checkBoxSshRDPRelayClient->isChecked())
+	{
+		std::wstring text =
+			L"rdp clientが使用します\n"
+			"offにするとrdp clientもoffになります\n"
+			"よろしいですか?\n";
+		int r = message_boxW(text.c_str(), L"" "Pageant+", MB_YESNO, 0);
+		if (r == IDYES) {
+			ui->checkBoxSshRDPRelayClient->setChecked(false);
+		} else {
+			ui->checkBox_3->setChecked(true);
+		}
+	}
+}
+
+void SettingDlg::on_checkBoxSshRDPRelayClient_clicked()
+{
+	if (ui->checkBoxSshRDPRelayClient->isChecked()) {
+		std::wstring dll_file;
+		std::wstring dll_registory;
+		std::wstring text;
+		if (!rdpSshRelayCheckClientDll(dll_file)) {
+			text =
+				L"RDPクライアントdllがありません\n"
+				"dll: " + dll_file;
+			message_boxW(text.c_str(), L"" "Pageant+", MB_OK, 0);
+			ui->checkBoxSshRDPRelayClient->setChecked(false);
+		} else {
+			if (!rdpSshRelayCheckClientRegistry(dll_registory)) {
+				text =
+					L"レジストリに他のdllが設定されています\n"
+					"設定を上書きますか?\n";
+				text += L" 現在の登録されているdll: " + dll_registory + L"\n";
+				text += L" 設定するdll: " + dll_file;
+				int r = message_boxW(text.c_str(), L"" "Pageant+", MB_YESNO, 0);
+				if (r == IDNO) {
+					ui->checkBoxSshRDPRelayClient->setChecked(false);
+				}
+			}
+			if (!ui->checkBox_3->isChecked()) {
+				text =
+					L"Pagent compatible agentを使用します\n"
+					"よろしいですか?\n";
+				int r = message_boxW(text.c_str(), L"" "Pageant+", MB_YESNO, 0);
+				if (r == IDYES) {
+					ui->checkBox_3->setChecked(true);
+				} else {
+					ui->checkBoxSshRDPRelayClient->setChecked(false);
+				}
+			}
+		}
+	}
+}
+
+void SettingDlg::on_checkBoxSshRDPRelayServer_clicked()
+{
+	if (ui->checkBoxSshRDPRelayServer->isChecked() == true) {
+		if (!rdpSshRelayCheckServer()) {
+			std::wstring text =
+				L"RDPサーバーになれないっす";
+			message_boxW(text.c_str(), L"" "Pageant+", MB_OK, 0);
+			ui->checkBoxSshRDPRelayServer->setChecked(false);
 		}
 	}
 }

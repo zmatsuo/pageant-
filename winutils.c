@@ -11,6 +11,7 @@
 #include "winhelp.h"
 #include "misc.h"
 #include "pgpkey.h"
+#include "puttymem.h"
 
 #ifdef TESTMODE
 /* Definitions to allow this module to be compiled standalone for testing
@@ -19,6 +20,25 @@
 #define srealloc realloc
 #define sfree free
 #endif
+
+/*
+ * Print a modal (Really Bad) message box and perform a fatal exit.
+ */
+void modalfatalbox(const char *fmt, ...)
+{
+    va_list ap;
+    char *buf;
+
+    va_start(ap, fmt);
+    buf = dupvprintf(fmt, ap);
+    va_end(ap);
+    //HWND hwnd = get_hwnd();
+    HWND hwnd = NULL;
+    MessageBox(hwnd, buf, "Pageant Fatal Error",
+	       MB_SYSTEMMODAL | MB_ICONERROR | MB_OK);
+    sfree(buf);
+    exit(1);
+}
 
 #if 0
 /*

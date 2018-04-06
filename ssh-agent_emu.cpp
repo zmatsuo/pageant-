@@ -1,7 +1,7 @@
 ﻿/**
    ssh-agent_emu.cpp
 
-   Copyright (c) 2017 zmatsuo
+   Copyright (c) 2017-2018 zmatsuo
 
    This software is released under the MIT License.
    http://opensource.org/licenses/mit-license.php
@@ -25,14 +25,12 @@
 #include <thread>
 #include <vector>
 
+#define ENABLE_DEBUG_PRINT
 #include "debug.h"
 #include "libunixdomain\sock_server.h"
 #include "ssh-agent_emu.h"
 #include "pageant.h"
 #include "puttymem.h"
-
-#undef DEBUG
-#undef debug
 
 #if 0
 #define debug(...)
@@ -58,6 +56,7 @@ typedef struct {
 class SocketServer {
 public:
 	bool server_init(const wchar_t *sock_path);
+	bool server_init_native(const wchar_t *sock_path);
 	bool server_init(uint16_t port_no);
 	void server_stop();
 	SocketServer() {
@@ -201,10 +200,21 @@ bool SocketServer::server_init(const sock_server_init_t *init)
 
 bool SocketServer::server_init(const wchar_t *sock_path)
 {
-	debug("ssh agent server start (%ls)\n", sock_path);
+	debug("ssh agent cygwin unix sock server start (%ls)\n", sock_path);
 	sock_server_init_t init = { sizeof(sock_server_init_t) };
 	init.accept_count = 10;
 	init.socket_type = SOCK_SERVER_TYPE_UNIXDOMAIN;
+	init.Wsocket_path = sock_path;
+	init.serv_func = ssh_agent_server;
+	return server_init(&init);
+}
+
+bool SocketServer::server_init_native(const wchar_t *sock_path)
+{
+	debug("ssh agent native unix sock server start (%ls)\n", sock_path);
+	sock_server_init_t init = { sizeof(sock_server_init_t) };
+	init.accept_count = 10;
+	init.socket_type = SOCK_SERVER_TYPE_UNIXDOMAIN_NATIVE;
 	init.Wsocket_path = sock_path;
 	init.serv_func = ssh_agent_server;
 	return server_init(&init);
@@ -251,6 +261,8 @@ bool ssh_agent_cygwin_unixdomain_start(const wchar_t *sock_path)
 	unixSocketServer = new SocketServer;
 	bool r = unixSocketServer->server_init(sock_path);
 	if (r == false) {
+		delete unixSocketServer;
+		unixSocketServer = nullptr;
 		return false;
 	}
 	return true;
@@ -266,6 +278,33 @@ void ssh_agent_cygwin_unixdomain_stop()
 	debug("ssh agent server finish\n");
 }
 
+static SocketServer *nativeUnixSocketServer;
+
+bool ssh_agent_native_unixdomain_start(const wchar_t *sock_path)
+{
+	debug("ssh agent native unix socket server start\n");
+	if (nativeUnixSocketServer != nullptr)
+		return false;
+	nativeUnixSocketServer = new SocketServer;
+	bool r = nativeUnixSocketServer->server_init_native(sock_path);
+	if (r == false) {
+		delete nativeUnixSocketServer;
+		nativeUnixSocketServer = nullptr;
+		return false;
+	}
+	return true;
+}
+
+void ssh_agent_native_unixdomain_stop()
+{
+	if (nativeUnixSocketServer != nullptr) {
+		nativeUnixSocketServer->server_stop();
+		delete nativeUnixSocketServer;
+		nativeUnixSocketServer = nullptr;
+	}
+	debug("ssh agent native unix socket server finish\n");
+}
+
 static SocketServer *localhostTcpSocketServer;
 
 bool ssh_agent_localhost_start(int port_no)
@@ -276,6 +315,8 @@ bool ssh_agent_localhost_start(int port_no)
 	bool r = localhostTcpSocketServer->server_init(
 		static_cast<uint16_t>(port_no));
 	if (r == false) {
+		delete localhostTcpSocketServer;
+		localhostTcpSocketServer = nullptr;
 		return false;
 	}
 	return true;

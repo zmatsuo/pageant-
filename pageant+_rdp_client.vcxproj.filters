@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClInclude Include="debug.h" />
+    <ClInclude Include="winmisc.h" />
+    <ClInclude Include="misc.h" />
+    <ClInclude Include="codeconvert.h" />
+    <ClInclude Include="winutils.h" />
+    <ClInclude Include="version.h" />
+    <ClInclude Include="pageant+.h" />
+    <ClInclude Include="setting.h" />
+    <ClInclude Include="pageant_client.h" />
+    <ClInclude Include="rdp_ssh_relay_def.h" />
+    <ClInclude Include="misc_cpp.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="winmisc.cpp" />
+    <ClCompile Include="misc.c" />
+    <ClCompile Include="codeconvert.cpp" />
+    <ClCompile Include="winutils.c" />
+    <ClCompile Include="version.c" />
+    <ClCompile Include="debug.cpp" />
+    <ClCompile Include="setting.cpp" />
+    <ClCompile Include="pageant_client.cpp" />
+    <ClCompile Include="misc_cpp.cpp" />
+    <ClCompile Include="pageant+_rdp_client.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="pageant+_rdp_client.rc" />
+  </ItemGroup>
+</Project>

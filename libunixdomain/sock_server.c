@@ -9,12 +9,24 @@
 //#define	FD_SETSIZE	10
 
 //
+#define _CRT_SECURE_NO_WARNINGS
 #include <stdio.h>
 #include <string.h>
 #include <inttypes.h>
 #include <stdbool.h>
 #if defined(_MSC_VER) || defined(__MINGW32__)
 #include <winsock2.h>
+#if 0
+#include <afunix.h>		// 10.0.16299.0
+#else
+#define UNIX_PATH_MAX 108
+
+typedef struct sockaddr_un
+{
+	ADDRESS_FAMILY sun_family;     /* AF_UNIX */
+	char sun_path[UNIX_PATH_MAX];  /* pathname */
+} SOCKADDR_UN, *PSOCKADDR_UN;
+#endif
 #include <windows.h>
 #include "ud_socket.h"
 #else
@@ -28,6 +40,7 @@
 #else
 #include <unistd.h>
 #include <string.h>		// for strdup()
+#include <time.h>
 #endif
 #if defined(__MINGW32__)
 #if __MINGW32_MAJOR_VERSION <= 3 || __MINGW32_MINOR_VERSION < 11
@@ -36,6 +49,9 @@ WINBASEAPI ULONGLONG WINAPI GetTickCount64(VOID);	// there was no prototype
 #endif
 
 #include "sock_server.h"
+#if defined(_MSC_VER)
+#include "../codeconvert.h"
+#endif
 
 #if !defined(_MSC_VER) && !defined(__MINGW32__)
 typedef int SOCKET;
@@ -44,6 +60,9 @@ typedef int SOCKET;
 #define	SOCKET_ERROR	(-1)
 #define	SD_BOTH			SHUT_RDWR
 #define	SD_RECEIVE		SHUT_RD
+#else
+#define access(p1,p2)		_access(p1,p2)
+#define unlink(p1)			_unlink(p1)
 #endif
 
 #if defined(_MSC_VER)
@@ -75,10 +94,9 @@ typedef struct sock_server_st {
 	SOCKET listen_socket;
 	sock_server_type_t socket_type;
 	uint16_t port_no;
+	const char *socket_path_utf8;
 #if defined(_MSC_VER) || defined(__MINGW32__)
-	const wchar_t *socket_path;
-#else
-	const char *socket_path;
+	const wchar_t *socket_path_w;
 #endif
 	fd_set read_set;
 	fd_set write_set;
@@ -89,23 +107,6 @@ typedef struct sock_server_st {
 	ud_data_t *fd_ud;
 #endif
 } sock_server_t;
-
-/**
- *	utf8 -> wchar_t
- *	buffer is allocaed by malloc()
- */
-#if defined(_MSC_VER) || defined(__MINGW32__)
-static wchar_t *utf8_2_utf16(const char *utf8)
-{
-	if (utf8 == NULL ) {
-		return NULL;
-	}
-	int size = MultiByteToWideChar(CP_UTF8, 0, utf8, -1, NULL, 0);
-	wchar_t *buf = (wchar_t *)malloc(sizeof(wchar_t)*size);
-    MultiByteToWideChar(CP_UTF8, 0, utf8, -1, buf, size);
-    return buf;
-}
-#endif
 
 /**
  * @retval	ms unit
@@ -185,14 +186,17 @@ sock_server_t *sock_server_init(const sock_server_init_t *init_info)
 		pSS->port_no = init_info->port_no;
 		break;
 	case SOCK_SERVER_TYPE_UNIXDOMAIN:
+	case SOCK_SERVER_TYPE_UNIXDOMAIN_NATIVE:
 #if defined(_MSC_VER) || defined(__MINGW32__)
 		if (init_info->Wsocket_path != NULL) {
-			pSS->socket_path = _wcsdup(init_info->Wsocket_path);
+			pSS->socket_path_w = _wcsdup(init_info->Wsocket_path);
+			pSS->socket_path_utf8 = dup_wc_to_mb(init_info->Wsocket_path);
 		} else {
-			pSS->socket_path = utf8_2_utf16(init_info->socket_path);
+			pSS->socket_path_w = dup_mb_to_wc(init_info->socket_path);
+			pSS->socket_path_utf8 = _strdup(init_info->socket_path);	// todo acp
 		}
 #else
-		pSS->socket_path = strdup(init_info->socket_path);
+		pSS->socket_path_utf8 = strdup(init_info->socket_path);	// todo acp
 #endif
 		break;
     default:
@@ -235,19 +239,20 @@ int sock_server_open(sock_server_t *pSS)
 	case SOCK_SERVER_TYPE_TCP:
 		sock = socket(AF_INET, SOCK_STREAM, 0);
 		break;
-	case SOCK_SERVER_TYPE_UNIXDOMAIN:
 #if defined(_MSC_VER) || defined(__MINGW32__)
+	case SOCK_SERVER_TYPE_UNIXDOMAIN:
 	{
 		ud_open_data_t ud_open_data = {
 			sizeof(ud_open_data)
 		};
 		ud_open_data.flag = UD_FLAG_UNIX_DOMAIN_CYGWIN;
-		ud_open_data.WSockPath = pSS->socket_path;
+		ud_open_data.WSockPath = pSS->socket_path_w;
 		sock = ud_socket(&ud_open_data, &pSS->fd_ud);
+		break;
 	}
-#else
-		sock = socket(AF_UNIX, SOCK_STREAM, 0);
 #endif
+	case SOCK_SERVER_TYPE_UNIXDOMAIN_NATIVE:
+		sock = socket(AF_UNIX, SOCK_STREAM, 0);
 		break;
 	default:
 		sock = INVALID_SOCKET;
@@ -277,8 +282,25 @@ int sock_server_open(sock_server_t *pSS)
 		debug("bind unixdomain '%ls'\n", pSS->socket_path);
 		r = ud_bind(sock, pSS->fd_ud);
 #else
+		r = SOCKET_ERROR;
+#endif
+		break;
+	case SOCK_SERVER_TYPE_UNIXDOMAIN_NATIVE:
 	{
-		const char *socket_path = pSS->socket_path;
+#if 0 // defined(_MSC_VER)
+		const wchar_t *socket_path = pSS->socket_path_w;
+		debug("bind unixdomain '%ls'\n", socket_path);
+		if (_waccess(socket_path, 0) == 0) {
+			_wunlink(socket_path);
+			if (_waccess(socket_path, 0) == 0) {
+				return EISCONN;
+			}
+		}
+		SOCKADDR_UN addr = { 0 };
+		addr.Family = AF_UNIX;
+		wcscpy_s(addr.Path, _countof(addr.Path), pSS->socket_path_w);
+#else
+		const char *socket_path = pSS->socket_path_utf8;
 		debug("bind unixdomain '%s'\n", socket_path);
 		if (access(socket_path, 0) == 0) {
 			unlink(socket_path);
@@ -289,11 +311,11 @@ int sock_server_open(sock_server_t *pSS)
 		struct sockaddr_un addr;
 		memset(&addr, 0, sizeof(addr));
 		addr.sun_family = AF_UNIX;
-		strcpy(addr.sun_path, pSS->socket_path);
-		r = bind(sock, (struct sockaddr *)&addr, sizeof(addr));
-	}
+		strcpy(addr.sun_path, pSS->socket_path_utf8);
 #endif
+		r = bind(sock, (struct sockaddr *)&addr, sizeof(addr));
 		break;
+	}
 	default:
 		r = SOCKET_ERROR;
 		break;
@@ -590,11 +612,13 @@ int sock_server_main(sock_server_t *pSS)
 	{
 		shutdown(listen_sock, SD_BOTH);
 		closesocket(listen_sock);
-		if (pSS->socket_type == SOCK_SERVER_TYPE_UNIXDOMAIN) {
+		if (pSS->socket_type == SOCK_SERVER_TYPE_UNIXDOMAIN || 
+			pSS->socket_type == SOCK_SERVER_TYPE_UNIXDOMAIN_NATIVE) {
+
 #if defined(_MSC_VER) || defined(__MINGW32__)
-			_wunlink(pSS->socket_path);
+			_wunlink(pSS->socket_path_w);
 #else
-			unlink(pSS->socket_path);
+			unlink(pSS->socket_path_utf8);
 #endif
 		}
 	}
@@ -620,8 +644,12 @@ void sock_server_close(sock_server_t *pSS)
 {
 	free(pSS->server_list);
 	pSS->server_list = NULL;
-	free((void *)pSS->socket_path);
-	pSS->socket_path = NULL;
+	free((void *)pSS->socket_path_utf8);
+	pSS->socket_path_utf8 = NULL;
+#if defined(_MSC_VER) || defined(__MINGW32__)
+	free((void *)pSS->socket_path_w);
+	pSS->socket_path_w = NULL;
+#endif
 	free(pSS);
 
 #if defined(_MSC_VER) || defined(__MINGW32__)

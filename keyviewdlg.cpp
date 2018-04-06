@@ -71,15 +71,15 @@ keyviewdlg::~keyviewdlg()
 
 void keyviewdlg::change()
 {
-	debug_printf("change() enter\n");
-	debug_printf("KeystoreListener change!!\n");
+	dbgprintf("change() enter\n");
+	dbgprintf("KeystoreListener change!!\n");
 	emit keylistUpdateSignal();
-	debug_printf("change() leave\n");
+	dbgprintf("change() leave\n");
 }
 
 void keyviewdlg::keylistUpdate()
 {
-	debug_printf("keylistUpdate() enter\n");
+	dbgprintf("keylistUpdate() enter\n");
 	std::vector<KeyListItem> k = keylist_update2();
 	QStandardItemModel *model;
 
@@ -121,7 +121,7 @@ void keyviewdlg::keylistUpdate()
 
 	ui->treeView->setHeaderHidden(false);
 	ui->treeView->setModel(model);
-	debug_printf("keylistUpdate() leave\n");
+	dbgprintf("keylistUpdate() leave\n");
 }
 
 //////////////////////////////////////////////////////////////////////////////

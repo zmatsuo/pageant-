@@ -17,6 +17,7 @@ typedef struct sock_server_st sock_server_t;
 typedef enum {
 	SOCK_SERVER_TYPE_TCP,
 	SOCK_SERVER_TYPE_UNIXDOMAIN,
+	SOCK_SERVER_TYPE_UNIXDOMAIN_NATIVE,
 	SOCK_SERVER_TYPE_MAX,
 } sock_server_type_t;
 
@@ -65,7 +66,7 @@ typedef struct sock_server_init_st {
 								// 
 	sock_server_type_t socket_type;
 	uint16_t port_no;
-	const char *socket_path;	// utf8
+	const char *socket_path;	// utf8		// SOCK_SERVER_TYPE_UNIXDOMAIN_NATIVE時使用
 #if defined(_MSC_VER) || defined(__MINGW32__)
 //	const char *Asocket_path;	// acp
 	const wchar_t *Wsocket_path;// wchar

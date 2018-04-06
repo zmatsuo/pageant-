@@ -5,6 +5,7 @@
 #include <winsock2.h>
 #include <windows.h>
 #include <ws2bth.h>
+#include <BluetoothAPIs.h>
 
 #include <thread>
 #include <vector>
@@ -24,7 +25,11 @@
 #include "bt_agent_proxy.h"
 #define ENABLE_DEBUG_PRINT
 #include "debug.h"
+#include "winmisc.h"
+
 //#define ENABLE_BT_DEVICE_INQUIRY_DEBUG_PRINT
+
+#pragma comment(lib, "Bthprops.lib")
 
 typedef struct bt_agent_proxy_impl_tag {
 	bt_agent_proxy_t *hBta_;
@@ -211,7 +216,9 @@ static std::vector<DeviceInfoType> PerformInquiry()
 	INT _ret = WSALookupServiceBeginW(wsaq, flags, &hLookup);
 	if ( _ret != ERROR_SUCCESS )
 	{
-		dbgprintf("WSALookupServiceBegin failed %d\r\n", GetLastError());
+		auto err = GetLastError();
+		dbgprintf("WSALookupServiceBegin failed %S(%d)\n",
+				  _FormatMessage(err).c_str(), err);
 		return _retDeviceInfoList;
 	}
 
@@ -686,8 +693,30 @@ finish:
 	WSACloseEvent(impl->hClientEvent_);
 }
 
+static int countBluetoothRadio()
+{
+	int count = 0;
+	BLUETOOTH_FIND_RADIO_PARAMS param = { 0 };
+	param.dwSize = sizeof(BLUETOOTH_FIND_RADIO_PARAMS);
+
+	HANDLE radio = 0;
+	HBLUETOOTH_RADIO_FIND find = BluetoothFindFirstRadio(&param, &radio);
+	if (find) {
+		do {
+			count++;
+			CloseHandle(radio);
+			radio = 0;
+		} while(BluetoothFindNextRadio(find, &radio));
+	}
+	return count;
+}
+
 bt_agent_proxy_t *bta_init(const bta_init_t *info)
 {
+	if (countBluetoothRadio() == 0) {
+		return NULL;
+	}
+	
 	WORD wVersionRequested = WINSOCK_VERSION;	/*MAKEWORD(2,2)*/
 	WSADATA wsaData;
 	int r = WSAStartup(wVersionRequested, &wsaData);

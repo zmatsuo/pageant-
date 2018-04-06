@@ -18,9 +18,11 @@
 
 static std::vector<sstring> passphrases;
 
+#if 0
 void passphrase_init()
 {
 }
+#endif
 
 void passphrase_exit()
 {

@@ -78,7 +78,7 @@ static int notify_func(
     return 0;
 }
 
-void bt_agent_proxy_main_init(int timeout)
+bool bt_agent_proxy_main_init(int timeout)
 {
     bta_init_t init_info = {
 		/*.size =*/	sizeof(bta_init_t),
@@ -87,9 +87,13 @@ void bt_agent_proxy_main_init(int timeout)
     init_info.recv_ptr = &receive_buf[0];
     init_info.recv_size = receive_buf.size();
     hBta_ = bta_init(&init_info);
+	if (hBta_ == nullptr) {
+		return false;
+	}
 
 	timeoutMs = (std::chrono::milliseconds)timeout;
 	connect_finish_flag = false;
+	return true;
 }
 
 void bt_agent_proxy_main_exit()

@@ -1,5 +1,6 @@
 ﻿
 // Pageant+ was developed based on pageant in putty project
+#pragma once
 
 #define APP_NAME		"Pageant+"
 #define TASK_TRAY_TIP	"(authentication agent)"

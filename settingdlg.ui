@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Setting - pagent+</string>
+   <string>Setting - pageant+</string>
   </property>
   <widget class="QDialogButtonBox" name="buttonBox">
    <property name="geometry">
@@ -35,7 +35,7 @@
      <x>10</x>
      <y>10</y>
      <width>481</width>
-     <height>511</height>
+     <height>521</height>
     </rect>
    </property>
    <property name="currentIndex">
@@ -49,26 +49,29 @@
      <property name="geometry">
       <rect>
        <x>20</x>
-       <y>50</y>
-       <width>231</width>
+       <y>230</y>
+       <width>261</width>
        <height>16</height>
       </rect>
      </property>
+     <property name="toolTip">
+      <string>pathはCygwin Emulationのpathを使用</string>
+     </property>
      <property name="text">
-      <string>Unix Domain Socket (Microsoft SSH)</string>
+      <string>Unix Domain Socket (Microsoft SSH ~0.0.16.0)</string>
      </property>
     </widget>
     <widget class="QCheckBox" name="checkBox">
      <property name="geometry">
       <rect>
        <x>20</x>
-       <y>30</y>
+       <y>70</y>
        <width>241</width>
        <height>16</height>
       </rect>
      </property>
      <property name="text">
-      <string>Unix Domain Socket (cygwin emulation)</string>
+      <string>Unix Domain Socket (Cygwin emulation)</string>
      </property>
     </widget>
     <widget class="QCheckBox" name="checkBox_3">
@@ -88,34 +91,34 @@
      <property name="geometry">
       <rect>
        <x>20</x>
-       <y>70</y>
-       <width>211</width>
+       <y>190</y>
+       <width>261</width>
        <height>16</height>
       </rect>
      </property>
      <property name="text">
-      <string>TCP Socket (for socat connection)</string>
+      <string>TCP Localhost Socket (for socat connection)</string>
      </property>
     </widget>
     <widget class="QGroupBox" name="groupBox">
      <property name="geometry">
       <rect>
        <x>10</x>
-       <y>120</y>
-       <width>331</width>
-       <height>351</height>
+       <y>260</y>
+       <width>451</width>
+       <height>201</height>
       </rect>
      </property>
      <property name="title">
-      <string>Unix Domain Socket</string>
+      <string>関連する環境変数</string>
      </property>
      <widget class="QLabel" name="label_3">
       <property name="geometry">
        <rect>
         <x>10</x>
-        <y>160</y>
-        <width>311</width>
-        <height>111</height>
+        <y>20</y>
+        <width>431</width>
+        <height>141</height>
        </rect>
       </property>
       <property name="cursor">
@@ -128,47 +131,11 @@
        <set>Qt::LinksAccessibleByMouse|Qt::TextSelectableByMouse</set>
       </property>
      </widget>
-     <widget class="QLabel" name="label_2">
-      <property name="geometry">
-       <rect>
-        <x>10</x>
-        <y>20</y>
-        <width>151</width>
-        <height>16</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string>環境変数 SSH_AUTH_SOCK</string>
-      </property>
-     </widget>
-     <widget class="QLineEdit" name="lineEdit">
-      <property name="geometry">
-       <rect>
-        <x>10</x>
-        <y>40</y>
-        <width>281</width>
-        <height>20</height>
-       </rect>
-      </property>
-     </widget>
-     <widget class="QLabel" name="label">
-      <property name="geometry">
-       <rect>
-        <x>20</x>
-        <y>70</y>
-        <width>281</width>
-        <height>81</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string>TextLabel</string>
-      </property>
-     </widget>
      <widget class="QPushButton" name="pushButton_2">
       <property name="geometry">
        <rect>
         <x>10</x>
-        <y>310</y>
+        <y>340</y>
         <width>131</width>
         <height>23</height>
        </rect>
@@ -181,7 +148,7 @@
       <property name="geometry">
        <rect>
         <x>10</x>
-        <y>280</y>
+        <y>310</y>
         <width>221</width>
         <height>23</height>
        </rect>
@@ -191,53 +158,144 @@
       </property>
      </widget>
     </widget>
-    <widget class="QGroupBox" name="groupBox_2">
-     <property name="geometry">
-      <rect>
-       <x>350</x>
-       <y>120</y>
-       <width>120</width>
-       <height>80</height>
-      </rect>
-     </property>
-     <property name="title">
-      <string>TCP Socket</string>
-     </property>
-     <widget class="QLineEdit" name="lineEdit_3">
-      <property name="geometry">
-       <rect>
-        <x>10</x>
-        <y>40</y>
-        <width>101</width>
-        <height>20</height>
-       </rect>
-      </property>
-     </widget>
-     <widget class="QLabel" name="label_12">
-      <property name="geometry">
-       <rect>
-        <x>10</x>
-        <y>20</y>
-        <width>81</width>
-        <height>16</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string>TCP port no</string>
-      </property>
-     </widget>
-    </widget>
     <widget class="QCheckBox" name="checkBox_6">
      <property name="geometry">
       <rect>
        <x>20</x>
-       <y>90</y>
+       <y>130</y>
        <width>211</width>
        <height>16</height>
       </rect>
      </property>
      <property name="text">
       <string>Bluetooth SSH Agent</string>
+     </property>
+    </widget>
+    <widget class="QCheckBox" name="checkBox_19">
+     <property name="geometry">
+      <rect>
+       <x>20</x>
+       <y>30</y>
+       <width>231</width>
+       <height>16</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Unix Domain Socket (Windows Native)</string>
+     </property>
+    </widget>
+    <widget class="QLineEdit" name="lineEdit_2">
+     <property name="geometry">
+      <rect>
+       <x>70</x>
+       <y>48</y>
+       <width>261</width>
+       <height>21</height>
+      </rect>
+     </property>
+    </widget>
+    <widget class="QLabel" name="label_15">
+     <property name="geometry">
+      <rect>
+       <x>40</x>
+       <y>50</y>
+       <width>31</width>
+       <height>16</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>path</string>
+     </property>
+    </widget>
+    <widget class="QLineEdit" name="lineEdit_3">
+     <property name="geometry">
+      <rect>
+       <x>80</x>
+       <y>210</y>
+       <width>101</width>
+       <height>20</height>
+      </rect>
+     </property>
+    </widget>
+    <widget class="QLabel" name="label_12">
+     <property name="geometry">
+      <rect>
+       <x>40</x>
+       <y>210</y>
+       <width>41</width>
+       <height>16</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>port no</string>
+     </property>
+    </widget>
+    <widget class="QLineEdit" name="lineEdit">
+     <property name="geometry">
+      <rect>
+       <x>70</x>
+       <y>88</y>
+       <width>261</width>
+       <height>20</height>
+      </rect>
+     </property>
+    </widget>
+    <widget class="QCheckBox" name="checkBox_18">
+     <property name="geometry">
+      <rect>
+       <x>40</x>
+       <y>110</y>
+       <width>211</width>
+       <height>20</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>環境変数SSH_AUTH_SOCKに反映する</string>
+     </property>
+    </widget>
+    <widget class="QLabel" name="label_2">
+     <property name="geometry">
+      <rect>
+       <x>40</x>
+       <y>90</y>
+       <width>31</width>
+       <height>16</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>path</string>
+     </property>
+    </widget>
+    <widget class="QCheckBox" name="checkBoxSshRDPRelayServer">
+     <property name="geometry">
+      <rect>
+       <x>20</x>
+       <y>170</y>
+       <width>191</width>
+       <height>16</height>
+      </rect>
+     </property>
+     <property name="toolTip">
+      <string>RDP serverとして動作しているとき、clientのpageant+と通信を許可する</string>
+     </property>
+     <property name="text">
+      <string>SSH Agent relay on RDP Server</string>
+     </property>
+    </widget>
+    <widget class="QCheckBox" name="checkBoxSshRDPRelayClient">
+     <property name="geometry">
+      <rect>
+       <x>20</x>
+       <y>150</y>
+       <width>191</width>
+       <height>16</height>
+      </rect>
+     </property>
+     <property name="toolTip">
+      <string>RDP clientとして動作しているとき、serverからのpageant+通信を許可する</string>
+     </property>
+     <property name="text">
+      <string>SSH Agent relay on RDP Client </string>
      </property>
     </widget>
    </widget>
@@ -736,7 +794,7 @@
    </widget>
    <widget class="QWidget" name="tab_4">
     <attribute name="title">
-     <string>Pagent+ setting detail</string>
+     <string>Pageant+ setting detail</string>
     </attribute>
     <widget class="QLabel" name="label_4">
      <property name="geometry">
@@ -764,30 +822,155 @@
       </rect>
      </property>
      <property name="text">
-      <string>pagent+の設定を開く</string>
+      <string>pageant+の設定を開く</string>
      </property>
     </widget>
    </widget>
    <widget class="QWidget" name="tab_7">
     <attribute name="title">
-     <string>実験的実装</string>
+     <string>debug</string>
     </attribute>
-   </widget>
-   <widget class="QWidget" name="tab_3">
-    <attribute name="title">
-     <string>debug info</string>
-    </attribute>
-    <widget class="QCheckBox" name="checkBox_4">
+    <widget class="QGroupBox" name="groupBox_2">
      <property name="geometry">
       <rect>
-       <x>20</x>
-       <y>10</y>
-       <width>101</width>
+       <x>10</x>
+       <y>20</y>
+       <width>451</width>
+       <height>111</height>
+      </rect>
+     </property>
+     <property name="title">
+      <string>Pageant+/Debug</string>
+     </property>
+     <widget class="QCheckBox" name="checkBox_21">
+      <property name="geometry">
+       <rect>
+        <x>10</x>
+        <y>80</y>
+        <width>121</width>
+        <height>16</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>OutputDebugString</string>
+      </property>
+     </widget>
+     <widget class="QCheckBox" name="checkBox_20">
+      <property name="geometry">
+       <rect>
+        <x>10</x>
+        <y>40</y>
+        <width>101</width>
+        <height>16</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>log</string>
+      </property>
+     </widget>
+     <widget class="QCheckBox" name="checkBox_4">
+      <property name="geometry">
+       <rect>
+        <x>10</x>
+        <y>20</y>
+        <width>101</width>
+        <height>16</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>debug console</string>
+      </property>
+     </widget>
+     <widget class="QLineEdit" name="lineEdit_4">
+      <property name="geometry">
+       <rect>
+        <x>30</x>
+        <y>60</y>
+        <width>411</width>
+        <height>20</height>
+       </rect>
+      </property>
+      <property name="readOnly">
+       <bool>true</bool>
+      </property>
+     </widget>
+    </widget>
+    <widget class="QGroupBox" name="groupBox_8">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>150</y>
+       <width>451</width>
+       <height>111</height>
+      </rect>
+     </property>
+     <property name="title">
+      <string>RDP client/Debug</string>
+     </property>
+     <widget class="QCheckBox" name="checkBox_22">
+      <property name="geometry">
+       <rect>
+        <x>10</x>
+        <y>80</y>
+        <width>121</width>
+        <height>16</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>OutputDebugString</string>
+      </property>
+     </widget>
+     <widget class="QCheckBox" name="checkBox_23">
+      <property name="geometry">
+       <rect>
+        <x>10</x>
+        <y>40</y>
+        <width>101</width>
+        <height>16</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>log</string>
+      </property>
+     </widget>
+     <widget class="QCheckBox" name="checkBox_24">
+      <property name="geometry">
+       <rect>
+        <x>10</x>
+        <y>20</y>
+        <width>101</width>
+        <height>16</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>debug console</string>
+      </property>
+     </widget>
+     <widget class="QLineEdit" name="lineEdit_5">
+      <property name="geometry">
+       <rect>
+        <x>30</x>
+        <y>60</y>
+        <width>411</width>
+        <height>20</height>
+       </rect>
+      </property>
+      <property name="readOnly">
+       <bool>true</bool>
+      </property>
+     </widget>
+    </widget>
+    <widget class="QLabel" name="label">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>270</y>
+       <width>91</width>
        <height>16</height>
       </rect>
      </property>
      <property name="text">
-      <string>debug console</string>
+      <string>* 再起動後有効</string>
      </property>
     </widget>
    </widget>
@@ -819,6 +1002,56 @@
    </property>
   </widget>
  </widget>
+ <tabstops>
+  <tabstop>tabWidget</tabstop>
+  <tabstop>checkBox_5</tabstop>
+  <tabstop>pushButton_5</tabstop>
+  <tabstop>pushButton_2</tabstop>
+  <tabstop>pushButton</tabstop>
+  <tabstop>checkBox_3</tabstop>
+  <tabstop>checkBox_19</tabstop>
+  <tabstop>lineEdit_2</tabstop>
+  <tabstop>checkBox</tabstop>
+  <tabstop>lineEdit</tabstop>
+  <tabstop>checkBox_18</tabstop>
+  <tabstop>checkBox_6</tabstop>
+  <tabstop>checkBoxSshRDPRelayClient</tabstop>
+  <tabstop>checkBoxSshRDPRelayServer</tabstop>
+  <tabstop>checkBox_14</tabstop>
+  <tabstop>lineEdit_3</tabstop>
+  <tabstop>checkBox_2</tabstop>
+  <tabstop>checkBox_13</tabstop>
+  <tabstop>pushButton_8</tabstop>
+  <tabstop>pushButton_3</tabstop>
+  <tabstop>pushButton_9</tabstop>
+  <tabstop>pushButton_4</tabstop>
+  <tabstop>pushButton_11</tabstop>
+  <tabstop>pushButton_10</tabstop>
+  <tabstop>pushButton_7</tabstop>
+  <tabstop>checkBox_7</tabstop>
+  <tabstop>checkBox_9</tabstop>
+  <tabstop>checkBox_8</tabstop>
+  <tabstop>pushButton_12</tabstop>
+  <tabstop>checkBox_10</tabstop>
+  <tabstop>pushButton_13</tabstop>
+  <tabstop>checkBox_11</tabstop>
+  <tabstop>checkBox_12</tabstop>
+  <tabstop>pushButton_14</tabstop>
+  <tabstop>spinBox</tabstop>
+  <tabstop>checkBox_17</tabstop>
+  <tabstop>checkBox_15</tabstop>
+  <tabstop>checkBox_16</tabstop>
+  <tabstop>pushButton_15</tabstop>
+  <tabstop>pushButton_6</tabstop>
+  <tabstop>checkBox_4</tabstop>
+  <tabstop>checkBox_20</tabstop>
+  <tabstop>lineEdit_4</tabstop>
+  <tabstop>checkBox_21</tabstop>
+  <tabstop>checkBox_24</tabstop>
+  <tabstop>checkBox_23</tabstop>
+  <tabstop>lineEdit_5</tabstop>
+  <tabstop>checkBox_22</tabstop>
+ </tabstops>
  <resources/>
  <connections>
   <connection>

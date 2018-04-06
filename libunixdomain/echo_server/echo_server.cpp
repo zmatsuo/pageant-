@@ -16,11 +16,13 @@
 #endif
 #include <vector>
 #include <thread>
+#include <chrono>
 
 #include "sock_server.h"
 
 #if defined(_MSC_VER) || defined(__MINGW32__)
-#define SOCK_PATH	"C:/cygwin64/tmp/test.sock"
+#define SOCK_PATH	"c:/tmp/test.sock"
+//#define SOCK_PATH	"C:/cygwin64/tmp/test.sock"
 #else
 #define SOCK_PATH	"/tmp/test.sock"
 #endif
@@ -209,11 +211,17 @@ int main()
 
 	sock_server_init_t init = { sizeof(sock_server_init_t) };
 	init.accept_count = 20;
-#if 1
+#if 1	// native socket
+	init.socket_type = SOCK_SERVER_TYPE_UNIXDOMAIN_NATIVE;
+	init.socket_path = SOCK_PATH;
+	printf("%s\n", init.socket_path);
+#endif
+#if 0	// cygwin socket
 	init.socket_type = SOCK_SERVER_TYPE_UNIXDOMAIN;
 	init.socket_path = SOCK_PATH;
 	printf("%s\n", init.socket_path);
-#else
+#endif
+#if 0	// localhost socket
 	init.socket_type = SOCK_SERVER_TYPE_TCP;
 	init.port_no = 30000;
 	printf("port %d\n", init.port_no);
@@ -227,18 +235,14 @@ int main()
 	int r = sock_server_open(pSS);
 	if (r != 0) {
 		printf("open error %d\n", r);
-		return 0;
+	} else {
+		exit_flag = false;
+		std::thread th(echo_server_thread);
+		while(exit_flag == false) {
+			std::this_thread::sleep_for(std::chrono::milliseconds(10));
+		}
+		th.join();
 	}
-	exit_flag = false;
-	std::thread th(echo_server_thread);
-	while(exit_flag == false) {
-#if defined(_MSC_VER)
-		Sleep(10);
-#else
-		usleep(10 * 1000);
-#endif
-	}
-	th.join();
 	sock_server_close(pSS);
 
 	return 0;

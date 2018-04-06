@@ -26,6 +26,7 @@
 #include "pageant+.h"
 #include "mainwindow.h"
 #include "winpgnt.h"
+#define ENABLE_DEBUG_PRINT
 #include "debug.h"
 #include "winhelp_.h"
 #include "misc.h"
@@ -54,8 +55,10 @@
 #include "settingdlg.h"
 #include "confirmacceptdlg.h"
 #include "btselectdlg.h"
+#include "rdpkeydlg.h"
 #pragma warning(pop)
 #include "keystore.h"
+#include "rdp_ssh_relay.h"
 
 #include "ui_mainwindow.h"
 
@@ -96,7 +99,7 @@ MainWindow::MainWindow(QWidget *parent) :
     dbgprintf("WTSRegisterSessionNotification() %d\n", r);
 #else
 	BOOL r = WTSRegisterSessionNotificationEx(
-		WTS_CURRENT_SERVER, (HWND)winId(), NOTIFY_FOR_ALL_SESSIONS);
+		WTS_CURRENT_SERVER, (HWND)winId(), NOTIFY_FOR_THIS_SESSION);
 	dbgprintf("WTSRegisterSessionNotificationEx() %d\n", r);
 #endif
 	(void)r;		// TODO check return code
@@ -168,7 +171,15 @@ void MainWindow::trayIconMenu()
 			this, SLOT(on_pushButtonAddBTKey_clicked()));
 	}
 
-    trayIconMenu->addAction(
+	if (rdpSshRelayIsRemoteSession()) {
+		QString s = tr("Add RDP Key");
+		s += "(" + QString::fromStdWString(rdpSshRelayGetClientName()) + ")";
+		trayIconMenu->addAction(
+			s,
+			this, SLOT(on_pushButtonAddRdpKey_clicked()));
+	}
+
+	trayIconMenu->addAction(
 		tr("&Setting"),
 		this, SLOT(on_actionsetting_triggered()));
 
@@ -275,6 +286,13 @@ void MainWindow::on_pushButtonAddBTKey_clicked()
 {
 	dbgprintf("add bt\n");
 	BtSelectDlg dlg(this);
+	dlg.exec();
+}
+
+void MainWindow::on_pushButtonAddRdpKey_clicked()
+{
+	dbgprintf("add rdp key\n");
+	RdpKeyDlg dlg(this);
 	dlg.exec();
 }
 
@@ -414,64 +432,94 @@ void MainWindow::on_pushButton_2_clicked()
 #endif
 }
 
+void agents_stop()
+{
+	winpgnt_stop();
+	ssh_agent_native_unixdomain_stop();
+	ssh_agent_cygwin_unixdomain_stop();
+	pipe_th_stop();
+	bt_agent_proxy_main_exit();
+	ssh_agent_localhost_stop();
+	rdpSshRelayServerStop();
+}
+		  
+void agents_start()
+{
+	if (setting_get_bool("ssh-agent/pageant")) {
+		bool r = winpgnt_start();
+		if (r == false) {
+			setting_set_bool("ssh-agent/pageant", false);
+		}
+	}
+
+	if (setting_get_bool("ssh-agent/native_unix_socket")) {
+		bool r = false;
+		std::wstring sock_path = setting_get_str("ssh-agent/sock_path", nullptr);
+			
+		if (!sock_path.empty()) {
+			r = ssh_agent_native_unixdomain_start(sock_path.c_str());
+		}
+		if (r == false) {
+			setting_set_bool("ssh-agent/native_unix_socket", false);
+		}
+	}
+
+	if (setting_get_bool("ssh-agent/cygwin_sock")) {
+		bool r = false;
+		std::wstring sock_path = setting_get_str("ssh-agent/sock_path_cygwin", nullptr);
+		if (!sock_path.empty())
+		{
+			r = ssh_agent_cygwin_unixdomain_start(sock_path.c_str());
+		}
+		if (r == false) {
+			setting_set_bool("ssh-agent/cygwin_sock", false);
+		}
+	}
+
+	if (setting_get_bool("ssh-agent/ms_ssh")) {
+		bool r = false;
+		std::wstring sock_path = setting_get_str("ssh-agent/sock_path_cygwin", nullptr);
+		if (!sock_path.empty())
+		{
+			r = pipe_th_start(sock_path.c_str());
+		}
+		if (r == false) {
+			setting_set_bool("ssh-agent/ms_ssh", false);
+		}
+	}
+
+	if (setting_get_bool("bt/enable")) {
+		int timeout = setting_get_int("bt/timeout", 10*1000);
+		bool r = bt_agent_proxy_main_init(timeout);
+		if (r == false) {
+			bt_agent_proxy_main_exit();
+			setting_set_bool("bt/enable", false);
+		}
+	}
+
+	if (setting_get_bool("ssh-agent_tcp/enable")) {
+		const int port_no =
+			setting_get_int("ssh-agent_tcp/port_no", 8080);
+		ssh_agent_localhost_start(port_no);
+	}
+	
+	if (setting_get_bool("rdpvc-relay-server/enable")) {
+		bool r = rdpSshRelayServerStart();
+		if (r == false) {
+			setting_set_bool("rdpvc-relay-server/enable", false);
+		}
+	}
+}
+	
 void MainWindow::on_actionsetting_triggered()
 {
     dbgprintf("setting\n");
-	std::wstring unixdomain_path = _getenv(L"SSH_AUTH_SOCK");
-    bool unixdomain_enable_prev = setting_get_bool("ssh-agent/cygwin_sock");
-    bool pageant_enable_prev = setting_get_bool("ssh-agent/pageant");
-	bool ms_agent_enable_prev = setting_get_bool("ssh-agent/ms_ssh");
-	bool bt_agent_enable_prev = setting_get_bool("bt/enable");
+
 	SettingDlg dlg(this);
     dlg.exec();
 
-	// 環境変数が変化している?
-	const bool reboot_services = (unixdomain_path != _getenv(L"SSH_AUTH_SOCK"));
-    if (reboot_services) {
-		// 環境変数に関連するサービスは再起動が必要なのですべて止める
-		winpgnt_stop();
-		ssh_agent_cygwin_unixdomain_stop();
-		pipe_th_stop();
-		pageant_enable_prev = false;
-		unixdomain_enable_prev = false;
-		ms_agent_enable_prev = false;
-	}
-
-    const bool pageant_enable = setting_get_bool("ssh-agent/pageant");
-    if (pageant_enable_prev != pageant_enable) {
-		if (pageant_enable) {
-			winpgnt_start();
-		} else {
-			winpgnt_stop();
-		}
-	}
-
-    const bool unixdomain_enable = setting_get_bool("ssh-agent/cygwin_sock");
-	if (unixdomain_enable_prev != unixdomain_enable) {
-		if (unixdomain_enable) {
-			ssh_agent_cygwin_unixdomain_start(unixdomain_path.c_str());
-		} else {
-			ssh_agent_cygwin_unixdomain_stop();
-		}
-	}
-
-	const bool ms_agent_enable = setting_get_bool("ssh-agent/ms_ssh");
-	if (ms_agent_enable_prev != ms_agent_enable) {
-		if (ms_agent_enable) {
-			pipe_th_start(unixdomain_path.c_str());
-		} else {
-			pipe_th_stop();
-		}
-	}
-
-	const bool bt_agent_enable = setting_get_bool("bt/enable");
-	if (bt_agent_enable_prev != bt_agent_enable) {
-		if (bt_agent_enable) {
-			bt_agent_proxy_main_init(setting_get_int("bt/timeout", 10*1000));
-		} else {
-			bt_agent_proxy_main_exit();
-		}
-	}
+	agents_stop();
+	agents_start();
 }
 
 void MainWindow::lockTerminal()
@@ -496,47 +544,60 @@ bool MainWindow::nativeEventFilter(const QByteArray &eventType, void *message, l
 	if (eventType == "windows_generic_MSG"){
 		MSG *msg = static_cast<MSG *>(message);
 		WPARAM w = msg->wParam;
+		LPARAM lParam = msg->lParam;
 		switch (msg->message) {
 		case WM_POWERBROADCAST:
 			dbgprintf("WM_POWERBROADCAST(%d) wParam=%s(%d)\n",
-						 msg->message,
-						 w == PBT_APMPOWERSTATUSCHANGE ? "PBT_APMPOWERSTATUSCHANGE" :
-						 w == PBT_APMRESUMEAUTOMATIC ? "PBT_APMRESUMEAUTOMATIC" :
-						 w == PBT_APMRESUMESUSPEND ? "PBT_APMRESUMESUSPEND" :
-						 w == PBT_APMSUSPEND ? "PBT_APMSUSPEND" :
-						 w == PBT_POWERSETTINGCHANGE ? "PBT_POWERSETTINGCHANGE" :
-						 "??",
-						 w);
+					  msg->message,
+					  w == PBT_APMPOWERSTATUSCHANGE ? "PBT_APMPOWERSTATUSCHANGE" :
+					  w == PBT_APMRESUMEAUTOMATIC ? "PBT_APMRESUMEAUTOMATIC" :
+					  w == PBT_APMRESUMESUSPEND ? "PBT_APMRESUMESUSPEND" :
+					  w == PBT_APMSUSPEND ? "PBT_APMSUSPEND" :
+					  w == PBT_POWERSETTINGCHANGE ? "PBT_POWERSETTINGCHANGE" :
+					  "??",
+					  w);
 			if (w == PBT_APMSUSPEND) {
 				lockTerminal();
 			}
 			break;
 		case WM_WTSSESSION_CHANGE:
-			dbgprintf("WM_WTSSESSION_CHANGE(%d) wParam=%s(%d)\n",
-						 msg->message,
-						 w == WTS_CONSOLE_CONNECT ? "WTS_CONSOLE_CONNECT" :
-						 w == WTS_CONSOLE_DISCONNECT ? "WTS_CONSOLE_DISCONNECT" :
-						 w == WTS_REMOTE_CONNECT ? "WTS_REMOTE_CONNECT" :
-						 w == WTS_REMOTE_DISCONNECT ? "WTS_REMOTE_DISCONNECT" :
-						 w == WTS_SESSION_LOGON ? "WTS_SESSION_LOGON" :
-						 w == WTS_SESSION_LOGOFF ? "WTS_SESSION_LOGOFF" :
-						 w == WTS_SESSION_LOCK ? "WTS_SESSION_LOCK" :
-						 w == WTS_SESSION_UNLOCK ? "WTS_SESSION_UNLOCK" :
-						 w == WTS_SESSION_REMOTE_CONTROL ? "WTS_SESSION_REMOTE_CONTROL" :
-						 w == WTS_SESSION_CREATE ? "WTS_SESSION_CREATE" :
-						 w == WTS_SESSION_TERMINATE ? "WTS_SESSION_TERMINATE" :
-						 "??",
-						 w);
+			dbgprintf("WM_WTSSESSION_CHANGE(%d) wParam=%s(%d) lParam=%d\n",
+					  msg->message,
+					  w == WTS_CONSOLE_CONNECT ? "WTS_CONSOLE_CONNECT" :
+					  w == WTS_CONSOLE_DISCONNECT ? "WTS_CONSOLE_DISCONNECT" :
+					  w == WTS_REMOTE_CONNECT ? "WTS_REMOTE_CONNECT" :
+					  w == WTS_REMOTE_DISCONNECT ? "WTS_REMOTE_DISCONNECT" :
+					  w == WTS_SESSION_LOGON ? "WTS_SESSION_LOGON" :
+					  w == WTS_SESSION_LOGOFF ? "WTS_SESSION_LOGOFF" :
+					  w == WTS_SESSION_LOCK ? "WTS_SESSION_LOCK" :
+					  w == WTS_SESSION_UNLOCK ? "WTS_SESSION_UNLOCK" :
+					  w == WTS_SESSION_REMOTE_CONTROL ? "WTS_SESSION_REMOTE_CONTROL" :
+					  w == WTS_SESSION_CREATE ? "WTS_SESSION_CREATE" :
+					  w == WTS_SESSION_TERMINATE ? "WTS_SESSION_TERMINATE" :
+					  "??",
+					  w,
+					  lParam);
 			if (w == WTS_SESSION_LOCK) {
 				lockTerminal();
 			}
 			break;
 		case WM_DEVICECHANGE:
 			dbgprintf("WM_DEVICECHANGE(%d) wParam=%s(0x%04x)\n",
-						 msg->message,
-						 w == DBT_DEVICEREMOVECOMPLETE ? "DBT_DEVICEREMOVECOMPLETE" :
-						 "??",
-						 w);
+					  msg->message,
+					  w == DBT_CONFIGCHANGECANCELED ? "DBT_CONFIGCHANGECANCELED":
+					  w == DBT_CONFIGCHANGED ? "DBT_CONFIGCHANGED":
+					  w == DBT_CUSTOMEVENT ? "DBT_CUSTOMEVENT":
+					  w == DBT_DEVICEARRIVAL ? "DBT_DEVICEARRIVAL":
+					  w == DBT_DEVICEQUERYREMOVE ? "DBT_DEVICEQUERYREMOVE":
+					  w == DBT_DEVICEQUERYREMOVEFAILED ? "DBT_DEVICEQUERYREMOVEFAILED":
+					  w == DBT_DEVICEREMOVECOMPLETE ? "DBT_DEVICEREMOVECOMPLETE":
+					  w == DBT_DEVICEREMOVEPENDING ? "DBT_DEVICEREMOVEPENDING":
+					  w == DBT_DEVICETYPESPECIFIC ? "DBT_DEVICETYPESPECIFIC":
+					  w == DBT_DEVNODES_CHANGED ? "DBT_DEVNODES_CHANGED":
+					  w == DBT_QUERYCHANGECONFIG ? "DBT_QUERYCHANGECONFIG":
+					  w == DBT_USERDEFINED ? "DBT_USERDEFINED":
+					  "??",
+					  w);
 			cert_pkcs11dll_finalize();
 			break;
 		}
@@ -756,24 +817,6 @@ void old_keyfile_warning(void)
 
 	HWND hwnd = get_hwnd();
     MessageBox(hwnd, message, mbtitle, MB_OK);
-}
-
-/*
- * Print a modal (Really Bad) message box and perform a fatal exit.
- */
-void modalfatalbox(const char *fmt, ...)
-{
-    va_list ap;
-    char *buf;
-
-    va_start(ap, fmt);
-    buf = dupvprintf(fmt, ap);
-    va_end(ap);
-	HWND hwnd = get_hwnd();
-    MessageBox(hwnd, buf, "Pageant Fatal Error",
-	       MB_SYSTEMMODAL | MB_ICONERROR | MB_OK);
-    sfree(buf);
-    exit(1);
 }
 
 // Local Variables:

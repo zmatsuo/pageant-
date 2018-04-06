@@ -1,20 +1,29 @@
 ﻿
-#ifndef _WINMISC_H_
-#define	_WINMISC_H_
+#pragma once
 
+#include <SDKDDKVer.h>
 #include <windows.h>
 #include <Shlobj.h>	// for CSIDL_ constant
 
 #include <string>
 #include <vector>
+#include <thread>
+
+#include "pageant+.h"	// for DEVELOP_VERSION
+
+// debug
+
+#if defined(DEVELOP_VERSION)
+void debug_console_puts(const char *buf);
+void debug_console_init(int enable);
+void debug_console_show(int show);
+#endif
 
 // path
 std::wstring _GetModuleFileName(HMODULE hModule);
-std::string _GetCurrentDirectoryA();
 std::wstring _GetCurrentDirectory();
 std::wstring _SHGetKnownFolderPath(REFKNOWNFOLDERID rfid);
 bool _SHGetKnownFolderPath(REFKNOWNFOLDERID rfid, std::wstring &path);
-std::string _ExpandEnvironmentStrings(const char *str);
 std::wstring _ExpandEnvironmentStrings(const wchar_t *str);
 
 // ini file
@@ -29,6 +38,12 @@ bool _GetPrivateProfileSectionNames(
 	std::vector<std::wstring> &strAry);
 
 // registory
+bool reg_read(HKEY hKey, const wchar_t *subkey, const wchar_t *valuename,
+			  DWORD &dwType, std::vector<uint8_t> &data);
+bool reg_write(HKEY hKey, const wchar_t *subkey, const wchar_t *valuename,
+			   DWORD dwType, const void *data_ptr, size_t data_size);
+
+// registory HKEY_CURRENT_USER
 bool reg_read_cur_user(const wchar_t *subkey, const wchar_t *valuename,
 					   std::vector<std::wstring> &str);
 bool reg_read_cur_user(const wchar_t *subkey, const wchar_t *valuename,
@@ -65,11 +80,22 @@ bool _MultiByteToWideChar(const std::string &str, std::wstring &wstr, bool utf8)
 void exec(const wchar_t *file, const wchar_t *param = NULL);
 void exec_regedit(const wchar_t *open_path);
 
+// for debug
+void SetThreadName(DWORD dwThreadID, const char* threadName);
+void SetThreadName(const char* threadName);
+void setThreadName(std::thread *thread, const char *threadName);		// todo debugへ持っていく
+
 // misc stuff
 HWND get_hwnd();
 std::wstring get_full_path(const wchar_t *filename, bool search_path = false);
 
-#endif	// _WINMISC_H_
+std::wstring _FormatMessage(DWORD last_error);
+std::wstring _GetComputerNameEx(COMPUTER_NAME_FORMAT NameType);
+std::wstring _GetUserName();
+bool _GetFileSize(const wchar_t *path, uint64_t &size);
+bool _GetFileAttributes(const wchar_t *path, DWORD &attributes);
+bool _CreateDirectory(const wchar_t *path);
+bool _PathFileExists(const wchar_t *path);
 
 // Local Variables:
 // mode: c++

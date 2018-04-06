@@ -7,7 +7,7 @@
 extern "C" {
 #endif /* __cplusplus */
 
-void bt_agent_proxy_main_init(int timeout);
+bool bt_agent_proxy_main_init(int timeout);
 void bt_agent_proxy_main_exit();
 void *bt_agent_proxy_main_handle_msg(const void *msgv, size_t *replylen);
 //bool bt_agent_proxy_main_check_connect();
@@ -32,7 +32,7 @@ bool bt_agent_proxy_main_get_key(
 bool bt_agent_proxy_main_add_key(
     const std::vector<std::string> &fnames);
 
-#endif
+#endif /* __cplusplus */
 
 #include "bt_agent_proxy.h"
 bool bt_agent_proxy_main_connect(const DeviceInfoType &deviceInfo);

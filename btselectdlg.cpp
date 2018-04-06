@@ -331,16 +331,16 @@ void BtSelectDlg::on_pushButton_5_clicked()
 
 void BtSelectDlg::on_buttonBox_accepted()
 {
-	printf("click ok\n");
+	dbgprintf("click ok\n");
 	accept();
 }
 
 void BtSelectDlg::update(const std::vector<DeviceInfoType> &deivceInfos)
 {
-	debug_printf("update() enter\n");
+	dbgprintf("update() enter\n");
 	deviceInfos_ = deivceInfos;
 	emit updateSignal();
-	debug_printf("update() leave\n");
+	dbgprintf("update() leave\n");
 }
 
 // Local Variables:

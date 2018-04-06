@@ -71,14 +71,16 @@ SOURCES += main.cpp\
     btselectdlg.cpp \
     bt_agent_proxy.cpp \
     bt_agent_proxy_main.cpp \
-    debug.c \
+    debug.cpp \
     ckey.cpp \
     codeconvert.cpp \
     obfuscate.cpp \
     passphrases.cpp \
     keystore.cpp \
-    keystore2.cpp
-
+    keystore2.cpp \
+    rdpkeydlg.cpp \
+    rdp_ssh_relay.cpp
+    
 HEADERS  += mainwindow.h \
     passphrasedlg.h \
     aboutdlg.h \
@@ -97,7 +99,9 @@ HEADERS  += mainwindow.h \
     obfuscate.h \
     passphrases.h \
     keystore.h \
-    keystore2.h
+    keystore2.h \
+    rdpkeydlg.h \
+    rdp_ssh_relay.h
     
 FORMS    += mainwindow.ui \
     passphrasedlg.ui \
@@ -105,7 +109,8 @@ FORMS    += mainwindow.ui \
     confirmacceptdlg.ui \
     settingdlg.ui \
     keyviewdlg.ui \
-    btselectdlg.ui
+    btselectdlg.ui \
+    rdpkeydlg.ui
 
 RESOURCES += \
     pageant+.qrc

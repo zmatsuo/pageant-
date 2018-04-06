@@ -447,6 +447,7 @@ void random_add_heavynoise(void *noise, int length);
 
 void logevent(void *, const char *);
 
+#if 0
 /* Allocate and register a new channel for port forwarding */
 void *new_sock_channel(void *handle, Socket s);
 void ssh_send_port_open(void *channel, char *hostname, int port, char *org);
@@ -466,6 +467,7 @@ extern int pfd_send(Socket s, char *data, int len);
 extern void pfd_confirm(Socket s);
 extern void pfd_unthrottle(Socket s);
 extern void pfd_override_throttle(Socket s, int enable);
+#endif
 
 /* Exports from x11fwd.c */
 #if 0
@@ -483,6 +485,7 @@ char *x11_display(const char *display);
 #endif
 
 /* Platform-dependent X11 functions */
+#if 0
 extern void platform_get_x11_auth(char *display, int *proto,
                                   unsigned char *data, int *datalen);
 extern const char platform_x11_best_transport[];
@@ -491,6 +494,7 @@ SockAddr platform_get_x11_unix_address(int displaynum, char **canonicalname);
 /* make up a SockAddr naming the address for displaynum */
 char *platform_get_x_display(void);
 /* allocated local X display string, if any */
+#endif
 
 Bignum copybn(Bignum b);
 Bignum bn_power_2(int n);

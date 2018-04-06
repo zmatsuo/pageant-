@@ -28,6 +28,7 @@ private:
     ssh2_userkey *key_;
     RSAKey *debug_rsa_;
 
+	void free();
     unsigned char *public_blob(int *len) const;
     void copy(const ckey &rhs);
     void RSAKey_copy(const RSAKey &rhs);

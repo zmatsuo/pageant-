@@ -226,9 +226,6 @@
     <ClCompile Include="bt_agent_proxy_main.cpp">
       <Filter>agent\bt</Filter>
     </ClCompile>
-    <ClCompile Include="debug.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="passphrasedlg.cpp">
       <Filter>gui</Filter>
     </ClCompile>
@@ -259,7 +256,19 @@
     <ClCompile Include="pageant.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="keystore2.cpp">
+    <ClCompile Include="rdp_ssh_relay.cpp">
+      <Filter>agent</Filter>
+    </ClCompile>
+    <ClCompile Include="rdpkeydlg.cpp">
+      <Filter>gui</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Debug\moc_rdpkeydlg.cpp">
+      <Filter>Generated Files\Debug</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Release\moc_rdpkeydlg.cpp">
+      <Filter>Generated Files\Release</Filter>
+    </ClCompile>
+    <ClCompile Include="debug.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -307,6 +316,12 @@
       <Filter>Form Files</Filter>
     </CustomBuild>
     <CustomBuild Include="btselectdlg.h">
+      <Filter>gui</Filter>
+    </CustomBuild>
+    <CustomBuild Include="rdpkeydlg.ui">
+      <Filter>Form Files</Filter>
+    </CustomBuild>
+    <CustomBuild Include="rdpkeydlg.h">
       <Filter>gui</Filter>
     </CustomBuild>
   </ItemGroup>
@@ -460,6 +475,18 @@
     <ClInclude Include="keystore2.h">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="rdp_ssh_relay.h">
+      <Filter>agent</Filter>
+    </ClInclude>
+    <ClInclude Include="GeneratedFiles\ui_rdpkeydlg.h">
+      <Filter>Generated Files</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\SysInfo.h">
+      <Filter>agent</Filter>
+    </ClInclude>
+    <ClInclude Include="rdp_ssh_relay_def.h">
+      <Filter>agent</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Text Include="copyright.txt">
@@ -471,5 +498,8 @@
     <Text Include="reference.txt">
       <Filter>Resource Files</Filter>
     </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="pageant+.rc" />
   </ItemGroup>
 </Project>

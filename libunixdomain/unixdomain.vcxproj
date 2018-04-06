@@ -154,10 +154,14 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\codeconvert.cpp" />
+    <ClCompile Include="..\winmisc.cpp" />
     <ClCompile Include="sock_server.c" />
     <ClCompile Include="ud_socket.c" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\codeconvert.h" />
+    <ClInclude Include="..\winmisc.h" />
     <ClInclude Include="sock_server.h" />
     <ClInclude Include="ud_socket.h" />
   </ItemGroup>

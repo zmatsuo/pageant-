@@ -41,7 +41,8 @@ void safememclr(void *b, size_t len);
 #define _snmalloc(size, count)			malloc(size*count)
 #define _srealloc(ptr, size, count)		realloc(ptr, size*count)
 #define _snrealloc(ptr, size, count)	realloc(ptr, size*count)
-#define _sfree(ptr)						free(ptr)
+//#define _sfree(ptr)						free(ptr)
+static inline void _sfree(void *ptr)		{free(ptr);}
 #define	_smemclr(ptr, size)				SecureZeroMemory(ptr, size)
 #endif
 
@@ -69,7 +70,8 @@ void mlog(const char *, int);
 #define snmalloc(z,s)		_snmalloc(z,s)
 #define srealloc(y,z)		_srealloc(y,z,1)
 #define snrealloc(y,z,s)	_snrealloc(y,z,s)
-#define sfree(z)			_sfree(z)
+//#define sfree(z)			_sfree(z)
+static inline void sfree(void *ptr)		{_sfree(ptr);}
 #define	smemclr(y, z)		_smemclr(y,z)
 #endif
 

@@ -20,6 +20,7 @@
 #include "debug.h"
 #include "keystore.h"
 #include "codeconvert.h"
+#include "rdp_ssh_relay.h"
 
 #ifdef PUTTY_CAC
 extern "C" {
@@ -579,6 +580,85 @@ static void *pageant_handle_msg(
 					goto failure;
 				}
 			}
+
+			// 応答チェック
+			int len_s;
+			if (result == 1) {
+				msg2 = (unsigned char *)reply;
+				len_s = GET_32BIT(msg2);
+				msg2 += 4;
+				if (*msg2 != SSH2_AGENT_SIGN_RESPONSE) {	// 0x0e
+					result = 0;
+				}
+			}
+			// データ長チェック
+			if (result == 1) {
+				msg2++;
+				len_s = GET_32BIT(msg2);
+				msg2 += 4;
+				if (replylen <= len_s + 4) {
+					result = 0;
+				}
+			}
+			// 種別チェック
+			if (result == 1) {
+				len_s = GET_32BIT(msg2);
+				msg2 += 4;
+				if (len_s != 7 &&
+					strncmp((char *)msg2, "ssh-rsa", 7) != 0)
+				{
+					result = 0;
+				} else {
+					msg2 += 7;
+				}
+			}
+			// 署名部チェック
+			if (result == 1) {
+				len_s = GET_32BIT(msg2);
+				if (len_s != 0x100) {
+					result = 0;
+				} else {
+					msg2 += 4;
+				}
+			}
+			// 応答作成
+			if (result == 1) {
+				unsigned char *p2;
+				siglen = 4 + 7 + 4 + 0x100;
+				signature = snewn(siglen, unsigned char);
+				p2 = signature;
+				PUT_32BIT(p2, 7);
+				p2 += 4;
+				memcpy(p2, "ssh-rsa", 7);
+				p2 += 7;
+				PUT_32BIT(p2, 0x100);
+				p2 += 4;
+				memcpy(p2, msg2, 0x100);
+			}
+			// エラー
+			if (result == 0) {
+				goto failure;
+			}
+		}
+		else if (strncmp("rdp://", key->comment, 6) == 0) {
+			int result = 1;
+
+			// rdpへ投げる
+			size_t replylen;
+			void *reply;
+			std::vector<uint8_t> receive;
+
+			if (result == 1) {
+				const uint8_t *p = (uint8_t *)msg - 4;
+				std::vector<uint8_t> send(p, p + msglen+4);
+				bool r = rdpSshRelaySendReceive(send, receive);
+				replylen = receive.size();
+				if (r == false || replylen == 0) {
+					goto failure;
+				}
+				reply = &receive[0];
+			}
+			const unsigned char *msg2;
 
 			// 応答チェック
 			int len_s;
@@ -1810,7 +1890,7 @@ void dump_msg(const void *msg)
     int length = GET_32BIT(p);
 
     if (length == 0) {
-		debug("message length is zero\n");
+		dbgprintf("message length is zero\n");
 		return;
     }
     
@@ -1821,33 +1901,33 @@ void dump_msg(const void *msg)
 		/*
 		 * Reply with SSH2_AGENT_IDENTITIES_ANSWER.
 		 */
-		debug("SSH2_AGENTC_REQUEST_IDENTITIES(0x%x)\n", type);
-		debug("msg len=0x%04x(%d)\n", length, length);
+		dbgprintf("SSH2_AGENTC_REQUEST_IDENTITIES(0x%x)\n", type);
+		dbgprintf("msg len=0x%04x(%d)\n", length, length);
 		debug_memdump(p, 4 + 1, 1);
 		p += 5;
 		break;
     case SSH2_AGENT_IDENTITIES_ANSWER:
     {
-		debug("SSH2_AGENT_IDENTITIES_ANSWER(0x%x)\n", type);
-		debug("msg len=0x%04x(%d)\n", length, length);
+		dbgprintf("SSH2_AGENT_IDENTITIES_ANSWER(0x%x)\n", type);
+		dbgprintf("msg len=0x%04x(%d)\n", length, length);
 		debug_memdump(p, 4 + 1, 1);
 		p += 5;
 		int nkey = GET_32BIT(p);
-		debug("key count %d\n", nkey);
+		dbgprintf("key count %d\n", nkey);
 		debug_memdump(p, 4, 1);
 		p += 4;
 		for (int i=0; i < nkey; i++) {
-			debug("%d/%d\n", i, nkey);
+			dbgprintf("%d/%d\n", i, nkey);
 			int blob_len = GET_32BIT(p);
 			debug_memdump(p, 4, 1);
 			p += 4;
-			debug(" blob\n");
+			dbgprintf(" blob\n");
 			debug_memdump(p, blob_len, 1);
 			p += blob_len;
 			int comment_len = GET_32BIT(p);
 			debug_memdump(p, 4, 1);
 			p += 4;
-			debug(" comment\n");
+			dbgprintf(" comment\n");
 			debug_memdump(p, comment_len, 1);
 			p += comment_len;
 		}
@@ -1860,18 +1940,18 @@ void dump_msg(const void *msg)
 		 * SSH_AGENT_FAILURE, depending on whether we have that key
 		 * or not.
 		 */
-		debug("SSH2_AGENTC_SIGN_REQUEST(0x%x)\n", type);
-		debug("msg len=0x%04x(%d)\n", length, length);
+		dbgprintf("SSH2_AGENTC_SIGN_REQUEST(0x%x)\n", type);
+		dbgprintf("msg len=0x%04x(%d)\n", length, length);
 		debug_memdump(p, 4 + 1, 1);
 		p += 5;
 		int blob_len = GET_32BIT(p);
-		debug(" blob len=0x%04x(%d)\n", blob_len, blob_len);
+		dbgprintf(" blob len=0x%04x(%d)\n", blob_len, blob_len);
 		debug_memdump(p, 4, 1);
 		p += 4;
 		debug_memdump(p, blob_len, 1);
 		p += blob_len;
 		int data_len = GET_32BIT(p);
-		debug(" data len=0x%04x(%d)\n", data_len, data_len);
+		dbgprintf(" data len=0x%04x(%d)\n", data_len, data_len);
 		debug_memdump(p, 4, 1);
 		p += 4;
 		debug_memdump(p, data_len, 1);
@@ -1880,14 +1960,14 @@ void dump_msg(const void *msg)
     }
     case SSH2_AGENT_SIGN_RESPONSE:
     {
-		debug("SSH2_AGENT_SIGN_RESPONSE(0x%x)\n", type);
-		debug("msg len=0x%04x(%d)\n", length, length);
+		dbgprintf("SSH2_AGENT_SIGN_RESPONSE(0x%x)\n", type);
+		dbgprintf("msg len=0x%04x(%d)\n", length, length);
 		debug_memdump(p, 4 + 1, 1);
 		p += 5;
 		int sign_len = GET_32BIT(p);
 		debug_memdump(p, 4, 1);
 		p += 4;
-		debug(" sign data len=0x%04x(%d)\n", sign_len, sign_len);
+		dbgprintf(" sign data len=0x%04x(%d)\n", sign_len, sign_len);
 		debug_memdump(p, sign_len, 1);
 		p += sign_len;
 		break;
@@ -1929,8 +2009,8 @@ void dump_msg(const void *msg)
 		/*
 		 * Unrecognised message. Return SSH_AGENT_FAILURE.
 		 */
-		debug("type 0x%02x\n", type);
-		debug("msg len=%d(0x%x)\n", length, length);
+		dbgprintf("type 0x%02x\n", type);
+		dbgprintf("msg len=%d(0x%x)\n", length, length);
 		debug_memdump(p, 4 + 1, 1);
 		p += 5;
 		if (length > 1) {
@@ -1938,7 +2018,7 @@ void dump_msg(const void *msg)
 #if 0
 //#define AGENT_MAX_MSGLEN  8192
 			if (dump_len > 0x80) {
-				debug("len is too large, clip 0x80\n");
+				dbgprintf("len is too large, clip 0x80\n");
 				dump_len = 0x80;
 			}
 #endif
@@ -1950,10 +2030,10 @@ void dump_msg(const void *msg)
 
     int actual_length = (int)(uintptr_t)(p - top) - 4;
     if (actual_length != length) {
-		debug("  last adr %p\n", p);
-		debug("  message length %04x(%d)\n", length, length);
-		debug("  actual  length %04x(%d)\n", actual_length, actual_length);
-		debug("  length  %s\n",
+		dbgprintf("  last adr %p\n", p);
+		dbgprintf("  message length %04x(%d)\n", length, length);
+		dbgprintf("  actual  length %04x(%d)\n", actual_length, actual_length);
+		dbgprintf("  length  %s\n",
 			  length == actual_length ? "ok" :
 			  length < actual_length ? "message is small? dangerous!" :
 			  "message is large garbage on back?");
@@ -1969,17 +2049,21 @@ void dump_msg(const void *msg)
 static void pageant_logfn_test(void *logctx, const char *fmt, va_list ap)
 {
 	(void)logctx;
-	char buf[512];
-	strcpy(buf, fmt);
-	strcat(buf, "\n");
-	dbgvprintf(buf, ap);
+
+	std::string buf(512, 0);
+    int len = vsnprintf(&buf[0], buf.size(), fmt, ap);
+	if (len < 0) {
+		dbgprintf("logtest format error\n");
+		return;
+	}
+	dbgprintf("logtest '%s'\n", buf.c_str());
 }
 
 // replyは smemclr(), sfree() すること
 #if 1
 void *pageant_handle_msg_2(const void *msgv, int *_replylen)
 {
-    debug("answer_msg enter --\n");
+    dbgprintf("answer_msg enter --\n");
 
     unsigned char *msg = (unsigned char *)msgv;
     unsigned msglen;
@@ -2002,15 +2086,18 @@ void *pageant_handle_msg_2(const void *msgv, int *_replylen)
     }
 
     dump_msg(reply);
-    debug("answer_msg leave --\n");
+    dbgprintf("answer_msg leave --\n");
 
     *_replylen = replylen;
     return reply;
 }
-#else
+#endif
+
+// BTのテスト
+#if 0
 void *pageant_handle_msg_2(const void *msgv, int *_replylen)
 {
-    debug("answer_msg enter --\n");
+    dbgprintf("answer_msg enter --\n");
 
     unsigned char *msg = (unsigned char *)msgv;
     unsigned msglen;
@@ -2033,7 +2120,49 @@ void *pageant_handle_msg_2(const void *msgv, int *_replylen)
     }
 
     dump_msg(reply);
-    debug("answer_msg leave --\n");
+    dbgprintf("answer_msg leave --\n");
+
+    *_replylen = replylen;
+    return reply;
+}
+#endif
+
+// rdpのテスト
+#if 0
+void *pageant_handle_msg_2(const void *msgv, int *_replylen)
+{
+    dbgprintf("answer_msg enter --\n");
+
+    unsigned char *msg = (unsigned char *)msgv;
+    unsigned msglen;
+    void *reply;
+    int replylen;
+
+    dump_msg(msg);
+
+    msglen = GET_32BIT(msg);
+    if (msglen > AGENT_MAX_MSGLEN) {
+        reply = pageant_failure_msg(&replylen);
+    } else {
+		std::vector<uint8_t> send;
+		std::vector<uint8_t> receive;
+		replylen = msglen + 4;
+		send.resize(replylen);
+		memcpy(&send[0], msgv, replylen);
+		receive.resize(AGENT_MAX_MSGLEN);
+		bool r = rdpSshRelaySendReceive(send, receive);
+		if (r == false || receive.size() > AGENT_MAX_MSGLEN) {
+			// todo: memory clear
+            reply = pageant_failure_msg(&replylen);
+        } else {
+			reply = malloc(AGENT_MAX_MSGLEN);
+			replylen = receive.size();
+			memcpy(reply, &receive[0], replylen);
+		}
+    }
+
+    dump_msg(reply);
+    dbgprintf("answer_msg leave --\n");
 
     *_replylen = replylen;
     return reply;

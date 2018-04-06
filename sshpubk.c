@@ -621,9 +621,9 @@ struct ssh2_userkey ssh2_wrong_passphrase = {
 const struct ssh_signkey *find_pubkey_alg_len(int namelen, const char *name)
 {
     if (match_ssh_id(namelen, name, "ssh-rsa"))
-	return &ssh_rsa;
+		return &ssh_rsa;
     else if (match_ssh_id(namelen, name, "ssh-dss"))
-	return &ssh_dss;
+		return &ssh_dss;
     else if (match_ssh_id(namelen, name, "ecdsa-sha2-nistp256"))
         return &ssh_ecdsa_nistp256;
     else if (match_ssh_id(namelen, name, "ecdsa-sha2-nistp384"))
@@ -633,7 +633,7 @@ const struct ssh_signkey *find_pubkey_alg_len(int namelen, const char *name)
     else if (match_ssh_id(namelen, name, "ssh-ed25519"))
         return &ssh_ecdsa_ed25519;
     else
-	return NULL;
+		return NULL;
 }
 
 const struct ssh_signkey *find_pubkey_alg(const char *name)

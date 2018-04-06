@@ -50,3 +50,8 @@ version.c
 debug*.log
 *.*~
 *.zip
+
+# global
+GPATH
+GRTAGS
+GTAGS

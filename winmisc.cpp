@@ -8,59 +8,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <windows.h>
+#include <Lmcons.h>		// for UNLEN
 #include <string>
 #include <sstream>
 #include <io.h>
 #include <crtdbg.h>
+#include <thread>
 
-#include "puttymem.h"
 #include "misc.h"
 #include "winmisc.h"
-#include "setting.h"
-
-#define DEBUG
-
-#if 0
-void platform_get_x11_auth(char *display, int *proto,
-                           unsigned char *data, int *datalen)
-{
-    /* We don't support this at all under Windows. */
-	(void)display;
-	(void)proto;
-	(void)data;
-	(void)datalen;
-}
-
-const char platform_x11_best_transport[] = "localhost";
-
-char *platform_get_x_display(void) {
-    /* We may as well check for DISPLAY in case it's useful. */
-    return dupstr(getenv("DISPLAY"));
-}
-#endif
-
-#if 0
-char *get_username(void)
-{
-    DWORD namelen;
-    char *user;
-
-    namelen = 0;
-    if (GetUserName(NULL, &namelen) == FALSE) {
-		/*
-		 * Apparently this doesn't work at least on Windows XP SP2.
-		 * Thus assume a maximum of 256. It will fail again if it
-		 * doesn't fit.
-		 */
-		namelen = 256;
-    }
-
-    user = snewn(namelen, char);
-    GetUserName(user, &namelen);
-
-    return user;
-}
-#endif
 
 std::wstring _GetModuleFileName(HMODULE hModule)
 {
@@ -175,31 +131,22 @@ std::wstring get_full_path(const wchar_t *filename, bool search_path)
 std::wstring _ExpandEnvironmentStrings(const wchar_t *str)
 {
     DWORD len = ::ExpandEnvironmentStringsW(str, NULL, 0);
-	std::vector<wchar_t> s(len+1);
-    ExpandEnvironmentStringsW(str, &s[0], len+1);
-    return &s[0];
-}
-
-std::string _ExpandEnvironmentStrings(const char *str)
-{
-    DWORD len = ::ExpandEnvironmentStringsA(str, NULL, 0);
-	std::vector<char> s(len+1);
-    ExpandEnvironmentStringsA(str, &s[0], len+1);
-    return &s[0];
+	std::wstring s(len, 0);		// len = include '\0'
+    ExpandEnvironmentStringsW(str, &s[0], len);
+	s.resize(len-1);	// remove '\0'
+    return s;
 }
 
 /**
  *	@retvalue	true	read ok
  *	@retvalue	false	entry does not exist
  */
-static bool reg_read(
-	HKEY hKey,
-	const wchar_t *subkey, const wchar_t *valuename, DWORD &dwType,
-	std::vector<uint8_t> &data)
+bool reg_read(HKEY hKey, const wchar_t *subkey, const wchar_t *valuename,
+			  DWORD &dwType, std::vector<uint8_t> &data)
 {
 	HKEY hRegKey;
 	LONG r;
-	r = RegOpenKeyExW(hKey, subkey, 0, KEY_ALL_ACCESS, &hRegKey);
+	r = RegOpenKeyExW(hKey, subkey, 0, KEY_READ, &hRegKey);
 	if (r != ERROR_SUCCESS) {
 		// ERROR_FILE_NOT_FOUND -> not found
 		data.clear();
@@ -207,23 +154,21 @@ static bool reg_read(
 	}
 	bool ret_value = true;
 	data.resize(256);
-	DWORD size = (DWORD)data.size();
-    r = RegQueryValueExW(hRegKey, valuename, 0, &dwType,
-						 &data[0], &size);
-	if (r == ERROR_SUCCESS) {
-		data.resize(size);
-	} else if (r == ERROR_FILE_NOT_FOUND) {
-		data.clear();
-		ret_value = false;
-	} else {
-		data.resize(size);
-		if (size > 0) {
-			r = RegQueryValueExW(hRegKey, valuename, 0, &dwType,
-								 &data[0], &size);
-			if (r != ERROR_SUCCESS) {
-				data.clear();
-				ret_value = false;
+	while (1) {
+		DWORD size = (DWORD)data.size();
+		r = RegQueryValueExW(hRegKey, valuename, 0, &dwType,
+							 &data[0], &size);
+		if (r == ERROR_SUCCESS) {
+			data.resize(size);
+			break;
+		} else if (r == ERROR_MORE_DATA) {
+			if (size > data.size()) {
+				data.resize(size);
 			}
+		} else {	// if (r == ERROR_FILE_NOT_FOUND)
+			data.clear();
+			ret_value = false;
+			break;
 		}
 	}
 	RegCloseKey(hRegKey);
@@ -264,11 +209,14 @@ bool reg_read_cur_user(const wchar_t *subkey, const wchar_t *valuename,
 	DWORD dwType;
 	bool result = reg_read(
 		HKEY_CURRENT_USER, subkey, valuename, dwType, data);
-	if (result == false || dwType != REG_SZ) {
+	if (result == false || (dwType != REG_SZ && dwType != REG_EXPAND_SZ)) {
 		str.clear();
 		return false;
 	}
 	str = std::wstring((wchar_t *)&data[0]);
+	if (dwType == REG_EXPAND_SZ) {
+		str = _ExpandEnvironmentStrings(str.c_str());
+	}
 	return true;
 }
 
@@ -350,11 +298,11 @@ bool reg_write_cur_user(const wchar_t *subkey, const wchar_t *valuename,
 bool reg_write_cur_user(const wchar_t *subkey, const wchar_t *valuename,
 						const wchar_t *str)
 {
-	if (valuename == NULL) {
+	if (valuename == nullptr) {
 		HKEY hKey = HKEY_CURRENT_USER;
 		return reg_delete(hKey, subkey);
 	}
-	if (str == NULL) {
+	if (str == nullptr) {
 		HKEY hKey = HKEY_CURRENT_USER;
 		return reg_delete(hKey, subkey, valuename);
 	}
@@ -425,7 +373,7 @@ bool reg_delete_tree(HKEY hKey, const wchar_t *subkey)
 
 bool reg_delete_cur_user(const wchar_t *subkey, const wchar_t *valuename)
 {
-	if (valuename == NULL) {
+	if (valuename == nullptr) {
 		return reg_delete(HKEY_CURRENT_USER, subkey);
 	}
 	return reg_delete(HKEY_CURRENT_USER, subkey, valuename);
@@ -482,6 +430,7 @@ static std::wstring escape_str(const wchar_t *_org)
 	return encode;
 }
 
+#if 0
 static std::wstring unescape_str(const wchar_t *encode)
 {
 	const wchar_t *dead_char = L"=";
@@ -498,12 +447,23 @@ static std::wstring unescape_str(const wchar_t *encode)
 	}
 	return decode;
 }
+#endif
 
 bool _WritePrivateProfileString(
 	const wchar_t *section, const wchar_t *key, const wchar_t *ini,
 	const wchar_t *str)
 {
-	if (_waccess(ini, 0) != 0) {
+	bool create_bom_only_file = false;
+	if (!_PathFileExists(ini)) {
+		create_bom_only_file = true;
+	} else {
+		uint64_t size;
+		bool r = _GetFileSize(ini, size);
+		if (r == false || size == 0) {
+			create_bom_only_file = true;
+		}
+	}
+	if (create_bom_only_file) {
 		// create utf16le ini file
 		FILE *fp = _wfopen(ini, L"wb");
 		if (fp != NULL) {
@@ -583,7 +543,7 @@ bool _WideCharToMultiByte(const wchar_t *wstr_ptr, size_t wstr_len, std::string 
 	DWORD flags = 0;
     int len =
 		::WideCharToMultiByte(codePage, flags,
-							  wstr_ptr, wstr_len,
+							  wstr_ptr, (DWORD)wstr_len,
 							  NULL, 0,
 							  NULL, NULL);
 	if (len == 0) {
@@ -596,7 +556,7 @@ bool _WideCharToMultiByte(const wchar_t *wstr_ptr, size_t wstr_len, std::string 
 		//str.data();	// C++17(c++1z)
 	len = 
 		::WideCharToMultiByte(codePage, flags,
-							  wstr_ptr, wstr_len,
+							  wstr_ptr, (DWORD)wstr_len,
 							  buf, len,
 							  NULL,NULL);
 	if (len == 0) {
@@ -621,7 +581,7 @@ bool _MultiByteToWideChar(const char *str_ptr, size_t str_len, std::wstring &wst
 	int len =
 		::MultiByteToWideChar(
 			codePage, flags,
-			str_ptr, str_len,
+			str_ptr, (int)str_len,
 			NULL, 0);
 	if (len == 0) {
 		wstr.clear();
@@ -634,7 +594,7 @@ bool _MultiByteToWideChar(const char *str_ptr, size_t str_len, std::wstring &wst
 	len =
 		::MultiByteToWideChar(
 			codePage, flags,
-			str_ptr, str_len,
+			str_ptr, (int)str_len,
 			buf, len);
 	if (len == 0) {
 		wstr.clear();
@@ -676,80 +636,15 @@ void exec_regedit(const wchar_t *open_path)
 }
 
 
-#ifdef DEBUG
-static int debug_console_enabled;	// 0/1/2=未決/disable/enable
+#if defined(DEVELOP_VERSION)
+static bool debug_console_enabled;
 static bool debug_console_opend;
 static HWND debug_console_hwnd;
 static bool debug_console_show_flag = true;
-//#define PROG L"ssh_agent"
 
-std::string sprintf(const char *fmt, ...)
-{
-	char *dupstr;
-	va_list ap;
-	va_start(ap, fmt);
-	dupstr = dupvprintf(fmt, ap);
-	va_end(ap);
-	std::string ret = dupstr;
-	sfree(dupstr);
-	return ret;
-}
-
-#if 0
-static int allocconsole2()
-{
-	STARTUPINFO si = { 0 };
-    si.cb = sizeof(si);
-    si.dwFlags = STARTF_USESTDHANDLES | STARTF_USESHOWWINDOW;
-    si.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
-    si.hStdOutput =  GetStdHandle(STD_OUTPUT_HANDLE);
-    si.hStdError = GetStdHandle(STD_ERROR_HANDLE);
-    si.wShowWindow = SW_HIDE;
-
-    PROCESS_INFORMATION pi = { 0 };
-
-	char test[] = "\0";
-	CreateProcessA(0, test, 0, 0, FALSE, 0, 0, 0, &si, &pi);
-
-	return 1;
-}
-#endif
-
-#if 0
-static int allocconsole3()
-{
-	STARTUPINFO startupInfo;
-	PROCESS_INFORMATION processInfo;
-	::ZeroMemory(&startupInfo,sizeof(startupInfo));
-	startupInfo.cb = sizeof(startupInfo);
-	startupInfo.dwFlags = STARTF_USESHOWWINDOW;
-	startupInfo.wShowWindow = SW_HIDE;
-//		startupInfo.wShowWindow = SW_SHOW;
-	char test[] = "cmd.exe";
-	if (!CreateProcessA( NULL, test, NULL, NULL, FALSE, 
-						CREATE_NEW_CONSOLE, NULL, NULL, &startupInfo, &processInfo))
-	{
-		int error = 0;;
-	}
-	DWORD dwResult = ::WaitForInputIdle(processInfo.hProcess, 10000);
-	if (dwResult == -1 || dwResult == WAIT_TIMEOUT) {
-		DWORD error = GetLastError();
-		int e = 0;;
-	}
-	if (AttachConsole(processInfo.dwProcessId) == 0)
-	{
-		DWORD error = GetLastError();
-		int e = 0;;
-	}
-	return 1;
-}
-#endif
-
-void debug_console_open()
+static void debug_console_open()
 {
 	BOOL r = AllocConsole();
-	//BOOL r = allocconsole2();
-	//BOOL r = allocconsole3();
 	if (r == FALSE) {
 		return;
 	}
@@ -758,50 +653,29 @@ void debug_console_open()
 		ShowWindow(debug_console_hwnd, SW_HIDE);
 	}
 
-#if 1
 	{
 		static FILE *stdin_new;
 		static FILE *stderr_new;
 		static FILE *stdout_new;
 		freopen_s(&stdin_new, "CON", "r", stdin);
 		freopen_s(&stdout_new, "CON", "w", stdout);
-		freopen_s(&stderr_new, "CON", "r", stderr);
+		freopen_s(&stderr_new, "CON", "w", stderr);
 	}
-#endif
-#if 0
-	FILE *fp = freopen("con", "w", stdout);
-	if (fp == NULL)
-		for (;;);
-	fp = freopen("con", "w", stderr);
-	if (fp == NULL)
-		for (;;);
-#endif
 	debug_console_opend = true;
 }
 
-void debug_console_init()
+void debug_console_init(int enable)
 {
-	if (debug_console_enabled == 1) {
-		return;
-	}
-
-	if (debug_console_enabled == 0) {
-		const char *key = "debug/console_enable";
-		debug_console_enabled = setting_get_bool(key, false) == false ? 1 : 2;
-		if (debug_console_enabled == 1) {
-			return;
-		}
-	}
-	
+	debug_console_enabled = enable == 0 ? false : true;
     if (!debug_console_opend) {
 		debug_console_open();
 	}
 }
 
-extern "C" void debug_console_puts(const char *buf)
+void debug_console_puts(const char *buf)
 {
     if (!debug_console_opend) {
-		debug_console_init();
+		debug_console_open();
     }
 	printf("%s", buf);
 }
@@ -816,251 +690,150 @@ void debug_console_show(int show)
 		ShowWindow(debug_console_hwnd, show ? SW_SHOW : SW_HIDE);
     }
 }
-
 #endif
 
-#ifdef DEBUG
-void dputs(const char *buf)
+const DWORD MS_VC_EXCEPTION=0x406D1388;
+
+#pragma pack(push,8)
+typedef struct tagTHREADNAME_INFO
 {
-    // chop
-    char *s = dupstr(buf);
-    const size_t len = strlen(s) - 1;
-//    if (s[len] == '\n') {
-//		s[len] = '\0';
-//    }
+	DWORD dwType; // Must be 0x1000.
+	LPCSTR szName; // Pointer to name (in user addr space).
+	DWORD dwThreadID; // Thread ID (-1=caller thread).
+	DWORD dwFlags; // Reserved for future use, must be zero.
+} THREADNAME_INFO;
+#pragma pack(pop)
 
-    char *s2 = dupprintf("%s", s);
-
-    debug_console_puts(s);
-
-    OutputDebugStringA(s2);
-
-    sfree(s);
-    sfree(s2);
-}
-#endif
-
-#ifdef MINEFIELD
-/*
- * Minefield - a Windows equivalent for Electric Fence
- */
-
-#define PAGESIZE 4096
-
-/*
- * Design:
- * 
- * We start by reserving as much virtual address space as Windows
- * will sensibly (or not sensibly) let us have. We flag it all as
- * invalid memory.
- * 
- * Any allocation attempt is satisfied by committing one or more
- * pages, with an uncommitted page on either side. The returned
- * memory region is jammed up against the _end_ of the pages.
- * 
- * Freeing anything causes instantaneous decommitment of the pages
- * involved, so stale pointers are caught as soon as possible.
- */
-
-static int minefield_initialised = 0;
-static void *minefield_region = NULL;
-static long minefield_size = 0;
-static long minefield_npages = 0;
-static long minefield_curpos = 0;
-static unsigned short *minefield_admin = NULL;
-static void *minefield_pages = NULL;
-
-static void minefield_admin_hide(int hide)
+void SetThreadName(DWORD dwThreadID, const char* threadName)
 {
-    int access = hide ? PAGE_NOACCESS : PAGE_READWRITE;
-    VirtualProtect(minefield_admin, minefield_npages * 2, access, NULL);
-}
+	// DWORD dwThreadID = ::GetThreadId( static_cast<HANDLE>( t.native_handle() ) );
 
-static void minefield_init(void)
-{
-    int size;
-    int admin_size;
-    int i;
+	THREADNAME_INFO info;
+	info.dwType = 0x1000;
+	info.szName = threadName;
+	info.dwThreadID = dwThreadID;
+	info.dwFlags = 0;
 
-    for (size = 0x40000000; size > 0; size = ((size >> 3) * 7) & ~0xFFF) {
-	minefield_region = VirtualAlloc(NULL, size,
-					MEM_RESERVE, PAGE_NOACCESS);
-	if (minefield_region)
-	    break;
-    }
-    minefield_size = size;
-
-    /*
-     * Firstly, allocate a section of that to be the admin block.
-     * We'll need a two-byte field for each page.
-     */
-    minefield_admin = minefield_region;
-    minefield_npages = minefield_size / PAGESIZE;
-    admin_size = (minefield_npages * 2 + PAGESIZE - 1) & ~(PAGESIZE - 1);
-    minefield_npages = (minefield_size - admin_size) / PAGESIZE;
-    minefield_pages = (char *) minefield_region + admin_size;
-
-    /*
-     * Commit the admin region.
-     */
-    VirtualAlloc(minefield_admin, minefield_npages * 2,
-		 MEM_COMMIT, PAGE_READWRITE);
-
-    /*
-     * Mark all pages as unused (0xFFFF).
-     */
-    for (i = 0; i < minefield_npages; i++)
-	minefield_admin[i] = 0xFFFF;
-
-    /*
-     * Hide the admin region.
-     */
-    minefield_admin_hide(1);
-
-    minefield_initialised = 1;
-}
-
-static void minefield_bomb(void)
-{
-    div(1, *(int *) minefield_pages);
-}
-
-static void *minefield_alloc(int size)
-{
-    int npages;
-    int pos, lim, region_end, region_start;
-    int start;
-    int i;
-
-    npages = (size + PAGESIZE - 1) / PAGESIZE;
-
-    minefield_admin_hide(0);
-
-    /*
-     * Search from current position until we find a contiguous
-     * bunch of npages+2 unused pages.
-     */
-    pos = minefield_curpos;
-    lim = minefield_npages;
-    while (1) {
-	/* Skip over used pages. */
-	while (pos < lim && minefield_admin[pos] != 0xFFFF)
-	    pos++;
-	/* Count unused pages. */
-	start = pos;
-	while (pos < lim && pos - start < npages + 2 &&
-	       minefield_admin[pos] == 0xFFFF)
-	    pos++;
-	if (pos - start == npages + 2)
-	    break;
-	/* If we've reached the limit, reset the limit or stop. */
-	if (pos >= lim) {
-	    if (lim == minefield_npages) {
-		/* go round and start again at zero */
-		lim = minefield_curpos;
-		pos = 0;
-	    } else {
-		minefield_admin_hide(1);
-		return NULL;
-	    }
+	__try
+	{
+		RaiseException( MS_VC_EXCEPTION, 0, sizeof(info)/sizeof(ULONG_PTR), (ULONG_PTR*)&info );
 	}
-    }
-
-    minefield_curpos = pos - 1;
-
-    /*
-     * We have npages+2 unused pages starting at start. We leave
-     * the first and last of these alone and use the rest.
-     */
-    region_end = (start + npages + 1) * PAGESIZE;
-    region_start = region_end - size;
-    /* FIXME: could align here if we wanted */
-
-    /*
-     * Update the admin region.
-     */
-    for (i = start + 2; i < start + npages + 1; i++)
-	minefield_admin[i] = 0xFFFE;   /* used but no region starts here */
-    minefield_admin[start + 1] = region_start % PAGESIZE;
-
-    minefield_admin_hide(1);
-
-    VirtualAlloc((char *) minefield_pages + region_start, size,
-		 MEM_COMMIT, PAGE_READWRITE);
-    return (char *) minefield_pages + region_start;
+	__except(EXCEPTION_EXECUTE_HANDLER)
+	{
+	}
 }
 
-static void minefield_free(void *ptr)
+void SetThreadName(const char* threadName)
 {
-    int region_start, i, j;
-
-    minefield_admin_hide(0);
-
-    region_start = (char *) ptr - (char *) minefield_pages;
-    i = region_start / PAGESIZE;
-    if (i < 0 || i >= minefield_npages ||
-	minefield_admin[i] != region_start % PAGESIZE)
-	minefield_bomb();
-    for (j = i; j < minefield_npages && minefield_admin[j] != 0xFFFF; j++) {
-	minefield_admin[j] = 0xFFFF;
-    }
-
-    VirtualFree(ptr, j * PAGESIZE - region_start, MEM_DECOMMIT);
-
-    minefield_admin_hide(1);
+    SetThreadName(GetCurrentThreadId(),threadName);
 }
 
-static int minefield_get_size(void *ptr)
+void setThreadName(std::thread *thread, const char *threadName)
 {
-    int region_start, i, j;
-
-    minefield_admin_hide(0);
-
-    region_start = (char *) ptr - (char *) minefield_pages;
-    i = region_start / PAGESIZE;
-    if (i < 0 || i >= minefield_npages ||
-	minefield_admin[i] != region_start % PAGESIZE)
-	minefield_bomb();
-    for (j = i; j < minefield_npages && minefield_admin[j] != 0xFFFF; j++);
-
-    minefield_admin_hide(1);
-
-    return j * PAGESIZE - region_start;
+    DWORD threadId = ::GetThreadId( static_cast<HANDLE>( thread->native_handle() ) );
+    SetThreadName(threadId, threadName);
 }
 
-void *minefield_c_malloc(size_t size)
+std::wstring _FormatMessage(DWORD last_error)
 {
-    if (!minefield_initialised)
-	minefield_init();
-    return minefield_alloc(size);
+	std::wstring msg(256, 0);
+	const DWORD dwflags = 0
+		| FORMAT_MESSAGE_FROM_SYSTEM
+		| FORMAT_MESSAGE_IGNORE_INSERTS
+		| FORMAT_MESSAGE_MAX_WIDTH_MASK
+		;
+	while(1) {
+		DWORD r = ::FormatMessageW(dwflags,
+								   0,
+								   last_error,
+								   0,
+								   &msg[0], (DWORD)msg.size(),
+								   NULL);
+		if (r == 0) {
+			auto e = GetLastError();
+			if (e == ERROR_INSUFFICIENT_BUFFER) {
+				msg.resize(msg.size()*2);
+				continue;
+			}
+			return L"error\n";
+		} else if (r < msg.size()) {
+			msg.resize(r);
+			break;
+		} else if (r == msg.size()) {
+			msg.resize(msg.size()*2);
+			continue;
+		}
+	}
+	return msg;
 }
 
-void minefield_c_free(void *p)
+std::wstring _GetUserName()
 {
-    if (!minefield_initialised)
-	minefield_init();
-    minefield_free(p);
+	std::wstring str(UNLEN, 0);
+	DWORD len = static_cast<DWORD>(str.size());
+    BOOL r = GetUserNameW(&str[0], &len);
+	if (r == 0) {
+		return L"";
+	}
+	str.resize(len - 1);
+	return str;
 }
 
-/*
- * realloc _always_ moves the chunk, for rapid detection of code
- * that assumes it won't.
- */
-void *minefield_c_realloc(void *p, size_t size)
+std::wstring _GetComputerNameEx(COMPUTER_NAME_FORMAT NameType)
 {
-    size_t oldsize;
-    void *q;
-    if (!minefield_initialised)
-	minefield_init();
-    q = minefield_alloc(size);
-    oldsize = minefield_get_size(p);
-    memcpy(q, p, (oldsize < size ? oldsize : size));
-    minefield_free(p);
-    return q;
+	std::wstring str(MAX_COMPUTERNAME_LENGTH, 0);
+	while(1) {
+		DWORD str_len = static_cast<DWORD>(str.size());
+		BOOL r = GetComputerNameExW(NameType, &str[0], &str_len);
+		if (r != 0) {
+			str.resize(str_len);	// str_len = '\0'分は含まれていない
+			return str;
+		}
+		auto error = GetLastError();
+		if (error != ERROR_MORE_DATA) {
+			return L"";
+		}
+		str.resize(str_len);	// str_len = '\0'分は含まれている
+	}
 }
 
-#endif				/* MINEFIELD */
+bool _GetFileSize(const wchar_t *path, uint64_t &size)
+{
+	HANDLE hFile =
+		CreateFileW(path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING,
+					FILE_ATTRIBUTE_NORMAL, NULL);
+	if(hFile == INVALID_HANDLE_VALUE){
+		size = 0;
+		return false;
+	}
 
+	LARGE_INTEGER FileSize;
+	BOOL r = GetFileSizeEx(hFile, &FileSize);
+	size = ((uint64_t)FileSize.HighPart << 32) + FileSize.LowPart;
+
+	CloseHandle(hFile);
+
+	return r == 0 ? false : true;
+}
+
+bool _GetFileAttributes(const wchar_t *path, DWORD &attributes)
+{
+	attributes = GetFileAttributesW(path);
+	return attributes == -1 ? false : true;
+}
+
+bool _CreateDirectory(const wchar_t *path)
+{
+	BOOL r = CreateDirectoryW(path, NULL);
+	return r == 0 ? false : true;
+}
+
+// same as PathFileExists in Shlwapi.lib
+bool _PathFileExists(const wchar_t *path)
+{
+	DWORD attributes;
+	return _GetFileAttributes(path, attributes);
+}
 
 // Local Variables:
 // mode: c++

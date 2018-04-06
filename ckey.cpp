@@ -80,22 +80,30 @@ ckey::ckey(const ckey &rhs)
 ckey &ckey::operator=(const ckey &rhs)
 {
 	assert(!(&rhs == this));
-	if (key_ != nullptr) {
-		key_->alg->freekey(key_);
-	}
+	free();
 	copy(rhs);
 	return *this;
 }
 
+void ckey::free()
+{
+	if (key_ != nullptr) {
+		if (key_->data != nullptr) {
+			key_->alg->freekey(key_->data);
+			key_->data = nullptr;
+		}
+		if (key_->comment != nullptr) {
+			sfree(key_->comment);
+			key_->comment = nullptr;
+		}
+		sfree(key_);
+		key_ = nullptr;
+	}
+}
+
 ckey::~ckey()
 {
-	key_->alg->freekey(key_->data);
-	if (key_->comment != nullptr) {
-		sfree(key_->comment);
-		key_->comment = nullptr;
-	}
-	sfree(key_);
-	key_ = nullptr;
+	free();
 }
 ckey::ckey(ssh2_userkey *key)
 {

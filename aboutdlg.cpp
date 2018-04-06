@@ -1,4 +1,5 @@
-﻿#include <sstream>
+﻿#include <windows.h>
+#include <sstream>
 #include <iomanip>
 
 #pragma warning(push)

@@ -1,12 +1,12 @@
 setlocal 
 cd /d %~dp0
 if not defined QTDIR (
-   set QTDIR=C:\Qt\5.10.0\msvc2017_64
+   set QTDIR=C:\Qt\5.10.1\msvc2017_64
 )
 set PATH=%QTDIR%\bin;%PATH%
 rem set SH=bash.exe
-rem set SH=c:\cygwin64\bin\bash.exe
-set SH="C:\Program Files\Git\usr\bin\bash.exe"
+set SH=c:\cygwin64\bin\bash.exe
+rem set SH="C:\Program Files\Git\usr\bin\bash.exe"
 
 %SH% make_version.sh
 
@@ -24,6 +24,7 @@ pushd .
 call %VCVARSALL% amd64
 popd
 msbuild pageant+.sln /t:rebuild /p:Configuration=Release /p:Platform="x64" /m
+rem msbuild pageant+.sln /p:Configuration=Release /p:Platform="x64" /m
 endlocal
 
 %SH% make_zip.sh

@@ -8,6 +8,7 @@
 
 #include "pageant.h"
 #include "puttymem.h"
+#include "debug.h"
 
 #include "ssh-agent_ms.h"
 
@@ -28,7 +29,7 @@ static bool init(const wchar_t *sock_path)
 							 sizeof(szData), sizeof(szData),
 							 1000, NULL);
     if (hPipe == INVALID_HANDLE_VALUE) {
-		printf("パイプの作成に失敗しました。");
+		dbgprintf("パイプの作成に失敗しました。");
 		return false;
     }
 	return true;
@@ -40,7 +41,7 @@ static inline int msglen(const void *p)
 	return 4 + ntohl(*(const uint32_t *)p);
 }
 
-int pipe_main()
+static int pipe_main()
 {
 	while(1) {
 		// 待つ

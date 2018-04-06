@@ -46,21 +46,7 @@ char *chomp(char *str);
 void base64_encode_atom(const unsigned char *data, int n, char *out);
 int base64_decode_atom(const char *atom, unsigned char *out);
 
-struct bufchain_granule;
-typedef struct bufchain_tag {
-    struct bufchain_granule *head, *tail;
-    int buffersize;		       /* current amount of buffered data */
-} bufchain;
-
-void bufchain_init(bufchain *ch);
-void bufchain_clear(bufchain *ch);
-int bufchain_size(bufchain *ch);
-void bufchain_add(bufchain *ch, const void *data, int len);
-void bufchain_prefix(bufchain *ch, void **data, int *len);
-void bufchain_consume(bufchain *ch, int len);
-void bufchain_fetch(bufchain *ch, void *data, int len);
-
-struct tm ltime(void);
+//struct tm ltime(void);
 
 /* Compare two fixed-length chunks of memory for equality, without
  * data-dependent control flow (so an attacker with a very accurate

@@ -1,5 +1,5 @@
-﻿#ifndef MAINWINDOW_H
-#define MAINWINDOW_H
+﻿
+#pragma once
 
 #include <vector>
 
@@ -35,6 +35,7 @@ public slots:
     void trayClicked(QSystemTrayIcon::ActivationReason e);
     void on_pushButtonAddKey_clicked();
     void on_pushButtonAddBTKey_clicked();
+    void on_pushButtonAddRdpKey_clicked();
 
 private slots:
     void on_pushButton_close_clicked();
@@ -64,7 +65,8 @@ public:
     int confirmAcceptDlg(struct ConfirmAcceptDlgInfo *info);
 };
 
-#endif // MAINWINDOW_H
+void agents_start();
+void agents_stop();
 
 // Local Variables:
 // mode: c++

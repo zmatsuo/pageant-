@@ -1,0 +1,11 @@
+#include <windows.h>
+#include <ntverp.h>
+
+#define VER_FILETYPE                VFT_DLL
+#define VER_FILESUBTYPE             VFT2_UNKNOWN
+#define VER_FILEDESCRIPTION_STR     "pageant+ rdp ssh-agant client"
+#define VER_INTERNALNAME_STR        "pageant+_rdp_client.dll"
+#define VER_ORIGINALFILENAME_STR    "pageant+_rdp_client.dll"
+
+#include "common.ver"
+

@@ -11,7 +11,7 @@ puttyへ各パッチはMITに従う。
 意訳
 
 MITライセンス
-Copyright 2017 Masaaki Matsuo
+Copyright 2017 (c) Masaaki Matsuo
 
 下記の条件を受け入れていただけるのであれば、誰でも自由に無料で、このソフトウェアをつかっていただくことができます。
 

@@ -1,33 +1,44 @@
 ﻿# このプログラムについて
 
-ssh agent for windows
+Windows用のssh agentです。
 
-Windows用のssh-agentです。
-次の通信を行うことができます。
+次のことを目指しています。
+- 秘密鍵を利用する様々なssh関連のプログラムから利用できる
+- 秘密鍵を手元(ローカル)に置いておいてなるべくコピーせずに済むようにする
+
+次の経路でssh関連のプログラムと通信を行うことができます。
 - pageant (putty ssh-agent)
-- ssh-agent cygwin
-- ssh-agent Microsoft (0.0.17.0以降は未対応)
+- ssh-agent unix domain socket (cygwin emulation)
+- ssh-agent unix domain socket (Windows Native, Windows10 Redstone 4~)
 - ssh-agent TCP接続 (socat(WSL)からの接続用)
+- ssh-agent Microsoft (0.0.17.0以降は未対応)
 
-秘密鍵をandroidデバイス上に保存しておくBT pageant+も利用できます
+次のようなこともできます。
+- 秘密鍵をandroidデバイス上に保存しておくBT pageant+も利用できます
+- RDP(リモートデスクトップ)の接続先から手元のpageant+を利用できます
 
 まだまだ気になるところはありますが、概ね動作します。
 
 # できること
 
-- sshの秘密鍵のパスフレーズを記憶,適当なタイミングで忘れる
+- BT pageant+を利用できます
+- RDP(リモートデスクトップ)のVirtual Channelを利用
+    - 接続した先(サーバ側)のpageant+から、ローカル(クライアント側)のpageant+を利用できます
+- Windows Native unix domain socket対応
+    - Redstone 4(RS4)以降で利用可能です([build17061から](https://blogs.msdn.microsoft.com/commandline/2017/12/19/af_unix-comes-to-windows/)利用可能だと思われます)
+	- [socat + TCP](https://github.com/zmatsuo/pageant-/wiki/WSL%E3%81%8B%E3%82%89-pageant---%E3%82%92%E5%88%A9%E7%94%A8%E3%81%99%E3%82%8B)を使用せずにWSLから直接利用できます
+	- Windows側からは `c:/path/.ssh-ageant` とした場合、WSL側からは `export SSH_AUTH_SOCK=/mnt/c/path/.ssh-agent`などと設定します
+- sshの秘密鍵のパスフレーズを記憶,適当なタイミングで忘れることができる
 - ほとんどのsshクライアントと通信できる
 - スマートカードを使うことができる
-- WSLのssh-agentとして利用[ここを参照ください](https://github.com/zmatsuo/pageant-/wiki/WSL%E3%81%8B%E3%82%89-pageant---%E3%82%92%E5%88%A9%E7%94%A8%E3%81%99%E3%82%8B)
-- BT pageant+を利用できます
 
-## 大雑把な使い方
+# 使い方
 
-### インストール
+## インストール
 
-- zipファイルを解いて適当なフォルダに置く
+- zipファイルを解いて適当なフォルダに置いてください
 
-### 起動
+## 起動
 
 - 他のsshエージェントを止める
 	- pageant(putty)
@@ -37,24 +48,35 @@ Windows用のssh-agentです。
 - 必要に応じて設定から自動起動するようにする
 - `ssh-add -l`で接続できればok
 
-### 鍵ファイル
+## 鍵ファイル
 
 - 'Add Key file'ボタンを押してファイルを追加
-- `ssh-add -l -E md5`で鍵を表示できればok
+- `ssh-add -l`で鍵を表示できればok
 
-### マイナンバーカード(スマートカード)
+## リモートデスクトップ経由(RDP relay)
 
+- 接続した先(サーバ側)
+	- `rdp_registory.reg`をダブルクリックしてレジストリを設定する
+	- pageant+を起動、設定の`SSH Agent relay on RDP Server`をチェックする
+- ローカル(クライアント側)
+	- pageant+を起動、設定の`SSH Agent relay on RDP Client`をチェックする
+	- `pageant compatible`のチェックも入れる
+- リモートデスクトップで接続する
+- `Add Rdp Key`からダイアログを出す
+- `View client key`を押してクライアント側の鍵一覧を表示する
+- `Import Key`を押して鍵を取り込む
+
+## マイナンバーカード(スマートカード)
+
+- マイナンバーカードに対応したOpenSCをインストールしておく(手元でビルドした[野良ビルド版](https://github.com/zmatsuo/pageant-/releases/download/170718/OpenSC.msi)で動作確認しています)
 - 'Add PKCS Cert'ボタンを押す
 - `C:\Program Files\OpenSC Project\OpenSC\pkcs11\opensc-pkcs11.dll`を選ぶ
 - 証明書選択で次のものを選ぶ
 	- カード名が数字とアルファベット
 	- 発行者が Japan Agency for Local
-- 追加したスマートカードを選択して、`公開鍵`ボタンを押す
-- クリップボードにコピーされた文字列を、
-  サーバーの `~/.ssh/authorized_keys` に追加する
 - pinは、利用者証明用電子証明書(マイナポータルへのログインなどに使用)に設定したもの
 
-### BT pageant+
+## BT pageant+
 
 - `Add BT`ボタンを押す
 - BT pageant+が動作しているデバイスを選択
@@ -62,6 +84,22 @@ Windows用のssh-agentです。
 - デバイスを選択
 - 鍵を選択
 - `鍵取込`ボタンを押す
+
+## 公開鍵の取得
+
+- key listの鍵一覧から、公開鍵を取得することができます
+- key listを表示して、鍵を1つ選択する
+- `公開鍵`ボタンを押す
+- クリップボードにコピーされた文字列を、サーバーの `~/.ssh/authorized_keys` に追加する
+
+# 制限
+
+## 鍵ファイル
+
+- addボタンで使用できる鍵ファイル種類
+	- putty形式の秘密鍵
+	- RSA 2048bit,4096bitのみテスト
+	- 他の形式も使えるかもしれない
 
 ## 動作確認できたスマートカード
 
@@ -85,10 +123,14 @@ pageant+のスタートタップ登録をもう一度やり直してください
 - putty
 - teraterm
 
+## WSL(Windows Subsystem for Linux)
+- OpenSSH
+	- Windows Native unix domain socket経由
+	- socatを経由したソケット接続
+
 ## OpenSSH
 - Win32 port of OpenSSH
 	- v0.0.17.0以降未対応
-- socatを経由したソケット接続
 
 ## cygwin/msys ssh family
 - cygwin/msys ssh
@@ -103,6 +145,39 @@ pageant+のスタートタップ登録をもう一度やり直してください
 ## scp
 - winscp
 - filezilla
+
+# 設定
+
+設定はpageant+が動作しているPCのレジストリに保存します。
+
+iniファイルに保存することもできます。
+
+## 1. レジストリでiniファイルを指定
+- `HKEY_CURRENT_USER\Software\pageant+\IniFile`
+
+このレジストリが設定してあると、指定iniファイルを使用します。
+REG_EXPAND_SZの場合は環境変数(%HOME%など)の展開が行われます
+(`%HOME%\.pageant+.ini`など)。
+
+設定がない場合、iniファイルを探します。
+
+## 2. 自動で探す
+次の順でファイルを探します。見つかったらそのファイルを使用します。
+- `%HOME%\.pageant+_[host].ini`
+- `%HOME%\.pageant+.ini`
+- `%HOMEDRIVE%%HOMEPATH%\.pageant+_[host].ini`
+- `%HOMEDRIVE%%HOMEPATH%\.pageant+.ini`
+- `%USERPROFILE%\.pageant+_[host].ini`
+- `%USERPROFILE%\.pageant+.ini`
+- `%APPDATA%\pageant+\pageant+_[host].ini`
+- `%APPDATA%\pageant+\pagent+.ini`
+- `[pageant+.exe(又はdll)と同じフォルダ]\pageant+_[host].ini`
+- `[pageant+.exe(又はdll)と同じフォルダ]\pageant+.ini`
+
+## 3. 上記すべて見つからなかった場合
+レジストリに保存する
+- `HKEY_CURRENT_USER\Software\pageant+`
+
 
 # 動作チェック
 
@@ -150,7 +225,7 @@ OpenSSH_7.1p2, OpenSSL 1.0.2g  1 Mar 2016
 $ ssh-add -l -E md5
 ```
 
-## openssh ported by microsoft
+## openssh ported by Microsoft
 
 - https://github.com/PowerShell/Win32-OpenSSH/releases/tag/v0.0.16.0
 - v0.0.17.0からソケットの仕組みが変わったらしく、通信できません
@@ -160,13 +235,6 @@ PS C:\Program Files\OpenSSH-Win64> .\ssh -V
 OpenSSH_7.5p1, OpenSSL 1.0.2d 9 Jul 2015
 .\ssh-add -l -E md5
 ```
-
-# 制限
-
-- addボタンで使用できる鍵ファイル種類
-	- putty形式の秘密鍵
-	- RSA 2048bit,4096bitのみテスト
-	- 他の形式も使えるかもしれない
 
 # 参照したプロジェクトなど
 
@@ -181,7 +249,7 @@ reference.txt を参照してください。
 
 - 準備
 	- <https://www.qt.io/> から Qtをダウンロードしてインストールする
-	- Qt 5.9.3
+	- Qt 5.10.1
 	- Visual Studo 2017をインストール
 	- MinGW 32bitではコンパイルできなくなっています
 

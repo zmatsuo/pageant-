@@ -1,23 +1,26 @@
 ﻿
+#pragma once
+
 #ifdef __cplusplus
 
 #include <string>
 #include <vector>
 
-void setting_init(int _use_ini = true, const wchar_t *_ini_file = NULL);
+void setting_init(const wchar_t *exe_fullpath);
 void setting_exit();
 std::wstring setting_get_inifile();
 bool setting_get_use_inifile();
 void setting_remove_all();
 
 // General purpose
-bool setting_get_bool(const char *key);
-bool setting_get_bool(const char *key, bool _default);
+bool setting_get_bool(const char *key, bool _default = false);
+//bool setting_get_bool(const char *key, bool _default);
 void setting_set_bool(const char *key, bool _bool);
 void setting_get_strs(const char *key, std::vector<std::wstring> &strs);
 bool setting_set_strs(const char *key, const std::vector<std::wstring> &strs);
 bool setting_set_str(const char *key, const wchar_t *str);
 std::wstring setting_get_str(const char *key, const wchar_t *_default);
+bool setting_get_str(const char *key, std::wstring &s);
 bool setting_set_int(const char *key, int val);
 int setting_get_int(const char *key, int _default);
 
@@ -30,6 +33,7 @@ int get_use_inifile(void);
 int setting_get_startup();
 void setting_set_startup(bool enable);
 bool setting_get_startup_exe_path(std::wstring &exePath);
+std::wstring setting_get_logfile(const wchar_t *exe_fullpath);
 
 // for putty
 std::wstring get_putty_path();
@@ -37,7 +41,8 @@ std::wstring get_putty_ini();
 std::vector<std::wstring> setting_get_putty_sessions();
 std::wstring setting_get_str_putty(const char *key, const wchar_t *_default);
 
-#endif
+
+#endif	// __cplusplus
 
 #ifdef __cplusplus
 extern "C" {

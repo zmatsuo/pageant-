@@ -1,29 +1,49 @@
 ﻿
 #pragma once
 
-#include "ssh.h"	// for ssh2_userkey
+#include <vector>
 
-#if defined(__cplusplus)
+#include "ssh.h"	// for ssh2_userkey
 
 class ckey {
 public:
     ckey();
     ckey(const ckey &rhs);
-    ckey(ssh2_userkey *key);
+    ckey(ssh2_userkey *key);		// keyが取り込まれる、keyのfreeは不要
     ckey &operator=(const ckey &rhs);
     ~ckey();
+	ssh2_userkey *release();
+	ssh2_userkey *get() const;
+	void set(ssh2_userkey *key);
     std::string fingerprint() const;
     std::string alg_name() const;
     int bits() const;
     std::string fingerprint_md5() const;
     std::string fingerprint_sha1() const;
     std::string fingerprint_sha256() const;
+    std::string fingerprint_md5_comp() const;
     std::string key_comment() const;
     void set_fname(const char *fn);
     std::string key_comment2() const;
-    bool parse_one_public_key(const void *data, size_t len,
-							  const char **fail_reason);
+	void set_comment(const char *comment);
+    bool parse_one_public_key(
+		const std::vector<uint8_t> &blob,
+		const char **fail_reason);
+    bool parse_one_public_key(
+		const std::vector<uint8_t> &blob, size_t &pos,
+		const char **fail_reason);
+    bool parse_one_public_key(
+		const void *data, size_t len,
+		const char **fail_reason);
+    bool parse_one_private_key(
+		const void *data, size_t len,
+		const char **fail_reason, size_t *key_len);
     void get_raw_key(ssh2_userkey **key) const;
+	void dump() const;
+	static ckey create(const ssh2_userkey *key);
+	static void dump_keys(const std::vector<ckey> &keys);
+	std::vector<uint8_t> public_blob_v() const;
+
 private:
     ssh2_userkey *key_;
     RSAKey *debug_rsa_;
@@ -36,40 +56,10 @@ private:
     static void copy_RSAKey(RSAKey &dest, const RSAKey &src);
 };
 
-#include <vector>
-class KeyListItem {
-public:
-	int no;
-	std::string algorithm;
-	int size;		// key size(bit)
-	std::string name;
-	std::string md5;
-	std::string sha256;
-	std::string comment;
-	std::string comment2;
-};
-
-std::vector<KeyListItem> keylist_update2();
-
-#endif
-
-#if defined(__cplusplus)
-extern "C"
-{
-#endif
-
-//[[deprecated("use ckey")]]
-__declspec(deprecated("use ckey"))
-char *ssh2_fingerprint_sha256(const struct ssh2_userkey *key);
-
 bool parse_public_keys(
 	const void *data, size_t len,	
 	std::vector<ckey> &keys,
 	const char **fail_reason);
-
-#if defined(__cplusplus)
-}
-#endif
 
 // Local Variables:
 // mode: c++

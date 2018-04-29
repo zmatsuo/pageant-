@@ -15,6 +15,7 @@
 #include "ssh.h"
 #include "misc.h"
 #include "codeconvert.h"
+#include "puttymem.h"
 
 #ifdef PUTTY_CAC
 #include "cert_common.h"
@@ -658,7 +659,8 @@ struct ssh2_userkey *ssh2_load_userkey(
     int passlen = passphrase ? strlen(passphrase) : 0;
     const char *error = NULL;
 
-#ifdef PUTTY_CAC
+#if 0
+//#ifdef PUTTY_CAC
     {
 		char *mbs = dup_wc_to_mb(filename->path);
 		if(cert_is_certpath(mbs)) {
@@ -1163,9 +1165,9 @@ unsigned char *ssh2_userkey_loadpub(const Filename *filename, char **algorithm,
 		cert_convert_legacy(mbs);
 		if (cert_is_certpath(mbs)) {
 			struct ssh2_userkey * userkey = cert_load_key(mbs);
+			free(mbs);
 			if (userkey == NULL || userkey->alg == NULL) {
 				*errorstr = "load key from certificate failed";
-				free(mbs);
 				return NULL;
 			}
 			if (algorithm) { *algorithm = dupstr(userkey->alg->name); }
@@ -1173,9 +1175,9 @@ unsigned char *ssh2_userkey_loadpub(const Filename *filename, char **algorithm,
 			public_blob = userkey->alg->public_blob(userkey->data, pub_blob_len);
 			userkey->alg->freekey(userkey->data);
 			sfree(userkey);
-			free(mbs);
 			return public_blob;
 		}
+		free(mbs);
     }
 #endif // PUTTY_CAC
     {

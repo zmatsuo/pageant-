@@ -1,22 +1,13 @@
 ﻿/*
  * winmisc.c: miscellaneous Windows-specific things
  */
-#undef UNICODE
-#define _CRT_SECURE_NO_WARNINGS
-#include <algorithm>
-#include <vector>
-#include <stdio.h>
-#include <stdlib.h>
+#include "winmisc.h"
+
 #include <windows.h>
 #include <Lmcons.h>		// for UNLEN
-#include <string>
+#include <algorithm>
 #include <sstream>
-#include <io.h>
 #include <crtdbg.h>
-#include <thread>
-
-#include "misc.h"
-#include "winmisc.h"
 
 std::wstring _GetModuleFileName(HMODULE hModule)
 {
@@ -40,10 +31,11 @@ std::wstring _GetModuleFileName(HMODULE hModule)
 std::wstring _GetCurrentDirectory()
 {
     std::wstring dir;
-    size_t buf_size = ::GetCurrentDirectoryW(0, NULL);  // getting path length
-	std::vector<wchar_t> buf(buf_size);
-	::GetCurrentDirectoryW((DWORD)buf_size, &buf[0]);
-	return &buf[0];
+    DWORD len = ::GetCurrentDirectoryW(0, NULL);
+	dir.resize(len);
+	::GetCurrentDirectoryW((DWORD)len, &dir[0]);
+	dir.resize(len-1);	// remove '\0'
+	return dir;
 }
 
 static std::wstring _SearchPath(const wchar_t *filename)
@@ -72,6 +64,7 @@ bool _SHGetKnownFolderPath(REFKNOWNFOLDERID rfid, std::wstring &path)
 	PWSTR pszPath = NULL;
 	HRESULT r = ::SHGetKnownFolderPath(rfid, KF_FLAG_DEFAULT, NULL, &pszPath);
 	if (r != S_OK) {
+		path.clear();
 		return false;
 	}
 	path = pszPath;
@@ -132,7 +125,7 @@ std::wstring _ExpandEnvironmentStrings(const wchar_t *str)
 {
     DWORD len = ::ExpandEnvironmentStringsW(str, NULL, 0);
 	std::wstring s(len, 0);		// len = include '\0'
-    ExpandEnvironmentStringsW(str, &s[0], len);
+    ::ExpandEnvironmentStringsW(str, &s[0], len);
 	s.resize(len-1);	// remove '\0'
     return s;
 }
@@ -465,8 +458,9 @@ bool _WritePrivateProfileString(
 	}
 	if (create_bom_only_file) {
 		// create utf16le ini file
-		FILE *fp = _wfopen(ini, L"wb");
-		if (fp != NULL) {
+		FILE *fp;
+		auto err = _wfopen_s(&fp, ini, L"wb");
+		if (err != 0) {
 			const static uint8_t bom_utf16_le[] = {0xff, 0xfe};
 			fwrite(bom_utf16_le, sizeof(bom_utf16_le), 1, fp);
 			fclose(fp);
@@ -572,7 +566,8 @@ bool _WideCharToMultiByte(const std::wstring &wstr, std::string &str, bool utf8)
 }
 
 /**
- *	@param	str_len		str長	EOS('\0')を含まない(strlen()の戻り値)
+ *	@param	str_len		str長	EOS('\0')を含まない(strlen()の戻り値)、
+ *								含んでも良い(wstrに\0が含まれる)
  */
 bool _MultiByteToWideChar(const char *str_ptr, size_t str_len, std::wstring &wstr, bool utf8)
 {
@@ -764,6 +759,7 @@ std::wstring _FormatMessage(DWORD last_error)
 			continue;
 		}
 	}
+	msg = L"[" + std::to_wstring(last_error) + L"]" + msg;
 	return msg;
 }
 
@@ -771,7 +767,7 @@ std::wstring _GetUserName()
 {
 	std::wstring str(UNLEN, 0);
 	DWORD len = static_cast<DWORD>(str.size());
-    BOOL r = GetUserNameW(&str[0], &len);
+    BOOL r = ::GetUserNameW(&str[0], &len);
 	if (r == 0) {
 		return L"";
 	}
@@ -784,7 +780,7 @@ std::wstring _GetComputerNameEx(COMPUTER_NAME_FORMAT NameType)
 	std::wstring str(MAX_COMPUTERNAME_LENGTH, 0);
 	while(1) {
 		DWORD str_len = static_cast<DWORD>(str.size());
-		BOOL r = GetComputerNameExW(NameType, &str[0], &str_len);
+		BOOL r = ::GetComputerNameExW(NameType, &str[0], &str_len);
 		if (r != 0) {
 			str.resize(str_len);	// str_len = '\0'分は含まれていない
 			return str;
@@ -800,31 +796,31 @@ std::wstring _GetComputerNameEx(COMPUTER_NAME_FORMAT NameType)
 bool _GetFileSize(const wchar_t *path, uint64_t &size)
 {
 	HANDLE hFile =
-		CreateFileW(path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING,
-					FILE_ATTRIBUTE_NORMAL, NULL);
+		::CreateFileW(path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING,
+					  FILE_ATTRIBUTE_NORMAL, NULL);
 	if(hFile == INVALID_HANDLE_VALUE){
 		size = 0;
 		return false;
 	}
 
 	LARGE_INTEGER FileSize;
-	BOOL r = GetFileSizeEx(hFile, &FileSize);
+	BOOL r = ::GetFileSizeEx(hFile, &FileSize);
 	size = ((uint64_t)FileSize.HighPart << 32) + FileSize.LowPart;
 
-	CloseHandle(hFile);
+	::CloseHandle(hFile);
 
 	return r == 0 ? false : true;
 }
 
 bool _GetFileAttributes(const wchar_t *path, DWORD &attributes)
 {
-	attributes = GetFileAttributesW(path);
+	attributes = ::GetFileAttributesW(path);
 	return attributes == -1 ? false : true;
 }
 
 bool _CreateDirectory(const wchar_t *path)
 {
-	BOOL r = CreateDirectoryW(path, NULL);
+	BOOL r = ::CreateDirectoryW(path, NULL);
 	return r == 0 ? false : true;
 }
 
@@ -833,6 +829,92 @@ bool _PathFileExists(const wchar_t *path)
 {
 	DWORD attributes;
 	return _GetFileAttributes(path, attributes);
+}
+
+std::wstring _GetTempPath()
+{
+	std::wstring path(MAX_PATH, 0);
+	DWORD len = static_cast<DWORD>(path.size());
+	len = ::GetTempPathW(len, &path[0]);
+	if (len == 0) {
+		exit(1);		// TODO error
+	}
+	path.resize(len-1);
+	return path;
+}
+
+// Administrator privileges
+bool _ShellExecuteExAdmin(
+	const wchar_t *exe,
+	const wchar_t *param,
+	DWORD *exit_code)
+{
+	SHELLEXECUTEINFOW ei = {0};
+	ei.cbSize = sizeof(ei);
+//	ei.hwnd = GetDesktopWindow();
+	ei.hwnd = NULL;
+	ei.fMask = SEE_MASK_NOCLOSEPROCESS;	// hProcessを有効にする
+	ei.lpVerb = L"runas";				// 昇格する
+	ei.lpFile = exe;
+	ei.lpParameters = param;
+	ei.nShow = SW_HIDE;					// コンソールを非表示にする
+
+	// 実行
+	BOOL r;
+	r = ::ShellExecuteExW(&ei);
+	if (r == FALSE) {
+		// 実行失敗(昇格拒否)
+		return false;
+	}
+
+	HANDLE &hProcess = ei.hProcess;
+	DWORD result = ::WaitForSingleObject(hProcess, INFINITE);
+	if (result != WAIT_OBJECT_0) {
+		return false;
+	}
+
+	DWORD _exit_code;
+	r = ::GetExitCodeProcess(hProcess, &_exit_code);
+	if (r == FALSE) {
+		return false;
+	}
+	
+	::CloseHandle(hProcess);
+	if (exit_code != nullptr) {
+		*exit_code = _exit_code;
+	}
+	return true;
+}
+
+static BOOL EnumWindowsProc(HWND hwnd, LPARAM lParam)
+{
+	std::vector<HWND> *hWnds = reinterpret_cast<std::vector<HWND> *>(lParam);
+	hWnds->push_back(hwnd);
+	return TRUE;
+}
+
+std::vector<HWND> _EnumWindows()
+{
+	std::vector<HWND> hWnds;
+	LPARAM lparam = reinterpret_cast<LPARAM>(&hWnds);
+	EnumWindows(EnumWindowsProc, lparam);
+	return hWnds;
+}
+
+std::vector<PROCESSENTRY32W> _Process()
+{
+	HANDLE hSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+	std::vector<PROCESSENTRY32W> process_list;
+
+	PROCESSENTRY32W entry;
+	entry.dwSize = sizeof entry;
+	if (Process32FirstW(hSnap, &entry) == TRUE) {
+		do {
+			process_list.emplace_back(entry);
+		} while (Process32NextW(hSnap, &entry));
+	}
+	CloseHandle(hSnap);
+	return process_list;
 }
 
 // Local Variables:

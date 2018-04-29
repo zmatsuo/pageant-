@@ -12,7 +12,6 @@
 #include "ssh-agent_emu.h"
 #include "winmisc.h"
 #include "gui_stuff.h"
-#include "pageant.h"
 #include "misc_cpp.h"
 #include "misc.h"
 extern "C" {
@@ -27,6 +26,9 @@ void cert_forget_pin(void);
 #pragma warning(disable:4251)
 #include "ui_settingdlg.h"
 #pragma warning(pop)
+
+#include "pageant.h"
+#include "winutils_qt.h"
 
 static std::wstring get_recommended_ssh_sock_path()
 {
@@ -220,12 +222,40 @@ SettingDlg::SettingDlg(QWidget *parent) :
 			setting_get_bool("rdpvc-relay-server/enable", false));
 	}
 
+	// debug tab
+#if defined(DEVELOP_VERSION)
+	if ((GetAsyncKeyState(VK_LSHIFT) & 0x8000) == 0)
+#endif
+	{
+		ui->tabWidget->setCurrentIndex(0);
+		for (int i = 0 ; i < ui->tabWidget->count(); i++) {
+			if (ui->tabWidget->tabText(i) == "debug") {
+				ui->tabWidget->removeTab(i);
+				break;
+			}
+		}
+	}
+
 	showDetail(false);
+
+	PushDisplayedWindow(this);
 }
+
+SettingDlg *SettingDlg::instance = nullptr;
 
 SettingDlg::~SettingDlg()
 {
     delete ui;
+	instance = nullptr;
+}
+
+SettingDlg *SettingDlg::createInstance(QWidget *parent)
+{
+	if (instance != nullptr) {
+		return instance;
+	}
+	instance = new SettingDlg(parent);
+	return instance;
 }
 
 void SettingDlg::on_buttonBox_accepted()
@@ -309,8 +339,19 @@ void SettingDlg::on_buttonBox_accepted()
 			rdpSshRelayTeardownClient();
 			setting_set_bool("rdpvc-relay-client/enable", false);
 		}
-		setting_set_bool("rdpvc-relay-server/enable",
-						 ui->checkBoxSshRDPRelayServer->isChecked());
+
+		if (ui->checkBoxSshRDPRelayServer->isChecked()) {
+			bool r = true;
+			if (!rdpSshRelayCheckServer()) {
+				r = rdpSshRelaySetupServer();
+			}
+			setting_set_bool("rdpvc-relay-server/enable", r);
+		} else {
+			if (rdpSshRelayCheckServer()) {
+				bool r = rdpSshRelayTeardownServer();
+				setting_set_bool("rdpvc-relay-server/enable", !r);
+			}
+		}
 	}
 
 	{
@@ -482,22 +523,23 @@ void SettingDlg::on_pushButton_12_clicked()
 		// shiftキーが押されている
 		auto passphraseAry = passphrase_get_array();
 
-		std::string text;
+		std::wstring text;
 		int n = 0;
 		for(auto &pp : passphraseAry) {
 			n++;
-			text += std::to_string(n);
-			text += ":";
-			text += pp;
-			text += "\n";
+			text += std::to_wstring(n);
+			text += L":";
+			text += utf8_to_wc(pp);
+			text += L"\n";
 		}
-		text = "count " + std::to_string(n) + "\n" + text;
-		message_boxA(text.c_str(), "secret pp", MB_OK | MB_ICONERROR, 0);
+		text = L"count " + std::to_wstring(n) + L"\n" + text;
+		message_box(this, text.c_str(), L"secret pp", MB_OK | MB_ICONERROR, 0);
 	} else
 #endif
 	{
-		int r = message_boxA(
-			"forgot passphrases OK?", "ok?",
+		int r = message_box(
+			this, 
+			L"forgot passphrases OK?", L"ok?",
 			MB_OKCANCEL | MB_ICONERROR, 0);
 		if (r == IDOK) {
 			passphrase_forget();
@@ -538,24 +580,7 @@ void SettingDlg::showDetail(bool show)
 			invisiableTabsInfo_t info;
 			info.tab = ui->tabWidget->widget(i);
 			info.label = ui->tabWidget->tabText(i);
-			bool save = false;
-#if defined(_DEBUG)
-			save = true;
-#endif
-			if (!save) {
-				save = true;
-				if (info.label == "debug") {
-#if defined(DEVELOP_VERSION)
-					if ((GetAsyncKeyState(VK_LSHIFT) & 0x8000) == 0)
-#endif
-					{
-						save = false;
-					}
-				}
-			}
-			if (save) {
-				invisibleTabs_.push_back(info);
-			}
+			invisibleTabs_.push_back(info);
 			ui->tabWidget->removeTab(i);
 		}
 		ui->pushButton_5->hide();
@@ -596,7 +621,7 @@ void SettingDlg::on_checkBox_13_clicked()
 				L"スタートアップに他のexeのパスが設定されています\n"
 				"設定しますか?\n";
 			text += L"現在の登録されているexe: " + startupPath;
-			int r = message_boxW(text.c_str(), L"" "Pageant+", MB_YESNO, 0);
+			int r = message_box(this, text.c_str(), L"" "Pageant+", MB_YESNO, 0);
 			if (r == IDNO) {
 				ui->checkBox_13->setChecked(false);
 			}
@@ -613,7 +638,7 @@ void SettingDlg::on_checkBox_3_clicked()
 			L"rdp clientが使用します\n"
 			"offにするとrdp clientもoffになります\n"
 			"よろしいですか?\n";
-		int r = message_boxW(text.c_str(), L"" "Pageant+", MB_YESNO, 0);
+		int r = message_box(this, text.c_str(), L"" "Pageant+", MB_YESNO, 0);
 		if (r == IDYES) {
 			ui->checkBoxSshRDPRelayClient->setChecked(false);
 		} else {
@@ -632,7 +657,7 @@ void SettingDlg::on_checkBoxSshRDPRelayClient_clicked()
 			text =
 				L"RDPクライアントdllがありません\n"
 				"dll: " + dll_file;
-			message_boxW(text.c_str(), L"" "Pageant+", MB_OK, 0);
+			message_box(this, text.c_str(), L"" "Pageant+", MB_OK, 0);
 			ui->checkBoxSshRDPRelayClient->setChecked(false);
 		} else {
 			if (!rdpSshRelayCheckClientRegistry(dll_registory)) {
@@ -641,7 +666,7 @@ void SettingDlg::on_checkBoxSshRDPRelayClient_clicked()
 					"設定を上書きますか?\n";
 				text += L" 現在の登録されているdll: " + dll_registory + L"\n";
 				text += L" 設定するdll: " + dll_file;
-				int r = message_boxW(text.c_str(), L"" "Pageant+", MB_YESNO, 0);
+				int r = message_box(this, text.c_str(), L"" "Pageant+", MB_YESNO, 0);
 				if (r == IDNO) {
 					ui->checkBoxSshRDPRelayClient->setChecked(false);
 				}
@@ -650,7 +675,7 @@ void SettingDlg::on_checkBoxSshRDPRelayClient_clicked()
 				text =
 					L"Pagent compatible agentを使用します\n"
 					"よろしいですか?\n";
-				int r = message_boxW(text.c_str(), L"" "Pageant+", MB_YESNO, 0);
+				int r = message_box(this, text.c_str(), L"" "Pageant+", MB_YESNO, 0);
 				if (r == IDYES) {
 					ui->checkBox_3->setChecked(true);
 				} else {
@@ -663,11 +688,22 @@ void SettingDlg::on_checkBoxSshRDPRelayClient_clicked()
 
 void SettingDlg::on_checkBoxSshRDPRelayServer_clicked()
 {
+	wchar_t uac_msg[] = 
+		L"このレジストリの設定には管理者権限が必要となります。\n"
+		"昇格確認ダイアログが表示されます。";
 	if (ui->checkBoxSshRDPRelayServer->isChecked() == true) {
 		if (!rdpSshRelayCheckServer()) {
 			std::wstring text =
-				L"RDPサーバーになれないっす";
-			message_boxW(text.c_str(), L"" "Pageant+", MB_OK, 0);
+				L"設定ウィンドウを[ok]を押して閉じる時にレジストリが設定されます。\n\n";
+			text += uac_msg;
+			message_box(this, text.c_str(), L"" "Pageant+", MB_OK, 0);
+		}
+	} else {
+		if (rdpSshRelayCheckServer()) {
+			std::wstring text =
+				L"設定ウィンドウを[ok]を押して閉じる時にレジストリが削除されます。\n\n";
+			text += uac_msg;
+			message_box(this, text.c_str(), L"" "Pageant+", MB_OK, 0);
 			ui->checkBoxSshRDPRelayServer->setChecked(false);
 		}
 	}

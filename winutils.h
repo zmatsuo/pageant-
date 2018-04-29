@@ -12,6 +12,8 @@ extern "C" {
 //filereq *filereq_new(void);
 //void filereq_free(filereq *state);
 void split_into_argv(char *, int *, char ***, char ***);
+
+__declspec(noreturn)
 void modalfatalbox(const char *fmt, ...);
 
 #include "gui_stuff.h"

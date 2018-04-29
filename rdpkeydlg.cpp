@@ -1,12 +1,14 @@
-﻿#include <sstream>
+﻿// https://stackoverflow.com/questions/14356121/how-to-call-function-after-window-is-shown
+
+#include <sstream>
 #include <assert.h>
 
 #include <QStandardItemModel>
+#include <Qtimer>
 
 #include "rdpkeydlg.h"
 #include "ui_rdpkeydlg.h"
 
-#define ENABLE_DEBUG_PRINT
 #include "rdp_ssh_relay.h"
 #include "pageant.h"
 #include "ckey.h"
@@ -14,65 +16,21 @@
 #include "gui_stuff.h"
 #include "setting.h"
 #include "keystore.h"
+//#define ENABLE_DEBUG_PRINT
+#include "debug.h"
+#include "winutils_qt.h"
 
-
-//////////////////////////////////////////////////////////////////////////////
-static void rdp_agent_query_synchronous_fn(void *in, size_t inlen, void **out, size_t *outlen)
-{
-    std::vector<uint8_t> send((uint8_t *)in, ((uint8_t *)in) + inlen);
-	std::vector<uint8_t> receive;
-	bool r = rdpSshRelaySendReceive(send, receive);
-	if (r == false || receive.size() == 0) {
-#define SSH_AGENT_FAILURE                    5		// TODO ヘッダへ
-		uint8_t *p = (uint8_t *)malloc(5);
-		p[0] = 0x00;
-		p[1] = 0x00;
-		p[2] = 0x00;
-		p[3] = 0x01;
-		p[4] = SSH_AGENT_FAILURE;
-		*out = p;
-		*outlen = 5;
-		return;
-	}
-	*outlen = receive.size();
-	void *p = malloc(receive.size());
-	memcpy(p, &receive[0], receive.size());
-	*out = p;
-	return;
-}
 
 // 鍵取得
-bool rdp_agent_proxy_main_get_key(
+static bool rdp_agent_proxy_main_get_key(
 	const char *rdp_client,
 	std::vector<ckey> &keys)
 {
-	keys.clear();
-
-	// rdp問い合わせする
-	pagent_set_destination(rdp_agent_query_synchronous_fn);
-	int length;
-	void *p = pageant_get_keylist2(&length);
-	pagent_set_destination(nullptr);
-	if (p == nullptr) {
-		// 応答なし
-		dbgprintf("rdp 応答なし\n");
+	int err = pageant_get_keylist(rdpSshRelaySendReceive, keys);
+	if (err != 0) {
 		return false;
 	}
-	std::vector<uint8_t> from_bt((uint8_t *)p, ((uint8_t *)p) + length);
-	sfree(p);
-	p = &from_bt[0];
-
-
-	debug_memdump(p, length, 1);
-
-	// 鍵を抽出
-	const char *fail_reason = nullptr;
-	bool r = parse_public_keys(p, length, keys, &fail_reason);
-	if (r == false) {
-		dbgprintf("err %s\n", fail_reason);
-		return false;
-	}
-
+	
 	// ファイル名をセット TODO:ここでやる?
 	for(ckey &key : keys) {
 		std::ostringstream oss;
@@ -80,20 +38,14 @@ bool rdp_agent_proxy_main_get_key(
 		key.set_fname(oss.str().c_str());
 	}
 
-	for(const ckey &key : keys) {
-		dbgprintf("key\n");
-		dbgprintf(" '%s'\n", key.fingerprint().c_str());
-		dbgprintf(" md5 %s\n", key.fingerprint_md5().c_str());
-		dbgprintf(" sha256 %s\n", key.fingerprint_sha256().c_str());
-		dbgprintf(" alg %s %d\n", key.alg_name().c_str(), key.bits());
-		dbgprintf(" comment %s\n", key.key_comment().c_str());
-		dbgprintf(" comment2 %s\n", key.key_comment2().c_str());
-	}
+	ckey::dump_keys(keys);
 
 	return true;
 }
 
 //////////////////////////////////////////////////////////////////////////////
+
+RdpKeyDlg *RdpKeyDlg::instance = nullptr;
 
 RdpKeyDlg::RdpKeyDlg(QWidget *parent) :
     QDialog(parent),
@@ -105,6 +57,16 @@ RdpKeyDlg::RdpKeyDlg(QWidget *parent) :
 RdpKeyDlg::~RdpKeyDlg()
 {
     delete ui;
+	instance = nullptr;
+}
+
+RdpKeyDlg *RdpKeyDlg::createInstance(QWidget *parent)
+{
+	if (instance != nullptr) {
+		return instance;
+	}
+	instance = new RdpKeyDlg(parent);
+	return instance;
 }
 
 static std::vector<ckey> keys_;
@@ -124,34 +86,39 @@ void RdpKeyDlg::on_pushButton_2_clicked()
 {
 	const QItemSelectionModel *selection = ui->treeView->selectionModel();
 	if (selection == nullptr) {
-		message_box(L"キー一覧を取得してください", L"pageant+", MB_OK);
+		message_box(this, L"キー一覧を取得してください", L"pageant+", MB_OK);
 		return;
 	}
 	const QModelIndexList &indexes = selection->selectedRows();
 	switch (indexes.count()) {
 	case 0:
-		message_box(L"キーが選択されていません", L"pageant+", MB_OK);
+		message_box(this, L"キーが選択されていません", L"pageant+", MB_OK);
 		return;
 	case 1:
         break;
 	default:
-		message_box(L"キーを1つだけ選択してください", L"pageant+", MB_OK);
+		message_box(this, L"キーを1つだけ選択してください", L"pageant+", MB_OK);
 		return;
 	}
 
     const QModelIndex index = selection->currentIndex();
-	const auto &key = keys_[index.row()];
+	auto key = keys_[index.row()];
+	std::wstring key_fingerprint = 
+		utf8_to_wc(key.fingerprint_sha256()) + L"\n" +
+		utf8_to_wc(key.key_comment());
 
-	ssh2_userkey *key_st;
-	key.get_raw_key(&key_st);
-	if (!pageant_add_ssh2_key(key_st)) {
-		std::wostringstream oss;
-		oss << L"追加失敗\n"
-			<< utf8_to_wc(key.fingerprint_sha256()) << "\n"
-			<< utf8_to_wc(key.key_comment());
-		message_box(oss.str().c_str(), L"pageant+", MB_OK);
+	if (!keystore_add(key)) {
+		std::wstring msg = 
+			L"追加失敗\n" +
+			key_fingerprint;
+		message_box(this, msg.c_str(), L"pageant+", MB_OK);
 		return;
 	}
+
+	std::wstring msg = 
+		L"追加しました\n" +
+		key_fingerprint;
+	message_box(this, msg.c_str(), L"pageant+", MB_OK);
 }
 
 #define FINGERPRINT_SHA256_COLUMN 3
@@ -188,6 +155,12 @@ void RdpKeyDlg::showKeys()
 	}
 	ui->treeView->setHeaderHidden(false);
 	ui->treeView->setModel(model);
+}
+
+void RdpKeyDlg::showEvent(QShowEvent* event)
+{
+	QWidget::showEvent( event );
+	QTimer::singleShot(100, this, SLOT(on_pushButton_clicked()));
 }
 
 // Local Variables:

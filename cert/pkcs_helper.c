@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <malloc.h>
 
+#include "../puttymem.h"
+
 #include "pkcs_helper.h"
 
 #define strdup(p)		_strdup(p)

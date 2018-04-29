@@ -27,125 +27,6 @@
 #include "codeconvert.h"
 
 
-/*
- * Parse a string block size specification. This is approximately a
- * subset of the block size specs supported by GNU fileutils:
- *  "nk" = n kilobytes
- *  "nM" = n megabytes
- *  "nG" = n gigabytes
- * All numbers are decimal, and suffixes refer to powers of two.
- * Case-insensitive.
- */
-unsigned long parse_blocksize(const char *bs)
-{
-    char *suf;
-    unsigned long r = strtoul(bs, &suf, 10);
-    if (*suf != '\0') {
-	while (*suf && isspace((unsigned char)*suf)) suf++;
-	switch (*suf) {
-	  case 'k': case 'K':
-	    r *= 1024ul;
-	    break;
-	  case 'm': case 'M':
-	    r *= 1024ul * 1024ul;
-	    break;
-	  case 'g': case 'G':
-	    r *= 1024ul * 1024ul * 1024ul;
-	    break;
-	  case '\0':
-	  default:
-	    break;
-	}
-    }
-    return r;
-}
-
-/*
- * Parse a ^C style character specification.
- * Returns NULL in `next' if we didn't recognise it as a control character,
- * in which case `c' should be ignored.
- * The precise current parsing is an oddity inherited from the terminal
- * answerback-string parsing code. All sequences start with ^; all except
- * ^<123> are two characters. The ones that are worth keeping are probably:
- *   ^?		    127
- *   ^@A-Z[\]^_	    0-31
- *   a-z	    1-26
- *   <num>	    specified by number (decimal, 0octal, 0xHEX)
- *   ~		    ^ escape
- */
-char ctrlparse(char *s, char **next)
-{
-    char c = 0;
-    if (*s != '^') {
-	*next = NULL;
-    } else {
-	s++;
-	if (*s == '\0') {
-	    *next = NULL;
-	} else if (*s == '<') {
-	    s++;
-	    c = (char)strtol(s, next, 0);
-	    if ((*next == s) || (**next != '>')) {
-		c = 0;
-		*next = NULL;
-	    } else
-		(*next)++;
-	} else if (*s >= 'a' && *s <= 'z') {
-	    c = (*s - ('a' - 1));
-	    *next = s+1;
-	} else if ((*s >= '@' && *s <= '_') || *s == '?' || (*s & 0x80)) {
-	    c = ('@' ^ *s);
-	    *next = s+1;
-	} else if (*s == '~') {
-	    c = '^';
-	    *next = s+1;
-	}
-    }
-    return c;
-}
-
-#if 0
-prompts_t *new_prompts(void *frontend)
-{
-    prompts_t *p = snew(prompts_t);
-    p->prompts = NULL;
-    p->n_prompts = 0;
-    p->frontend = frontend;
-    p->data = NULL;
-    p->to_server = TRUE; /* to be on the safe side */
-    p->name = p->instruction = NULL;
-    p->name_reqd = p->instr_reqd = FALSE;
-    return p;
-}
-void add_prompt(prompts_t *p, char *promptstr, int echo, size_t len)
-{
-    prompt_t *pr = snew(prompt_t);
-    char *result = snewn(len, char);
-    pr->prompt = promptstr;
-    pr->echo = echo;
-    pr->result = result;
-    pr->result_len = len;
-    p->n_prompts++;
-    p->prompts = sresize(p->prompts, p->n_prompts, prompt_t *);
-    p->prompts[p->n_prompts-1] = pr;
-}
-void free_prompts(prompts_t *p)
-{
-    size_t i;
-    for (i=0; i < p->n_prompts; i++) {
-	prompt_t *pr = p->prompts[i];
-	memset(pr->result, 0, pr->result_len); /* burn the evidence */
-	sfree(pr->result);
-	sfree(pr->prompt);
-	sfree(pr);
-    }
-    sfree(p->prompts);
-    sfree(p->name);
-    sfree(p->instruction);
-    sfree(p);
-}
-#endif
-
 /* ----------------------------------------------------------------------
  * String handling routines.
  */
@@ -514,48 +395,6 @@ char const *cfg_dest(const Config *cfg)
 	return cfg->host;
 }
 #endif
-//#ifndef PLATFORM_HAS_SMEMCLR
-#if 1
-/*
- * Securely wipe memory.
- *
- * The actual wiping is no different from what memset would do: the
- * point of 'securely' is to try to be sure over-clever compilers
- * won't optimise away memsets on variables that are about to be freed
- * or go out of scope. See
- * https://buildsecurityin.us-cert.gov/bsi-rules/home/g1/771-BSI.html
- *
- * Some platforms (e.g. Windows) may provide their own version of this
- * function.
- */
-//void smemclr(void *b, size_t n)
-void safememclr(void *b, size_t n)
-{
-    volatile char *vp;
-
-    if (b && n > 0) {
-        /*
-         * Zero out the memory.
-         */
-        memset(b, 0, n);
-
-        /*
-         * Perform a volatile access to the object, forcing the
-         * compiler to admit that the previous memset was important.
-         *
-         * This while loop should in practice run for zero iterations
-         * (since we know we just zeroed the object out), but in
-         * theory (as far as the compiler knows) it might range over
-         * the whole object. (If we had just written, say, '*vp =
-         * *vp;', a compiler could in principle have 'helpfully'
-         * optimised the memset into only zeroing out the first byte.
-         * This should be robust.)
-         */
-        vp = b;
-        while (*vp) vp++;
-    }
-}
-#endif
 
 /*
  * Validate a manual host key specification (either entered in the
@@ -815,9 +654,8 @@ Filename *filename_from_wstr(const wchar_t *str)
 
 Filename *filename_from_str(const char *str)
 {
-    wchar_t *wstr = dup_mb_to_wc(str);
-    Filename *ret = filename_from_wstr(wstr);
-    free(wstr);
+    std::wstring wstr = acp_to_wc(str);
+    Filename *ret = filename_from_wstr(wstr.c_str());
     return ret;
 }
 

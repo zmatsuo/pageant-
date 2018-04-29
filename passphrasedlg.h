@@ -14,13 +14,13 @@
 #include "ui_passphrasedlg.h"
 #pragma warning(pop)
 
-class passphrase : public QDialog
+class PassphraseDlg : public QDialog
 {
 //	Q_OBJECT
 
 public:
-    passphrase(QWidget *parent = Q_NULLPTR, PassphraseDlgInfo *ptr = NULL);
-    ~passphrase();
+    PassphraseDlg(QWidget *parent = Q_NULLPTR, PassphraseDlgInfo *ptr = NULL);
+    ~PassphraseDlg();
 
 private:
     Ui::Dialog ui;

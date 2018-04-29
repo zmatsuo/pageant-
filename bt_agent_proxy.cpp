@@ -23,7 +23,7 @@
 #endif
 
 #include "bt_agent_proxy.h"
-#define ENABLE_DEBUG_PRINT
+//#define ENABLE_DEBUG_PRINT
 #include "debug.h"
 #include "winmisc.h"
 

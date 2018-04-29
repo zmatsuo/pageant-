@@ -181,16 +181,19 @@
     <ClCompile Include="GeneratedFiles\Release\moc_rdpkeydlg.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="keyfile.cpp" />
     <ClCompile Include="keystore.cpp" />
     <ClCompile Include="keyviewdlg.cpp" />
-    <ClCompile Include="libunixdomain\sock_server.c" />
-    <ClCompile Include="libunixdomain\ud_socket.c" />
+    <ClCompile Include="sock_server.c" />
+    <ClCompile Include="sshbn_cpp.cpp" />
+    <ClCompile Include="ud_socket.c" />
     <ClCompile Include="aboutdlg.cpp" />
     <ClCompile Include="aqsync.c" />
     <ClCompile Include="cert\cert_capi.c" />
     <ClCompile Include="cert\cert_common.c" />
     <ClCompile Include="cert\cert_pkcs.c" />
     <ClCompile Include="confirmacceptdlg.cpp" />
+    <ClCompile Include="malloc_minefield.c" />
     <ClCompile Include="obfuscate.cpp" />
     <ClCompile Include="GeneratedFiles\Debug\moc_confirmacceptdlg.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
@@ -218,10 +221,9 @@
     </ClCompile>
     <ClCompile Include="main.cpp" />
     <ClCompile Include="mainwindow.cpp" />
-    <ClCompile Include="misc.c" />
+    <ClCompile Include="misc.cpp" />
     <ClCompile Include="misc_cpp.cpp" />
     <ClCompile Include="pageant.cpp" />
-    <ClCompile Include="pageant_cpp.cpp" />
     <ClCompile Include="passphrasedlg.cpp" />
     <ClCompile Include="passphrases.cpp" />
     <ClCompile Include="rdpkeydlg.cpp" />
@@ -242,7 +244,7 @@
     <ClCompile Include="sshsh512.c" />
     <ClCompile Include="sshsha.c" />
     <ClCompile Include="tree234.c" />
-    <ClCompile Include="version.c" />
+    <ClCompile Include="version.cpp" />
     <ClCompile Include="winhelp.cpp" />
     <ClCompile Include="winmisc.cpp" />
     <ClCompile Include="winpgnt.cpp" />
@@ -367,7 +369,7 @@
     <ClInclude Include="GeneratedFiles\ui_rdpkeydlg.h" />
     <ClInclude Include="gui_stuff.h" />
     <ClInclude Include="inc\SysInfo.h" />
-    <ClInclude Include="keystore2.h" />
+    <ClInclude Include="keyfile.h" />
     <ClInclude Include="keystore.h" />
     <ClInclude Include="passphrases.h" />
     <CustomBuild Include="rdpkeydlg.h">
@@ -382,7 +384,11 @@
     </CustomBuild>
     <ClInclude Include="rdp_ssh_relay.h" />
     <ClInclude Include="rdp_ssh_relay_def.h" />
+    <ClInclude Include="resource.h" />
+    <ClInclude Include="sshbn_cpp.h" />
+    <ClInclude Include="sshbn_export.h" />
     <ClInclude Include="sstring.h" />
+    <ClInclude Include="tree234.h" />
     <ClInclude Include="winutils_qt.h" />
     <CustomBuild Include="keyviewdlg.h">
       <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(QTDIR)\bin\moc.exe;%(FullPath)</AdditionalInputs>
@@ -395,8 +401,8 @@
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">"$(QTDIR)\bin\moc.exe"  "%(FullPath)" -o ".\GeneratedFiles\$(ConfigurationName)\moc_%(Filename).cpp"  -D_WINDOWS -DUNICODE -DWIN32 -DWIN64 -DQT_DEPRECATED_WARNINGS -DQT_NO_DEBUG -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB -DNDEBUG -DPUTTY_CAC "-I." "-I$(QTDIR)\include" "-I$(QTDIR)\include\QtWidgets" "-I$(QTDIR)\include\QtGui" "-I$(QTDIR)\include\QtANGLE" "-I$(QTDIR)\include\QtCore" "-I.\release" "-I$(QTDIR)\mkspecs\win32-msvc" "-I.\GeneratedFiles" "-I.\cert"</Command>
     </CustomBuild>
     <ClInclude Include="GeneratedFiles\ui_keyviewdlg.h" />
-    <ClInclude Include="libunixdomain\sock_server.h" />
-    <ClInclude Include="libunixdomain\ud_socket.h" />
+    <ClInclude Include="sock_server.h" />
+    <ClInclude Include="ud_socket.h" />
     <ClInclude Include="cert\cert_capi.h" />
     <ClInclude Include="cert\cert_common.h" />
     <ClInclude Include="cert\cert_pkcs.h" />
@@ -509,6 +515,9 @@
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">.\GeneratedFiles\ui_%(Filename).h;%(Outputs)</Outputs>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">"$(QTDIR)\bin\uic.exe" -o ".\GeneratedFiles\ui_%(Filename).h" "%(FullPath)"</Command>
     </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="icon1.ico" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />

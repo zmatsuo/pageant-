@@ -10,6 +10,9 @@
 #pragma once
 
 #if defined(__cplusplus)
+
+#include <string>
+
 std::string wc_to_utf8(const std::wstring &wstr);
 std::wstring utf8_to_wc(const std::string &str);
 std::wstring acp_to_wc(const std::string &str);

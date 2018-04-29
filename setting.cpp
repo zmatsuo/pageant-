@@ -621,7 +621,7 @@ void setting_write_confirm_info(const char *keyname, const char *value)
 {
     std::string key = "ssh-agent_confirm/";
     key += keyname;
-    std::wstring v = mb_to_wc(std::string(value));
+    std::wstring v = utf8_to_wc(std::string(value));
     setting_set_str(key.c_str(), v.c_str());
 }
 
@@ -630,12 +630,10 @@ void setting_write_confirm_info(const char *keyname, const char *value)
  *  @param[out] value       "accept" or "refuce" or "\0"
  *  @param[in]  value_size  このサイズは'\0'も含む
  */
-void setting_get_confirm_info(const char *keyname, char *value_ptr, size_t value_size)
+void setting_get_confirm_info(const char *keyname, std::string &value)
 {
-    if (value_size <= 0)
-        return;
-    value_ptr[0] = '\0';
     if (keyname == NULL) {
+		value.clear();
         return;
     }
     std::string key = "ssh-agent_confirm/";
@@ -646,12 +644,10 @@ void setting_get_confirm_info(const char *keyname, char *value_ptr, size_t value
         ws = ini_putty_->setting_get_str(key.c_str(), nullptr);
     }
 
-    if (!ws.empty()) {
-        std::string s = wc_to_mb(ws);
-        const size_t len = (size_t)s.length() + 1;      // '\0'も含む長さ
-        if (len < value_size) {
-            memcpy(value_ptr, s.c_str(), len);
-        }
+    if (ws.empty()) {
+		value.clear();
+	} else {
+		value = wc_to_mb(ws);
     }
 }
 
@@ -849,6 +845,7 @@ static void list_initfile_paths(std::vector<std::wstring> &inifile_paths)
     std::wstring path;
     std::wstring s2;
 	DWORD attributes;
+
 	if (_getenv(L"HOME", path)) {
 		if (_GetFileAttributes(path.c_str(), attributes) &&
 			attributes & FILE_ATTRIBUTE_DIRECTORY )
@@ -857,6 +854,7 @@ static void list_initfile_paths(std::vector<std::wstring> &inifile_paths)
 			inifile_paths.push_back(path);
 		}
     }
+
 	if (_getenv(L"HOMEDRIVE", path) && _getenv(L"HOMEPATH", s2)) {
 		path += s2;
 		if (_GetFileAttributes(path.c_str(), attributes) &&
@@ -866,6 +864,7 @@ static void list_initfile_paths(std::vector<std::wstring> &inifile_paths)
 			inifile_paths.push_back(path);
 		}
 	}
+
 	if (_getenv(L"USERPROFILE", path)) {
 		if (_GetFileAttributes(path.c_str(), attributes) &&
 			attributes & FILE_ATTRIBUTE_DIRECTORY )
@@ -874,6 +873,7 @@ static void list_initfile_paths(std::vector<std::wstring> &inifile_paths)
 			inifile_paths.push_back(path);
 		}
 	}
+
 	if (_SHGetKnownFolderPath(FOLDERID_RoamingAppData, path)) {
 		path += L"\\pageant+";
 		if (_GetFileAttributes(path.c_str(), attributes) &&
@@ -883,6 +883,9 @@ static void list_initfile_paths(std::vector<std::wstring> &inifile_paths)
 			inifile_paths.push_back(path);
 		}
 	}
+
+	path = _GetCurrentDirectory() + L"\\";
+	inifile_paths.push_back(path);
 }
     
 

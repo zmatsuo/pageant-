@@ -165,6 +165,7 @@
     <ClInclude Include="misc.h" />
     <ClInclude Include="misc_cpp.h" />
     <ClInclude Include="pageant+.h" />
+    <ClInclude Include="puttymem.h" />
     <ClInclude Include="rdp_ssh_relay_def.h" />
     <ClInclude Include="setting.h" />
     <ClInclude Include="version.h" />
@@ -175,17 +176,14 @@
   <ItemGroup>
     <ClCompile Include="codeconvert.cpp" />
     <ClCompile Include="debug.cpp" />
-    <ClCompile Include="misc.c" />
+    <ClCompile Include="misc.cpp" />
     <ClCompile Include="misc_cpp.cpp" />
     <ClCompile Include="setting.cpp" />
-    <ClCompile Include="version.c" />
+    <ClCompile Include="version.cpp" />
     <ClCompile Include="winmisc.cpp" />
     <ClCompile Include="winutils.c" />
     <ClCompile Include="pageant_client.cpp" />
     <ClCompile Include="pageant+_rdp_client.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <ResourceCompile Include="pageant+_rdp_client.rc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

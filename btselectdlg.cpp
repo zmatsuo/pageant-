@@ -8,7 +8,7 @@
 #include <QStandardItemModel>
 #pragma warning(pop)
 
-#define ENABLE_DEBUG_PRINT
+//#define ENABLE_DEBUG_PRINT
 #include "bt_agent_proxy_main.h"
 #include "bt_agent_proxy.h"
 #include "gui_stuff.h"
@@ -18,6 +18,7 @@
 #include "setting.h"
 #include "ckey.h"
 #include "keystore.h"
+#include "winutils_qt.h"
 
 #pragma warning(push)
 #pragma warning(disable:4127)
@@ -28,6 +29,7 @@
 
 // TODO:メンバ変数にすると何故かエラーが出るのでとりあえずここに置く
 static std::vector<ckey> keys_;
+BtSelectDlg *BtSelectDlg::instance = nullptr;
 
 BtSelectDlg::BtSelectDlg(QWidget *parent) :
     QDialog(parent),
@@ -60,6 +62,16 @@ BtSelectDlg::~BtSelectDlg()
 		bta_unregist_deviceinfo_listener(hBta, this);
     }
     delete ui;
+	instance = nullptr;
+}
+
+BtSelectDlg *BtSelectDlg::createInstance(QWidget *parent)
+{
+	if (instance != nullptr) {
+		return instance;
+	}
+	instance = new BtSelectDlg(parent);
+	return instance;
 }
 
 void BtSelectDlg::showDeviceList()
@@ -202,13 +214,13 @@ void BtSelectDlg::on_pushButton_clicked()
 {
 	const QItemSelectionModel *selection = ui->treeView->selectionModel();
 	if (selection == nullptr) {
-		message_box(L"デバイスが見つかりません", L"pageant+", MB_OK);
+		message_box(this, L"デバイスが見つかりません", L"pageant+", MB_OK);
 		return;
 	}
 	const QModelIndexList &indexes = selection->selectedRows();
 	switch (indexes.count()) {
 	case 0:
-		message_box(L"デバイスが選択されていません", L"pageant+", MB_OK);
+		message_box(this, L"デバイスが選択されていません", L"pageant+", MB_OK);
 		break;
 	case 1:
 	{
@@ -236,7 +248,7 @@ void BtSelectDlg::on_pushButton_clicked()
 		break;
 	}
 	default:
-		message_box(L"1つだけ選択してください", L"pageant+", MB_OK);
+		message_box(this, L"1つだけ選択してください", L"pageant+", MB_OK);
 		break;
 	}
 }
@@ -249,13 +261,13 @@ void BtSelectDlg::on_pushButton_4_clicked()
 
 	const QItemSelectionModel *selection = ui->treeView->selectionModel();
 	if (selection == nullptr) {
-		message_box(L"デバイスが見つかりません\nまず検索", L"pageant+", MB_OK);
+		message_box(this, L"デバイスが見つかりません\nまず検索", L"pageant+", MB_OK);
 		return;
 	}
 	const QModelIndexList &indexes = selection->selectedRows();
 	switch (indexes.count()) {
 	case 0:
-		message_box(L"デバイスが選択されていません", L"pageant+", MB_OK);
+		message_box(this, L"デバイスが選択されていません", L"pageant+", MB_OK);
 		return;
 	case 1:
 	{
@@ -278,7 +290,7 @@ void BtSelectDlg::on_pushButton_4_clicked()
 		break;
 	}
 	default:
-		message_box(L"1つだけ選択してください", L"pageant+", MB_OK);
+		message_box(this, L"1つだけ選択してください", L"pageant+", MB_OK);
 		break;
 	}
 }
@@ -288,32 +300,31 @@ void BtSelectDlg::on_pushButton_5_clicked()
 {
 	const QItemSelectionModel *selection = ui->treeView_2->selectionModel();
 	if (selection == nullptr) {
-		message_box(L"キー一覧を取得してください", L"pageant+", MB_OK);
+		message_box(this, L"キー一覧を取得してください", L"pageant+", MB_OK);
 		return;
 	}
 	const QModelIndexList &indexes = selection->selectedRows();
 	switch (indexes.count()) {
 	case 0:
-		message_box(L"キーが選択されていません", L"pageant+", MB_OK);
+		message_box(this, L"キーが選択されていません", L"pageant+", MB_OK);
 		return;
 	case 1:
         break;
 	default:
-		message_box(L"キーを1つだけ選択してください", L"pageant+", MB_OK);
+		message_box(this, L"キーを1つだけ選択してください", L"pageant+", MB_OK);
 		return;
 	}
 
     const QModelIndex index = selection->currentIndex();
-	const auto &key = keys_[index.row()];
+	auto key = keys_[index.row()];
 
-	ssh2_userkey *key_st;
-	key.get_raw_key(&key_st);
-	if (!pageant_add_ssh2_key(key_st)) {
+	if (!keystore_add(key)) {
+//		key = keys_[index.row()];
 		std::wostringstream oss;
 		oss << L"追加失敗\n"
 			<< utf8_to_wc(key.fingerprint_sha256()) << "\n"
 			<< utf8_to_wc(key.key_comment());
-		message_box(oss.str().c_str(), L"pageant+", MB_OK);
+		message_box(this, oss.str().c_str(), L"pageant+", MB_OK);
 		return;
 	}
 
@@ -321,7 +332,7 @@ void BtSelectDlg::on_pushButton_5_clicked()
 		std::wostringstream oss;
 		oss << L"次回起動時に読み込みますか?\n"
 			<< utf8_to_wc(key.key_comment().c_str());
-		int r2 = message_boxW(oss.str().c_str(), L"pageant+", MB_YESNO, 0);
+		int r2 = message_box(this, oss.str().c_str(), L"pageant+", MB_YESNO, 0);
 		if (r2 == IDYES) {
 			std::wstring fn = utf8_to_wc(key.key_comment());
 			setting_add_keyfile(fn.c_str());

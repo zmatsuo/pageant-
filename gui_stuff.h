@@ -30,7 +30,7 @@ struct PassphraseDlgInfo {
 	int saveAvailable;
 };
 
-DIALOG_RESULT_T passphraseDlg(struct PassphraseDlgInfo *info);
+DIALOG_RESULT_T ShowPassphraseDlg(struct PassphraseDlgInfo *info);
 
 int message_boxA(const char *text, const char *caption, DWORD style, DWORD helpctxid);
 int message_boxW(const wchar_t *text, const wchar_t *caption, DWORD style, DWORD helpctxid);
@@ -53,14 +53,18 @@ void addCAPICert();
 void addPKCSCert();
 void addBtCert();
 
+void showTrayMessage(
+	const wchar_t *title,
+	const wchar_t *message);
+
 #ifdef __cplusplus
 }
 #endif
 
 #if defined(__cplusplus)
 extern "C++" {
-int message_box(const char *text, const char *caption, DWORD style, DWORD helpctxid = 0);
-int message_box(const wchar_t *text, const wchar_t *caption, DWORD style, DWORD helpctxid = 0);
+int message_box(HWND hWndOwner, const char *text, const char *caption, DWORD style, DWORD helpctxid = 0);
+int message_box(HWND hWndOwner, const wchar_t *text, const wchar_t *caption, DWORD style, DWORD helpctxid = 0);
 }
 #endif
 

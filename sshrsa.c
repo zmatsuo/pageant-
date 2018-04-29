@@ -9,6 +9,7 @@
 
 #include "ssh.h"
 #include "misc.h"
+#include "puttymem.h"
 
 int makekey(const unsigned char *data, int len, struct RSAKey *result,
 	    const unsigned char **keystr, int order)
@@ -367,7 +368,7 @@ void rsastr_fmt(char *str, struct RSAKey *key)
  * Generate a fingerprint string for the key. Compatible with the
  * OpenSSH fingerprint code.
  */
-#if 0
+#if 1
 void rsa_fingerprint(char *str, int len, struct RSAKey *key)
 {
     struct MD5Context md5c;
@@ -403,6 +404,7 @@ void rsa_fingerprint(char *str, int len, struct RSAKey *key)
 }
 #endif
 
+#if 0
 //void rsa_fingerprint_sha256(char *str, int len, struct RSAKey *key)
 void rsa_fingerprint(char *str, int len, const struct RSAKey *key)
 {
@@ -441,6 +443,7 @@ void rsa_fingerprint(char *str, int len, const struct RSAKey *key)
     }
 #endif
 }
+#endif
 
 /*
  * Verify that the public data in an RSA key matches the private
@@ -614,7 +617,7 @@ static void *rsa2_newkey(const struct ssh_signkey *self,
     struct RSAKey *rsa;
 
     rsa = snew(struct RSAKey);
-	memset(rsa, 0, sizeof(struct RSAKey));
+    memset(rsa, 0, sizeof(struct RSAKey));
     getstring(&data, &len, &p, &slen);
 
     if (!p || slen != 7 || memcmp(p, "ssh-rsa", 7)) {

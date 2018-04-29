@@ -7,14 +7,15 @@
    http://opensource.org/licenses/mit-license.php
 */
 
+#include "codeconvert.h"
+
 #include <string.h>
 #include <crtdbg.h>
 #include <string>
-#include "puttymem.h"
+
 #include "winmisc.h"
 #include "misc.h"
-
-#include "codeconvert.h"
+#include "puttymem.h"
 
 std::string wc_to_acp(const std::wstring &wstr)
 {
@@ -42,6 +43,11 @@ std::wstring mb_to_wc(const std::string &str)
 	std::wstring wstr;
 	_MultiByteToWideChar(str, wstr, true);
 	return wstr;
+}
+
+std::wstring mb_to_wc(const char *str)
+{
+	return mb_to_wc(std::string(str));
 }
 
 std::wstring acp_to_wc(const std::string &str)

@@ -1,8 +1,6 @@
 ﻿
 #pragma once
 
-#include <vector>
-
 #pragma warning(push)
 #pragma warning(disable:4127)
 #pragma warning(disable:4251)
@@ -10,6 +8,8 @@
 #include <QSystemTrayIcon>
 #include <QAbstractNativeEventFilter>
 #pragma warning(pop)
+
+#include <vector>
 
 #include "gui_stuff.h"
 
@@ -45,7 +45,7 @@ private slots:
     void on_actionhelp_triggered();
     void on_actionsetting_triggered();
 	void on_viewKeys();
-	
+
 private:
     void createTrayIcon();
     void trayIconMenu();
@@ -54,7 +54,7 @@ private:
 
     Ui::MainWindow *ui;
 
-    QSystemTrayIcon *trayIcon;
+    QSystemTrayIcon *tray_icon_;
     std::vector<QAction *> sessionActionAry;
 
 public:
@@ -63,6 +63,10 @@ public:
 
     int passphraseDlg(struct PassphraseDlgInfo *info);
     int confirmAcceptDlg(struct ConfirmAcceptDlgInfo *info);
+	void showTrayMessage(
+		const wchar_t *title,
+		const wchar_t *message);
+	void setToolTip(const wchar_t *str);
 };
 
 void agents_start();

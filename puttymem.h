@@ -17,7 +17,7 @@
 #include <crtdbg.h>
 
 #if defined(_DEBUG)
-#define malloc(size)	_malloc_dbg(size,_NORMAL_BLOCK,__FILE__,__LINE__) 
+#define malloc(size)	_malloc_dbg(size,_NORMAL_BLOCK,__FILE__,__LINE__)
 #if defined(__cplusplus)
 #define new ::new(_NORMAL_BLOCK, __FILE__, __LINE__)
 #endif
@@ -48,11 +48,11 @@ static inline void _sfree(void *ptr)		{free(ptr);}
 
 // use safe malloc family
 #if 0
-#define _smalloc(z)			safemalloc(z,1)		  
-#define _snmalloc(z,s)		safemalloc(z,s)	
-#define _srealloc(y,z)		saferealloc(y,z,1)	
-#define _snrealloc(y,z,s)	saferealloc(y,z,s)				
-#define _sfree(z)			safefree(z)					
+#define _smalloc(z)			safemalloc(z,1)
+#define _snmalloc(z,s)		safemalloc(z,s)
+#define _srealloc(y,z)		saferealloc(y,z,1)
+#define _snrealloc(y,z,s)	saferealloc(y,z,s)
+#define _sfree(z)			safefree(z)
 #define	_smemclr(y, z)		safememclr(y,z)
 #endif
 

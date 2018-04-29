@@ -63,19 +63,23 @@ void debug_output_str(const char *s)
 void debug_vprintf(const char *fmt, va_list ap)
 {
 #if defined(ENABLE)
-	char buf[256];
-    int len = vsnprintf(buf, sizeof(buf), fmt, ap);
+	static std::vector<char> buf(256);
 
-	if (len < 0) {
-		// フォーマット失敗?
-		debug_output_str("failure in vsnprintf()\n");
-		return;
-	}
-	if (len == sizeof(buf)) {
-		buf[sizeof(buf)-1] = '\0';
-	}
+	for(;;) {
+		int len = vsnprintf(&buf[0], buf.size(), fmt, ap);
 
-	debug_output_str(buf);
+		if (len < 0) {
+			// フォーマット失敗?
+			debug_output_str("failure in vsnprintf()\n");
+			return;
+		}
+
+		if (len <= buf.size()) {
+			debug_output_str(&buf[0]);
+			return;
+		}
+		buf.resize(len+1);		// +1 is '\0'
+	}
 #else
     (void)fmt;
     (void)ap;

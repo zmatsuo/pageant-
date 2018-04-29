@@ -1,13 +1,13 @@
-/*
+﻿/*
  * pageant.h: header for pageant.c.
  */
 
-#include <stdarg.h>
-#include "filename.h"		// for Filename
+#pragma once
 
-#ifdef __cplusplus
-extern "C" {
-#endif /* __cplusplus */
+#include "ckey.h"
+
+#include <string>
+#include <vector>
 
 /*
  * FIXME: it would be nice not to have this arbitrary limit. It's
@@ -25,122 +25,20 @@ typedef void (*pageant_logfn_t)(void *logctx, const char *fmt, va_list ap);
 void pageant_init(void);
 void pageant_exit(void);
 
-/*
- * The main agent function that answers messages.
- *
- * Expects a message/length pair as input, minus its initial length
- * field but still with its type code on the front.
- *
- * Returns a fully formatted message as output, *with* its initial
- * length field, and sets *outlen to the full size of that message.
- */
-#if 0
-void *pageant_handle_msg(const void *msg, int msglen, int *outlen,
-                         void *logctx, pageant_logfn_t logfn);
-#endif
-
-/*
- * Construct a failure response. Useful for agent front ends which
- * suffer a problem before they even get to pageant_handle_msg.
- */
-void *pageant_failure_msg(int *outlen);
-
-/*
- * This callback must be provided by the Pageant front end code.
- * pageant_handle_msg calls it to indicate that the message it's just
- * handled has changed the list of keys held by the agent. Front ends
- * which expose that key list through dedicated UI may need to refresh
- * that UI's state in this function; other front ends can leave it
- * empty.
- */
-void keylist_update(void);
-
-/*
- * Functions to establish a listening socket speaking the SSH agent
- * protocol. Call pageant_listener_new() to set up a state; then
- * create a socket using the returned pointer as a Plug; then call
- * pageant_listener_got_socket() to give the listening state its own
- * socket pointer. Also, provide a logging function later if you want
- * to.
- */
-#if 0
-struct pageant_listen_state;
-struct pageant_listen_state *pageant_listener_new(void);
-void pageant_listener_got_socket(struct pageant_listen_state *pl, Socket sock);
-void pageant_listener_set_logfn(struct pageant_listen_state *pl,
-                                void *logctx, pageant_logfn_t logfn);
-void pageant_listener_free(struct pageant_listen_state *pl);
-#endif
-
-/*
- * Functions to perform specific key actions, either as a client of an
- * ssh-agent running elsewhere, or directly on the agent state in this
- * process. (On at least one platform we want to do this in an
- * agnostic way between the two situations.)
- *
- * pageant_get_keylist{1,2} work just like pageant_make_keylist{1,2}
- * above, except that they can also cope if they have to contact an
- * external agent.
- *
- * pageant_add_keyfile() is used to load a private key from a file and
- * add it to the agent. Initially, you should call it with passphrase
- * NULL, and it will check if the key is already in the agent, and
- * whether a passphrase is required. Return values are given in the
- * enum below. On return, *retstr will either be NULL, or a
- * dynamically allocated string containing a key comment or an error
- * message.
- *
- * pageant_add_keyfile() also remembers passphrases with which it's
- * successfully decrypted keys (because if you try to add multiple
- * keys in one go, you might very well have used the same passphrase
- * for keys that have the same trust properties). Call
- * passphrase_forget() to get rid of them all.
- */
-void *pageant_get_keylist1(int *length);
-void *pageant_get_keylist2(int *length);
-enum {
-    PAGEANT_ACTION_OK,       /* success; no further action needed */
-    PAGEANT_ACTION_FAILURE,  /* failure; *retstr is error message */
-    PAGEANT_ACTION_NEED_PP   /* need passphrase: *retstr is key comment */
-};
-int pageant_add_keyfile(const Filename *filename, const char *passphrase,
-                        char **retstr);
-
 void *pageant_handle_msg_2(const void *msgv, int *replylen);
-
-void add_keyfile(const wchar_t *filename);
-
 void set_confirm_any_request(int _bool);
 int get_confirm_any_request(void);
+typedef bool (*agent_query_synchronous_fn)(
+	const std::vector<uint8_t> &request,
+	std::vector<uint8_t> &response);
+int pageant_get_keylist(
+	agent_query_synchronous_fn query_func,
+	std::vector<ckey> &keys);
 
-typedef void (*agent_query_synchronous_fn)(void *in, size_t inlen, void **out, size_t *outlen);
-void pagent_set_destination(agent_query_synchronous_fn fn);
+#include "keyfile.h"
 
-bool parse_one_key(
-    struct ssh2_userkey **_key,
-    const void *msg,
-    size_t msglen,
-    const char **fail_reason);
-bool parse_one_public_key(
-	struct ssh2_userkey **_key,
-	const void *msg,
-	size_t msglen,
-	const char **fail_reason);
-
-#ifdef __cplusplus
-}
-#endif /* __cplusplus */
-
-//
-// in pageant_cpp.cpp
-//
-#ifdef __cplusplus
-
-#include <string>
-#include <vector>
-void add_keyfile(const std::vector<std::wstring> &keyfileAry);
-void removeKey(const char *fingerprint);
-
-#endif
-
-#include "keystore2.h"
+// Local Variables:
+// mode: c++
+// coding: utf-8-with-signature
+// tab-width: 4
+// End:

@@ -46,7 +46,7 @@ x64/
 *.md~
 *.pro.user
 *.VC.db
-version.c
+version.cpp
 debug*.log
 *.*~
 *.zip

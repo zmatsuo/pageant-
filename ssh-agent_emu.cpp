@@ -25,9 +25,9 @@
 #include <thread>
 #include <vector>
 
-#define ENABLE_DEBUG_PRINT
+//#define ENABLE_DEBUG_PRINT
 #include "debug.h"
-#include "libunixdomain\sock_server.h"
+#include "sock_server.h"
 #include "ssh-agent_emu.h"
 #include "pageant.h"
 #include "puttymem.h"

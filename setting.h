@@ -1,8 +1,6 @@
 ﻿
 #pragma once
 
-#ifdef __cplusplus
-
 #include <string>
 #include <vector>
 
@@ -14,7 +12,6 @@ void setting_remove_all();
 
 // General purpose
 bool setting_get_bool(const char *key, bool _default = false);
-//bool setting_get_bool(const char *key, bool _default);
 void setting_set_bool(const char *key, bool _bool);
 void setting_get_strs(const char *key, std::vector<std::wstring> &strs);
 bool setting_set_strs(const char *key, const std::vector<std::wstring> &strs);
@@ -41,22 +38,10 @@ std::wstring get_putty_ini();
 std::vector<std::wstring> setting_get_putty_sessions();
 std::wstring setting_get_str_putty(const char *key, const wchar_t *_default);
 
-
-#endif	// __cplusplus
-
-#ifdef __cplusplus
-extern "C" {
-#endif /* __cplusplus */
 int setting_get_confirm_timeout();
 void setting_write_confirm_info(const char *keyname, const char *value);
-void setting_get_confirm_info(const char *keyname, char *value_ptr, size_t value_size);
-    
+void setting_get_confirm_info(const char *keyname, std::string &value);
 void setting_remove_confirm_info();
-
-#ifdef __cplusplus
-}
-#endif /* __cplusplus */
-
 
 // Local Variables:
 // mode: c++

@@ -10,7 +10,7 @@
 
 #include "rdp_ssh_relay_def.h"
 #include "pageant_client.h"
-#define ENABLE_DEBUG_PRINT
+//#define ENABLE_DEBUG_PRINT
 #include "debug.h"
 #pragma warning( disable : 4996 )
 #include "winmisc.h"

@@ -37,9 +37,7 @@ extern void sshfwd_unthrottle(struct ssh_channel *c, int bufsize);
 #define APIEXTRA 0
 #endif
 
-#ifndef BIGNUM_INTERNAL
-typedef void *Bignum;
-#endif
+#include "sshbn_export.h"
 
 struct RSAKey {
     int bits;
@@ -469,81 +467,6 @@ extern void pfd_unthrottle(Socket s);
 extern void pfd_override_throttle(Socket s, int enable);
 #endif
 
-/* Exports from x11fwd.c */
-#if 0
-extern const char *x11_init(Socket *, char *, void *, void *, const char *,
-			    int, const Config *);
-extern void x11_close(Socket);
-extern int x11_send(Socket, char *, int);
-extern void *x11_invent_auth(char *, int, char *, int, int);
-extern void x11_free_auth(void *);
-extern void x11_unthrottle(Socket s);
-extern void x11_override_throttle(Socket s, int enable);
-extern int x11_get_screen_number(char *display);
-void x11_get_real_auth(void *authv, char *display);
-char *x11_display(const char *display);
-#endif
-
-/* Platform-dependent X11 functions */
-#if 0
-extern void platform_get_x11_auth(char *display, int *proto,
-                                  unsigned char *data, int *datalen);
-extern const char platform_x11_best_transport[];
-/* best X11 hostname for this platform if none specified */
-SockAddr platform_get_x11_unix_address(int displaynum, char **canonicalname);
-/* make up a SockAddr naming the address for displaynum */
-char *platform_get_x_display(void);
-/* allocated local X display string, if any */
-#endif
-
-Bignum copybn(Bignum b);
-Bignum bn_power_2(int n);
-void bn_restore_invariant(Bignum b);
-Bignum bignum_from_long(unsigned long n);
-void freebn(Bignum b);
-Bignum modpow(Bignum base, Bignum exp, Bignum mod);
-Bignum modmul(Bignum a, Bignum b, Bignum mod);
-Bignum modsub(const Bignum a, const Bignum b, const Bignum n);
-void decbn(Bignum n);
-extern Bignum Zero, One;
-Bignum bignum_from_bytes(const unsigned char *data, int nbytes);
-Bignum bignum_from_bytes_le(const unsigned char *data, int nbytes);
-Bignum bignum_random_in_range(const Bignum lower, const Bignum upper);
-int ssh1_read_bignum(const unsigned char *data, int len, Bignum * result);
-int bignum_bitcount(Bignum bn);
-int ssh1_bignum_length(Bignum bn);
-int ssh2_bignum_length(Bignum bn);
-int bignum_byte(Bignum bn, int i);
-int bignum_bit(Bignum bn, int i);
-void bignum_set_bit(Bignum bn, int i, int value);
-int ssh1_write_bignum(void *data, Bignum bn);
-Bignum biggcd(Bignum a, Bignum b);
-unsigned short bignum_mod_short(Bignum number, unsigned short modulus);
-Bignum bignum_add_long(Bignum number, unsigned long addend);
-Bignum bigadd(Bignum a, Bignum b);
-Bignum bigsub(Bignum a, Bignum b);
-Bignum bigmul(Bignum a, Bignum b);
-Bignum bigmuladd(Bignum a, Bignum b, Bignum addend);
-Bignum bigdiv(Bignum a, Bignum b);
-Bignum bigmod(Bignum a, Bignum b);
-Bignum modinv(Bignum number, Bignum modulus);
-Bignum bignum_bitmask(Bignum number);
-Bignum bignum_rshift(Bignum number, int shift);
-Bignum bignum_lshift(Bignum number, int shift);
-int bignum_cmp(Bignum a, Bignum b);
-char *bignum_decimal(Bignum x);
-Bignum bignum_from_decimal(const char *decimal);
-
-#ifdef DEBUG
-void diagbn(char *prefix, Bignum md);
-#endif
-
-void *dh_setup_group(const struct ssh_kex *kex);
-void *dh_setup_gex(Bignum pval, Bignum gval);
-void dh_cleanup(void *);
-Bignum dh_create_e(void *, int nbits);
-Bignum dh_find_K(void *, Bignum f);
-
 int loadrsakey(const Filename *filename, struct RSAKey *key,
 	       const char *passphrase, const char **errorstr);
 int rsakey_encrypted(const Filename *filename, char **comment);
@@ -678,6 +601,7 @@ Bignum primegen(int bits, int modulus, int residue, Bignum factor,
 /*
  * SSH-1 agent messages.
  */
+#if 0
 #define SSH1_AGENTC_REQUEST_RSA_IDENTITIES    1
 #define SSH1_AGENT_RSA_IDENTITIES_ANSWER      2
 #define SSH1_AGENTC_RSA_CHALLENGE             3
@@ -685,6 +609,7 @@ Bignum primegen(int bits, int modulus, int residue, Bignum factor,
 #define SSH1_AGENTC_ADD_RSA_IDENTITY          7
 #define SSH1_AGENTC_REMOVE_RSA_IDENTITY       8
 #define SSH1_AGENTC_REMOVE_ALL_RSA_IDENTITIES 9	/* openssh private? */
+#endif
 
 /*
  * Messages common to SSH-1 and OpenSSH's SSH-2.
@@ -694,6 +619,7 @@ Bignum primegen(int bits, int modulus, int residue, Bignum factor,
 
 /*
  * OpenSSH's SSH-2 agent messages.
+ *	https://tools.ietf.org/html/draft-miller-ssh-agent-02#section-5.1
  */
 #define SSH2_AGENTC_REQUEST_IDENTITIES          11
 #define SSH2_AGENT_IDENTITIES_ANSWER            12
@@ -702,6 +628,10 @@ Bignum primegen(int bits, int modulus, int residue, Bignum factor,
 #define SSH2_AGENTC_ADD_IDENTITY                17
 #define SSH2_AGENTC_REMOVE_IDENTITY             18
 #define SSH2_AGENTC_REMOVE_ALL_IDENTITIES       19
+#define SSH2_AGENTC_ADD_ID_CONSTRAINED          25
+
+#define	SSH_AGENT_RSA_SHA2_256	2
+#define SSH_AGENT_RSA_SHA2_512	4
 
 /*
  * Need this to warn about support for the original SSH-2 keyfile

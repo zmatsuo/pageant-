@@ -1,4 +1,12 @@
-﻿#pragma once
+﻿/**
+   keyviewdlg.h
+
+   Copyright (c) 2018 zmatsuo
+
+   This software is released under the MIT License.
+   http://opensource.org/licenses/mit-license.php
+*/
+#pragma once
 
 #pragma warning(push)
 #pragma warning(disable:4127)
@@ -17,9 +25,11 @@ class keyviewdlg : public QDialog, KeystoreListener
 	Q_OBJECT
 
 public:
-	explicit keyviewdlg(QWidget *parent = 0);
+	static keyviewdlg *createInstance(QWidget *parent = 0);
 	~keyviewdlg();
-
+private:
+	explicit keyviewdlg(QWidget *parent = 0);
+		
 private slots:
 	void keylistUpdate();
     void on_buttonBox_accepted();
@@ -34,8 +44,19 @@ private slots:
 signals:
 	void keylistUpdateSignal();
 
+#if 0
+protected:
+	void showEvent(QShowEvent *event) {
+		QDialog::showEvent(event);
+	}
+	void hideEvent(QHideEvent *event) {
+		QDialog::hideEvent(event);
+	}
+#endif
+
 private:
 	Ui::keyviewdlg *ui;
+	static keyviewdlg *instance;
 	void change();
 };
 

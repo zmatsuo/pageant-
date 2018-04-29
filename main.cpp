@@ -1,6 +1,4 @@
 ﻿
-#include <io.h>		// for access()
-
 #pragma warning(push)
 #pragma warning(disable:4127)
 #pragma warning(disable:4251)
@@ -11,7 +9,7 @@
 #include "pageant+.h"
 #include "pageant.h"
 #include "mainwindow.h"
-#define ENABLE_DEBUG_PRINT
+//#define ENABLE_DEBUG_PRINT
 #include "debug.h"
 #include "winpgnt.h"
 #include "misc.h"
@@ -27,6 +25,7 @@ extern "C" {
 #include "winmisc.h"
 #include "passphrases.h"
 #include "rdp_ssh_relay.h"
+#include "keystore.h"
 
 #ifdef _DEBUG
 static void crt_set_debugflag(void)
@@ -72,6 +71,136 @@ static void debugOutputWin(const char *s)
 }
 #endif
 
+static bool CheckDoubleStartup()
+{
+	std::vector<PROCESSENTRY32W> process_list = _Process();
+	std::vector<HWND> hWnds = _EnumWindows();
+	const DWORD my_pid = GetCurrentProcessId();
+
+	// pageant.exeチェック
+	{
+		bool enable_terminate_pageant = false;
+		for(const auto &process :process_list) {
+			if (wcscmp(process.szExeFile, L"pageant.exe") != 0 ) {
+				continue;
+			}
+			const DWORD target_pid = process.th32ProcessID;
+		
+			for (const auto hWnd : hWnds) {
+				DWORD pid;
+				GetWindowThreadProcessId(hWnd, &pid);
+
+				if (pid != target_pid) {
+					continue;
+				}
+
+				wchar_t name[256];
+				GetClassNameW(hWnd, name, sizeof(name));
+
+				if (wcscmp(name, L"Pageant") == 0 ) {
+					if (!enable_terminate_pageant) {
+						int r = ::MessageBoxW(
+							NULL,
+							L"pageantが起動しています\n"
+							"終了するようメッセージを送信しますか?",
+							L"pageant+", MB_YESNO | MB_ICONERROR);
+						if (r == IDYES) {
+							enable_terminate_pageant = true;
+						}
+					}
+					if (enable_terminate_pageant) {
+						PostMessage(hWnd, WM_CLOSE, 0, 0);
+					}
+				}
+			}
+		}
+	}
+	
+	// 二重起動対策
+	{
+		bool found = false;
+		HWND target_hWnd = 0;
+		for(const auto &process :process_list) {
+			if (wcscmp(process.szExeFile, L"pageant+.exe") != 0 ) {
+				continue;
+			}
+			const DWORD target_pid = process.th32ProcessID;
+			if (target_pid == my_pid) {
+				continue;
+			}
+		
+			for (const auto hWnd : hWnds) {
+				DWORD pid;
+				GetWindowThreadProcessId(hWnd, &pid);
+
+				if (pid != target_pid) {
+					continue;
+				}
+
+				wchar_t name[256];
+				GetClassNameW(hWnd, name, sizeof(name));
+
+				if (wcscmp(name, L"QTrayIconMessageWindowClass") == 0 ) {
+					found = true;
+					target_hWnd = hWnd;
+					break;
+				}
+			}
+			if (found)
+				break;
+		}
+
+		if (!found) {
+			return false;
+		}
+
+		PostMessage(target_hWnd, WM_APP, 0, 0);
+		return true;
+	}
+}
+
+static void add_keyfile(const std::vector<std::wstring> &keyfileAry)
+{
+	std::vector<std::string> bt_files;
+	std::vector<std::string> sc_files;
+	std::vector<std::wstring> normal_files;
+
+	// BT,SmartCard,その他(普通のファイル)を分離
+	for(const auto &f: keyfileAry) {
+		std::string utf8_str = wc_to_utf8(f);
+		if (wcsncmp(L"btspp://", f.c_str(), 8) == 0)  {
+			bt_files.emplace_back(utf8_str);
+		} else if(cert_is_certpath(utf8_str.c_str())) {
+			sc_files.emplace_back(utf8_str);
+		} else {
+			normal_files.emplace_back(f);
+		}			
+	}
+
+	// 通常ファイルを読み込み
+	for(auto &f: normal_files) {
+		Filename *fn = filename_from_wstr(f.c_str());
+		add_keyfile(fn);
+		filename_free(fn);
+	}
+
+	// BTを読み込み
+	if (setting_get_bool("bt/enable", false)) {
+		bt_agent_proxy_main_add_key(bt_files);
+	}
+
+	for(auto &f: sc_files) {
+		struct ssh2_userkey *skey = cert_load_key(f.c_str());
+		if (skey == nullptr) {
+			//*retstr = const_cast<char *>("load key from certificate failed");
+		} else {
+			ckey key(skey);
+			key.dump();
+			keystore_add(key);
+		}
+	}
+}
+
 int main(int argc, char *argv[])
 {
 #if defined(DEVELOP_VERSION)
@@ -80,8 +209,12 @@ int main(int argc, char *argv[])
 #endif
 #ifdef _DEBUG
 	crt_set_debugflag();
-//	_CrtSetBreakAlloc(251204);
 #endif
+
+	if (CheckDoubleStartup()) {
+		return 0;
+	}
+
 	QApplication a(argc, argv);
 	a.setQuitOnLastWindowClosed(false);
 

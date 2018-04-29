@@ -1,6 +1,6 @@
 ﻿# このプログラムについて
 
-Windows用のssh agentです。
+Windows用のssh agentです。putty pageantをベースにしています。
 
 次のことを目指しています。
 - 秘密鍵を利用する様々なssh関連のプログラムから利用できる
@@ -16,6 +16,7 @@ Windows用のssh agentです。
 次のようなこともできます。
 - 秘密鍵をandroidデバイス上に保存しておくBT pageant+も利用できます
 - RDP(リモートデスクトップ)の接続先から手元のpageant+を利用できます
+- スマートキー(マイナンバーカード)を利用できます
 
 まだまだ気になるところはありますが、概ね動作します。
 
@@ -25,7 +26,8 @@ Windows用のssh agentです。
 - RDP(リモートデスクトップ)のVirtual Channelを利用
     - 接続した先(サーバ側)のpageant+から、ローカル(クライアント側)のpageant+を利用できます
 - Windows Native unix domain socket対応
-    - Redstone 4(RS4)以降で利用可能です([build17061から](https://blogs.msdn.microsoft.com/commandline/2017/12/19/af_unix-comes-to-windows/)利用可能だと思われます)
+    - Redstone 4(RS4)以降で利用可能です
+	- ([build17061から](https://blogs.msdn.microsoft.com/commandline/2017/12/19/af_unix-comes-to-windows/)利用可能だと思われます)
 	- [socat + TCP](https://github.com/zmatsuo/pageant-/wiki/WSL%E3%81%8B%E3%82%89-pageant---%E3%82%92%E5%88%A9%E7%94%A8%E3%81%99%E3%82%8B)を使用せずにWSLから直接利用できます
 	- Windows側からは `c:/path/.ssh-ageant` とした場合、WSL側からは `export SSH_AUTH_SOCK=/mnt/c/path/.ssh-agent`などと設定します
 - sshの秘密鍵のパスフレーズを記憶,適当なタイミングで忘れることができる
@@ -56,12 +58,12 @@ Windows用のssh agentです。
 ## リモートデスクトップ経由(RDP relay)
 
 - 接続した先(サーバ側)
-	- `rdp_registory.reg`をダブルクリックしてレジストリを設定する
 	- pageant+を起動、設定の`SSH Agent relay on RDP Server`をチェックする
 - ローカル(クライアント側)
-	- pageant+を起動、設定の`SSH Agent relay on RDP Client`をチェックする
+	- pageant+を起動、設定の`SSH Agent relay on RDP Client`をチェックする  
+      (チェックを入れた後のmstscの実行から有効になります)
 	- `pageant compatible`のチェックも入れる
-- リモートデスクトップで接続する
+- リモートデスクトップ(mstsc.exe)で接続する
 - `Add Rdp Key`からダイアログを出す
 - `View client key`を押してクライアント側の鍵一覧を表示する
 - `Import Key`を押して鍵を取り込む
@@ -173,68 +175,12 @@ REG_EXPAND_SZの場合は環境変数(%HOME%など)の展開が行われます
 - `%APPDATA%\pageant+\pagent+.ini`
 - `[pageant+.exe(又はdll)と同じフォルダ]\pageant+_[host].ini`
 - `[pageant+.exe(又はdll)と同じフォルダ]\pageant+.ini`
+- `[pageant+.exe(又はdll)のカレントフォルダ]\pageant+_[host].ini`
+- `[pageant+.exe(又はdll)のカレントフォルダ]\pageant+.ini`
 
 ## 3. 上記すべて見つからなかった場合
 レジストリに保存する
 - `HKEY_CURRENT_USER\Software\pageant+`
-
-
-# 動作チェック
-
-次のようにコマンドを実行して同一のfingerprintが表示されればokです。
-表示されているバージョンはチェックした時点のものです。
-
-## Ubuntu 16.04.3 LTS on WSL
-socat経由で接続しています
-`/usr/bin/socat UNIX-LISTEN:/unix/domain/path,fork TCP:127.0.0.1:8080`
-
-```
-$ ssh -V
-OpenSSH_7.2p2 Ubuntu-4ubuntu2.2, OpenSSL 1.0.2g  1 Mar 2016
-$ ssh-add -l -E md5
-```
-
-## git for windows
-```
-$ ssh -V
-OpenSSH_7.3p1, OpenSSL 1.0.2k  26 Jan 2017
-$ ssh-add -l -E md5
-```
-
-## msys2
-```
-$ pacman -S openssh
-$ LANG=C pacman -Sl | grep openssh
-msys openssh 7.5p1-1 [installed]
-$ ssh-add -l -E md5
-```
-
-## cygwin
-```
-$ cygcheck -c | grep openssh
-openssh                                 7.5p1-1                      OK
-$ ssh-add -l -E md5
-```
-
-## source tree
-- open sourcetree gui
-- push terminal button
-```
-$ ssh -V
-OpenSSH_7.1p2, OpenSSL 1.0.2g  1 Mar 2016
-$ ssh-add -l -E md5
-```
-
-## openssh ported by Microsoft
-
-- https://github.com/PowerShell/Win32-OpenSSH/releases/tag/v0.0.16.0
-- v0.0.17.0からソケットの仕組みが変わったらしく、通信できません
-
-```
-PS C:\Program Files\OpenSSH-Win64> .\ssh -V
-OpenSSH_7.5p1, OpenSSL 1.0.2d 9 Jul 2015
-.\ssh-add -l -E md5
-```
 
 # 参照したプロジェクトなど
 

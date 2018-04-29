@@ -26,7 +26,7 @@
 #include "pageant+.h"
 #include "mainwindow.h"
 #include "winpgnt.h"
-#define ENABLE_DEBUG_PRINT
+//#define ENABLE_DEBUG_PRINT
 #include "debug.h"
 #include "winhelp_.h"
 #include "misc.h"
@@ -75,14 +75,14 @@ extern "C" {
 #define APPNAME			APP_NAME	// in pageant+.h
 
 static MainWindow *gWin;
-static bool add_keyfile(const Filename *fn);
+void setToolTip(const wchar_t *str);
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow)
 {
     createTrayIcon();
-    trayIcon->show();
+    tray_icon_->show();
     ui->setupUi(this);
 	gWin = this;
 
@@ -107,9 +107,9 @@ MainWindow::MainWindow(QWidget *parent) :
 
 MainWindow::~MainWindow()
 {
-	trayIcon->hide();
-	delete trayIcon;
-	trayIcon = NULL;
+	tray_icon_->hide();
+	delete tray_icon_;
+	tray_icon_ = nullptr;
 
     delete ui;
 }
@@ -117,28 +117,22 @@ MainWindow::~MainWindow()
 void MainWindow::createTrayIcon()
 {
     QIcon icon = QIcon(":/images/pageant.png");
-    trayIcon = new QSystemTrayIcon(this);
-    trayIcon->setIcon(icon);
+    tray_icon_ = new QSystemTrayIcon(this);
+    tray_icon_->setIcon(icon);
 
-    QString s;
-	s = APP_NAME;
-	s += tr(TASK_TRAY_TIP);
-#if defined(DEVELOP_VERSION)
-	s += "\ndevelop version";
-#endif
-	trayIcon->setToolTip(s);
+	setToolTip(nullptr);
 
-	connect(trayIcon, SIGNAL(activated(QSystemTrayIcon::ActivationReason)),
+	connect(tray_icon_, SIGNAL(activated(QSystemTrayIcon::ActivationReason)),
 			this, SLOT(trayClicked(QSystemTrayIcon::ActivationReason)));
 }
 
 void MainWindow::trayIconMenu()
 {
-    QMenu *trayIconMenu = new QMenu(this);
+    QMenu *tray_menu = new QMenu(this);
 
 	if (!get_putty_path().empty()) {
 		// putty
-		QMenu *session_menu = trayIconMenu->addMenu( "putty" );
+		QMenu *session_menu = tray_menu->addMenu( "putty" );
 		std::vector<std::wstring> session_info = setting_get_putty_sessions();
 		for (size_t i=0; i< session_info.size() + 1; i++) {
 			QString s = i == 0 ? "&New session" : QString::fromStdWString(session_info[i - 1]);
@@ -154,57 +148,61 @@ void MainWindow::trayIconMenu()
 		connect(session_menu, SIGNAL(triggered(QAction*)),
 				this, SLOT(on_session(QAction*)));
 
-		trayIconMenu->addSeparator();
+		tray_menu->addSeparator();
 	}
 
-    trayIconMenu->addAction(
+    tray_menu->addAction(
 		tr("&View Keys"),
 		this, SLOT(on_viewKeys()));
 
-    trayIconMenu->addAction(
+    tray_menu->addAction(
 		tr("Add &Key"),
 		this, SLOT(on_pushButtonAddKey_clicked()));
 
 	if (setting_get_bool("bt/enable", false)) {
-		trayIconMenu->addAction(
+		tray_menu->addAction(
 			tr("Add BT Key"),
 			this, SLOT(on_pushButtonAddBTKey_clicked()));
 	}
 
-	if (rdpSshRelayIsRemoteSession()) {
+	if (setting_get_bool("rdpvc-relay-server/enable", false) &&
+		rdpSshRelayCheckServer() &&
+		rdpSshRelayIsRemoteSession() &&
+		rdpSshRelayCheckCom())
+	{
 		QString s = tr("Add RDP Key");
 		s += "(" + QString::fromStdWString(rdpSshRelayGetClientName()) + ")";
-		trayIconMenu->addAction(
+		tray_menu->addAction(
 			s,
 			this, SLOT(on_pushButtonAddRdpKey_clicked()));
 	}
 
-	trayIconMenu->addAction(
+	tray_menu->addAction(
 		tr("&Setting"),
 		this, SLOT(on_actionsetting_triggered()));
 
 	if (has_help()) {
-		trayIconMenu->addAction(
+		tray_menu->addAction(
 			tr("help"),
 			this, SLOT(on_help_clicked()));
 	}
 
-    trayIconMenu->addSeparator();
+    tray_menu->addSeparator();
 
-	trayIconMenu->addAction(
+	tray_menu->addAction(
 		tr("About"),
 		this, SLOT(on_actionAboutDlg()));
 
-    trayIconMenu->addSeparator();
+    tray_menu->addSeparator();
 
-	trayIconMenu->addAction(
+	tray_menu->addAction(
 		tr("&Quit"),
 		qApp, &QCoreApplication::quit);
 
-	QAction *ret = trayIconMenu->exec(QCursor::pos());
+	QAction *ret = tray_menu->exec(QCursor::pos());
 	(void)ret;
 
-	delete trayIconMenu;
+	delete tray_menu;
 }
 
 static QString get_ssh_folder()
@@ -238,7 +236,8 @@ static void addStartupKeyfile(const std::wstring &fn)
 		std::wostringstream oss;
 		oss << L"次回起動時に読み込みますか?\n"
 			<< fn;
-		int r = message_box(oss.str().c_str(), L"pageant+", MB_YESNO);
+		QWidget *w = getDispalyedWindow();
+		int r = message_box(w, oss.str().c_str(), L"pageant+", MB_YESNO);
 		if (r == IDYES) {
 			setting_add_keyfile(fn.c_str());
 		}
@@ -285,15 +284,31 @@ void MainWindow::on_pushButtonAddKey_clicked()
 void MainWindow::on_pushButtonAddBTKey_clicked()
 {
 	dbgprintf("add bt\n");
-	BtSelectDlg dlg(this);
-	dlg.exec();
+	BtSelectDlg *dlg = BtSelectDlg::createInstance(0);
+	if (dlg->isVisible()) {
+		dlg->raise();
+		dlg->activateWindow();
+		return;
+	}
+	PushDisplayedWindow(dlg);
+	dlg->exec();
+	PopDisplayedWindow();
+	delete dlg;
 }
 
 void MainWindow::on_pushButtonAddRdpKey_clicked()
 {
 	dbgprintf("add rdp key\n");
-	RdpKeyDlg dlg(this);
-	dlg.exec();
+	RdpKeyDlg *dlg = RdpKeyDlg::createInstance(0);
+	if (dlg->isVisible()) {
+		dlg->raise();
+		dlg->activateWindow();
+		return;
+	}
+	PushDisplayedWindow(dlg);
+	dlg->exec();
+	PopDisplayedWindow();
+	delete dlg;
 }
 
 void MainWindow::trayClicked(QSystemTrayIcon::ActivationReason e)
@@ -324,8 +339,15 @@ void MainWindow::on_pushButton_close_clicked()
 void MainWindow::on_actionAboutDlg()
 {
     dbgprintf("AboutDlg\n");
-	AboutDlg dlg(this);
-    dlg.exec();
+	AboutDlg *dlg = AboutDlg::createInstance(0);
+	if (dlg->isVisible()) {
+		dlg->raise();
+		dlg->activateWindow();
+		return;
+	}
+	PushDisplayedWindow(dlg);
+    dlg->exec();
+	PopDisplayedWindow();
 }
 
 int MainWindow::slot_confirmAcceptDlg(struct ConfirmAcceptDlgInfo *info)
@@ -341,7 +363,8 @@ int MainWindow::slot_confirmAcceptDlg(struct ConfirmAcceptDlgInfo *info)
 int MainWindow::slot_passphraseDlg(struct PassphraseDlgInfo *info)
 {
 	dbgprintf("MainWindow::slot_passphraseDlg() enter\n");
-    passphrase dlg(this, info);
+	QWidget *w = getDispalyedWindow();
+    PassphraseDlg dlg(w, info);
 	showAndBringFront(&dlg);
     int r = dlg.exec();
 	dbgprintf("MainWindow::slot_passphraseDlg() leave\n");
@@ -363,10 +386,17 @@ void MainWindow::on_actionabout_triggered()
 void MainWindow::on_viewKeys()
 {
 	dbgprintf("on_viewKeys()\n");
-    keyviewdlg dlg(this);
-	showAndBringFront(&dlg);
-    int r = dlg.exec();
-    (void)r;
+
+    keyviewdlg *dlg = keyviewdlg::createInstance(0);
+	if (dlg->isVisible()) {
+		dlg->raise();
+		dlg->activateWindow();
+		return;
+	}
+	PushDisplayedWindow(dlg);
+	dlg->exec();
+	PopDisplayedWindow();
+	delete dlg;
 }
 
 void MainWindow::on_session(QAction *action)
@@ -509,14 +539,51 @@ void agents_start()
 			setting_set_bool("rdpvc-relay-server/enable", false);
 		}
 	}
+
+#if 0
+	{
+		std::ostringstream oss;
+		oss << "pagent:"
+			<< (setting_get_bool("ssh-agent/pageant") ? "on" : "off")
+			<< "\n";
+		oss << "native unix socket:"
+			<< (setting_get_bool("ssh-agent/native_unix_socket") ? "on" : "off")
+			<< "\n";
+		oss << "cygwin unix socket:"
+			<< (setting_get_bool("ssh-agent/cygwin_sock") ? "on" : "off")
+			<< "\n";
+		oss << "ms ssh:"
+			<< (setting_get_bool("ssh-agent/ms_ssh") ? "on" : "off")
+			<< "\n";
+		oss << "bt:"
+			<< (setting_get_bool("bt/enable") ? "on" : "off")
+			<< "\n";
+		oss << "tcp:"
+			<< (setting_get_bool("ssh-agent_tcp/enable") ? "on" : "off")
+			<< "\n";
+		oss << "rdp server:"
+			<< (setting_get_bool("rdpvc-relay-server/enable") ? "on" : "off")
+			<< "\n";
+
+		setToolTip(utf8_to_wc(oss.str()).c_str());
+	}
+#endif
 }
 	
 void MainWindow::on_actionsetting_triggered()
 {
     dbgprintf("setting\n");
 
-	SettingDlg dlg(this);
-    dlg.exec();
+	SettingDlg *dlg = SettingDlg::createInstance(0);
+	if (dlg->isVisible()) {
+		dlg->raise();
+		dlg->activateWindow();
+		return;
+	}
+	PushDisplayedWindow(dlg);
+	dlg->exec();
+	PopDisplayedWindow();
+	delete dlg;
 
 	agents_stop();
 	agents_start();
@@ -526,8 +593,7 @@ void MainWindow::lockTerminal()
 {
 	if (setting_get_bool("key/forget_when_terminal_locked", false)) {
 		setting_clear_keyfiles();
-		pageant_delete_ssh1_key_all();
-		pageant_delete_ssh2_key_all();
+		keystore_remove_all();
 	}
 	if (setting_get_bool("Passphrase/forget_when_terminal_locked", false)) {
 		passphrase_forget();
@@ -541,7 +607,7 @@ void MainWindow::lockTerminal()
 bool MainWindow::nativeEventFilter(const QByteArray &eventType, void *message, long *result)
 {
 	(void)result;
-	if (eventType == "windows_generic_MSG"){
+	if (eventType == "windows_generic_MSG") {
 		MSG *msg = static_cast<MSG *>(message);
 		WPARAM w = msg->wParam;
 		LPARAM lParam = msg->lParam;
@@ -600,6 +666,9 @@ bool MainWindow::nativeEventFilter(const QByteArray &eventType, void *message, l
 					  w);
 			cert_pkcs11dll_finalize();
 			break;
+		case WM_APP:
+			on_viewKeys();
+			break;
 		}
 	}
 	return false;
@@ -617,11 +686,36 @@ int MainWindow::passphraseDlg(struct PassphraseDlgInfo *info)
 	return r;
 }
 
+void MainWindow::showTrayMessage(
+	const wchar_t *title,
+	const wchar_t *message)
+{
+	tray_icon_->showMessage(
+		QString::fromStdWString(title),
+		QString::fromStdWString(message));
+}
+
+void MainWindow::setToolTip(const wchar_t *str)
+{
+    QString s;
+	s = APP_NAME;
+	s += tr(TASK_TRAY_TIP);
+#if defined(DEVELOP_VERSION)
+	s += "\ndevelop version";
+#endif
+
+	if (str != nullptr) {
+		auto s2 = QString::fromStdWString(str);
+		s += "\n" + s2;
+	}
+
+	tray_icon_->setToolTip(s);
+}
+
 //////////////////////////////////////////////////////////////////////////////
 
 DIALOG_RESULT_T confirmAcceptDlg(struct ConfirmAcceptDlgInfo *info)
 {
-
 	int r = gWin->confirmAcceptDlg(info);
 	dbgprintf("r=%s(%d)\n",
 				 r == QDialog::Accepted ? "QDialog::Accepted" :
@@ -655,145 +749,42 @@ void addBtCert()
 }
 
 // return
-DIALOG_RESULT_T passphraseDlg(struct PassphraseDlgInfo *info)
+DIALOG_RESULT_T ShowPassphraseDlg(struct PassphraseDlgInfo *info)
 {
-	int r = gWin->passphraseDlg(info);
-	return r == QDialog::Accepted ? DIALOG_RESULT_OK : DIALOG_RESULT_CANCEL;
-}
-
-HWND get_hwnd()
-{
-	return (HWND)gWin->winId();
-}
-
-static bool add_keyfile(const Filename *fn)
-{
-	std::string comment;
-	bool result = false;
-	/*
-     * Try loading the key without a passphrase. (Or rather, without a
-     * _new_ passphrase; pageant_add_keyfile will take care of trying
-     * all the passphrases we've already stored.)
-     */
-    char *err;
-    int ret = pageant_add_keyfile(fn, NULL, &err);
-    if (ret == PAGEANT_ACTION_OK) {
-		result = true;
-        goto done;
-    } else if (ret == PAGEANT_ACTION_FAILURE) {
-		goto error;
-    } else if (ret == PAGEANT_ACTION_NEED_PP) {
-		{
-			auto passphrases = passphrase_get_array();
-			for(auto &&passphrase : passphrases) {
-				ret = pageant_add_keyfile(fn, passphrase.c_str(), &err);
-				passphrase.clear();
-				if (ret == PAGEANT_ACTION_OK) {
-					passphrases.clear();
-					result = true;
-					goto done;
-				}
-			}
-			passphrases.clear();
-		}
-
-		/*
-		 * OK, a passphrase is needed, and we've been given the key
-		 * comment to use in the passphrase prompt.
-		 */
-//		comment = err;
-//		comment += "\n";
-		comment += wc_to_mb(std::wstring(fn->path));
-		while (1) {
-			char *_passphrase;
-			struct PassphraseDlgInfo pps;
-			pps.passphrase = &_passphrase;
-			pps.caption = "pageant+";
-			pps.text = comment.c_str();
-			pps.save = 0;
-			pps.saveAvailable = setting_get_bool("Passphrase/save_enable", false);
-			DIALOG_RESULT_T r;
-#if 0
-			{
-				r = passphraseDlg(&pps);
-			}
-#else
-			{
-				passphrase dlg(gWin, &pps);
-				showAndBringFront(&dlg);
-				int r2 = dlg.exec();
-				r = r2 == QDialog::Accepted ? DIALOG_RESULT_OK : DIALOG_RESULT_CANCEL;
-			}
-		
+//	if (gWin->visible())
+#if 1
+	{
+		QWidget *parent = getDispalyedWindow();
+		PassphraseDlg dlg(parent, info);
+//		PassphraseDlg dlg(info);
+//				showAndBringFront(&dlg);
+		int r2 = dlg.exec();
+		return r2 == QDialog::Accepted ? DIALOG_RESULT_OK : DIALOG_RESULT_CANCEL;
+	}
 #endif
-			if (r == DIALOG_RESULT_CANCEL) {
-				// cancell	
-				goto done;
-			}
-
-			sfree(err);
-			err = NULL;
-
-			assert(_passphrase != NULL);
-
-			ret = pageant_add_keyfile(fn, _passphrase, &err);
-			if (ret == PAGEANT_ACTION_OK) {
-				if (pps.save != 0) {
-					passphrase_add(_passphrase);
-					passphrase_save_setting(_passphrase);
-				}
-				result = true;
-				goto done;
-			} else if (ret == PAGEANT_ACTION_FAILURE) {
-				goto error;
-			}
-
-			smemclr(_passphrase, strlen(_passphrase));
-			sfree(_passphrase);
-			_passphrase = NULL;
-		}
+//	 else
+#if 0
+	{
+		
+		int r = gWin->passphraseDlg(info);
+		return r == QDialog::Accepted ? DIALOG_RESULT_OK : DIALOG_RESULT_CANCEL;
 	}
-
-error:
-    message_boxA(err, APPNAME, MB_OK | MB_ICONERROR, 0);
-	result = false;
-done:
-    sfree(err);
-	return result;
+#endif
 }
 
-void add_keyfile(const wchar_t *filename)
+void showTrayMessage(
+	const wchar_t *title,
+	const wchar_t *message)
 {
-	Filename *fn = filename_from_wstr(filename);
-	add_keyfile(fn);
-	filename_free(fn);
+	gWin->showTrayMessage(
+		title,
+		message);
 }
 
-void add_keyfile(const std::vector<std::wstring> &keyfileAry)
+void setToolTip(const wchar_t *str)
 {
-	std::vector<std::string> bt_files;
-	std::vector<std::wstring> normal_files;
-
-	// BTとその他を分離
-	for(const auto &f: keyfileAry) {
-		if (wcsncmp(L"btspp://", f.c_str(), 8) == 0)  {
-			std::string utf8 = wc_to_utf8(f.c_str());
-			bt_files.emplace_back(utf8);
-		} else {
-			normal_files.emplace_back(f);
-		}			
-	}
-
-	// 通常ファイルを読み込み
-	for(auto &f: normal_files) {
-		Filename *fn = filename_from_wstr(f.c_str());
-		add_keyfile(fn);
-		filename_free(fn);
-	}
-
-	// BTを読み込み
-	if (setting_get_bool("bt/enable", false)) {
-		bt_agent_proxy_main_add_key(bt_files);
+	if (gWin != nullptr) {
+		gWin->setToolTip(str);
 	}
 }
 
@@ -814,9 +805,12 @@ void old_keyfile_warning(void)
 	"\n"
 	"You can perform this conversion by loading the key\n"
 	"into PuTTYgen and then saving it again.";
-
+#if 0
 	HWND hwnd = get_hwnd();
     MessageBox(hwnd, message, mbtitle, MB_OK);
+#endif
+	QWidget *w = getDispalyedWindow();
+	message_box(w, utf8_to_wc(message).c_str(), utf8_to_wc(mbtitle).c_str(), MB_OK, 0);
 }
 
 // Local Variables:

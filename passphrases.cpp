@@ -123,8 +123,7 @@ void passphrase_save_setting(const char* passphrase)
 	if (passphrase == NULL) {
 		return;
 	}
-	// TODO 要チェック↓
-	std::wstring ws_encrypted = mb_to_wc(encrypto(sstring(passphrase)));
+	std::wstring ws_encrypted = acp_to_wc(encrypto(sstring(passphrase)));
 	
 	int i = 1;
 	while (1) {

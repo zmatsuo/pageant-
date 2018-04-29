@@ -12,20 +12,18 @@
     <ClInclude Include="pageant_client.h" />
     <ClInclude Include="rdp_ssh_relay_def.h" />
     <ClInclude Include="misc_cpp.h" />
+    <ClInclude Include="puttymem.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="winmisc.cpp" />
-    <ClCompile Include="misc.c" />
     <ClCompile Include="codeconvert.cpp" />
     <ClCompile Include="winutils.c" />
-    <ClCompile Include="version.c" />
     <ClCompile Include="debug.cpp" />
     <ClCompile Include="setting.cpp" />
     <ClCompile Include="pageant_client.cpp" />
     <ClCompile Include="misc_cpp.cpp" />
     <ClCompile Include="pageant+_rdp_client.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <ResourceCompile Include="pageant+_rdp_client.rc" />
+    <ClCompile Include="misc.cpp" />
+    <ClCompile Include="version.cpp" />
   </ItemGroup>
 </Project>

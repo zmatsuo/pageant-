@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #pragma warning(push)
 #pragma warning(disable:4251)
@@ -14,8 +14,10 @@ class SettingDlg : public QDialog
     Q_OBJECT
 
 public:
-    explicit SettingDlg(QWidget *parent = 0);
+	static SettingDlg *createInstance(QWidget *parent = 0);
     ~SettingDlg();
+private:
+    explicit SettingDlg(QWidget *parent = 0);
 
 private slots:
     void on_buttonBox_accepted();
@@ -44,12 +46,19 @@ private slots:
 
 private:
     Ui::SettingDlg *ui;
+	static SettingDlg *instance;
 
     void arrengePassphraseUI(bool enable);
     void showDetail(bool show);
     typedef struct {
-	QWidget *tab;
-	QString label;
+		QWidget *tab;
+		QString label;
     } invisiableTabsInfo_t;
     std::vector<invisiableTabsInfo_t> invisibleTabs_;
 };
+
+// Local Variables:
+// mode: c++
+// coding: utf-8-with-signature
+// tab-width: 4
+// End:

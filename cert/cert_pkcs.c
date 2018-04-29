@@ -23,6 +23,7 @@
 #ifndef SSH_AGENT_SUCCESS
 #include "ssh.h"
 #endif
+#include "../puttymem.h"
 
 // required to be defined by pkcs headers
 #define CK_PTR *

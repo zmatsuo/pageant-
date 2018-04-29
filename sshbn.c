@@ -9,14 +9,18 @@
 #include <limits.h>
 #include <ctype.h>
 
-#include "misc.h"
+#include "puttymem.h"
+//#define ENABLE_DEBUG_PRINT
+#include "debug.h"
 
+#define DEBUG	// for diagbn()
 #include "sshbn.h"
+#define debug(x)	dbgprintf x ;
 
 #define BIGNUM_INTERNAL
 typedef BignumInt *Bignum;
 
-#include "ssh.h"
+#include "sshbn_export.h"
 
 BignumInt bnZero[1] = { 0 };
 BignumInt bnOne[2] = { 1, 1 };

@@ -981,7 +981,7 @@ void *delpos234(tree234 * t, int index)
 	return NULL;
     return delpos234_internal(t, index);
 }
-void *del234(tree234 * t, void *e)
+void *del234(tree234 * t, const void *e)
 {
     int index;
     if (!findrelpos234(t, e, NULL, REL234_EQ, &index))

@@ -1,21 +1,21 @@
-﻿#define _UNICODE
+﻿#include "rdp_ssh_relay.h"
 
 #include <windows.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <wtsapi32.h>
-#include <tchar.h>
 #include <lmcons.h>
 #include <vector>
 #include <thread>
 #include <sstream>
 
 #include "rdp_ssh_relay_def.h"
-#define ENABLE_DEBUG_PRINT
+//#define ENABLE_DEBUG_PRINT
 #include "debug.h"
 #include "winmisc.h"		// for setThreadName();
 
-#include "rdp_ssh_relay.h"
+#define EVENT_BASE_NAME	"pageant+"	// eventの名前のベース
+#define RDP_CLIENT_DLL_FILE_NAME	"pageant+_rdp_client.dll"
 
 static std::thread *thread_;
 static HANDLE ghEventEnd;
@@ -28,15 +28,11 @@ static bool sendFlag_;
 static const uint8_t *sendPtr_;
 static size_t sendSize_;
 static std::vector<uint8_t> receiveBuf_;
-
-#define EVENT_BASE_NAME	"pageant"	// eventの名前のベース
-#define RDP_CLIENT_DLL_FILE_NAME	"pageant+_rdp_client.dll"
-
-static std::wstring rdp_client_dll_;
-static const wchar_t rdpClientRegistryKey[] =
-	L"Software\\Microsoft\\Terminal Server Client\\Default\\AddIns\\pageant+";
-static const wchar_t entry[] = 
-	L"SYSTEM\\CurrentControlSet\\Control\\Terminal Server\\AddIns\\pageant+";
+static std::wstring rdp_client_dll_file_name_;
+static const wchar_t rdp_client_registry_key_[] =
+	LR"(Software\Microsoft\Terminal Server Client\Default\AddIns\pageant+)";
+static const wchar_t rdp_server_registory_key_[] = 	// HKLM
+	LR"(SYSTEM\CurrentControlSet\Control\Terminal Server\AddIns\pageant+)";
 
 static std::wstring _WTSQuerySessionInformation(
 	HANDLE hServer,
@@ -114,8 +110,8 @@ static BOOL IsRemoteSession()
 }
 
 // https://technet.microsoft.com/ja-jp/aa380798
-#define TERMINAL_SERVER_KEY _T("SYSTEM\\CurrentControlSet\\Control\\Terminal Server\\")
-#define GLASS_SESSION_ID    _T("GlassSessionId")
+#define TERMINAL_SERVER_KEY LR"(SYSTEM\CurrentControlSet\Control\Terminal Server\)"
+#define GLASS_SESSION_ID    L"GlassSessionId"
 
 static BOOL IsCurrentSessionRemoteable()
 {
@@ -252,23 +248,20 @@ static void rdp_ssh_relay_main()
 		{
 		case WAIT_TIMEOUT:
 			break;
-		case WAIT_OBJECT_0: // reconnect
-			//
-			// allow query to occur
-			//
-			dbgprintf("-reconnected- \n");
+		case WAIT_OBJECT_0:
+			// reconnect
+			dbgprintf("reconnected\n");
 			vcOpen();
 			break;
 
-		case WAIT_OBJECT_0 + 1: // disconnect
-			//
-			// do not query
-			//
+		case WAIT_OBJECT_0 + 1:
+			// disconnect
 			dbgprintf("disconnected\n");
 			vcClose();
 			break;
 
-		case WAIT_OBJECT_0 + 2: // stop
+		case WAIT_OBJECT_0 + 2:
+			// stop
 			if (exitFlag_) {
 				bContinue = false;
 				vcClose();
@@ -288,7 +281,6 @@ static void rdp_ssh_relay_main()
 			break;
 		}
     }
-
 }
 
 bool rdpSshRelayIsRemoteSession()
@@ -331,7 +323,7 @@ static bool checkTerminalServerRegistoryEntry()
 	DWORD dwType;
 	bool r = reg_read(
 		HKEY_LOCAL_MACHINE,
-		entry,
+		rdp_server_registory_key_,
 		L"Name",
 		dwType, data);
 	if (r == false || dwType != REG_SZ) {
@@ -344,7 +336,7 @@ static bool checkTerminalServerRegistoryEntry()
 
 	r = reg_read(
 		HKEY_LOCAL_MACHINE,
-		entry,
+		rdp_server_registory_key_,
 		L"Type",
 		dwType, data);
 	if (r == false || dwType != REG_DWORD) {
@@ -357,28 +349,65 @@ static bool checkTerminalServerRegistoryEntry()
 	return true;
 }
 
-static bool addTerminalServerRegistoryEntry()
+static bool CreateImportRegFile(const wchar_t *fname)
 {
-	const wchar_t *s;
-	s = L"" EVENT_BASE_NAME;
-	size_t len = wcslen(s);
-	bool r = reg_write(
-		HKEY_LOCAL_MACHINE,
-		entry,
-		L"Name",
-		REG_SZ, (void *)s, (len+1) * sizeof(wchar_t));
-	if (r == false) {
-		// 管理者権限がないため書き込めなかった
+	FILE *fp;
+	auto err = _wfopen_s(&fp, fname, L"wb");
+	if (err != 0) {
 		return false;
 	}
 
-	DWORD type = 3;
-	reg_write(
-		HKEY_LOCAL_MACHINE,
-		entry,
-		L"Type",
-		REG_DWORD, (void *)&type, sizeof(type));
+	std::wstring reg =
+		L"Windows Registry Editor Version 5.00\n"
+		"\n"
+		"[HKEY_LOCAL_MACHINE\\";
+	reg += rdp_server_registory_key_;
+	reg += L"]\n";
+	reg += L"\"Name\"=\"" EVENT_BASE_NAME "\"\n";
+	reg += L"\"Type\"=dword:00000003\n";
 
+	fwrite("\xff\xfe", 2, 1, fp);
+	fwrite(reg.c_str(), reg.size(), sizeof(wchar_t), fp);
+	fclose(fp);
+	return true;
+}
+
+static bool SetupRdpServerRegistory()
+{
+	std::wstring reg_command =
+		_SHGetKnownFolderPath(FOLDERID_System) + L"\\reg.exe";
+	std::wstring import_reg_file = _GetTempPath() + L"\\rdp_registory.reg";
+	CreateImportRegFile(import_reg_file.c_str());
+	std::wstring param = L"import " + import_reg_file;
+
+	DWORD exit_code;
+	bool r = _ShellExecuteExAdmin(
+		reg_command.c_str(), param.c_str(), &exit_code);
+
+	::DeleteFileW(import_reg_file.c_str());
+
+	if (r == false || exit_code != 0) {
+		return false;
+	}
+	return true;
+}
+
+static bool TeardownRdpServerRegistory()
+{
+	std::wstring reg_command =
+		_SHGetKnownFolderPath(FOLDERID_System) + L"\\reg.exe";
+	std::wstring param =
+		L"delete \"HKLM\\";
+	param += rdp_server_registory_key_;
+	param += L"\" /f";
+
+	DWORD exit_code;
+	bool r = _ShellExecuteExAdmin(
+		reg_command.c_str(), param.c_str(), &exit_code);
+
+	if (r == false || exit_code != 0) {
+		return false;
+	}
 	return true;
 }
 
@@ -390,12 +419,12 @@ static void setRdpClientDll()
 		f = f.substr(0, pos+1);
 	}
 	f = f + L"" RDP_CLIENT_DLL_FILE_NAME;
-	rdp_client_dll_ = f;
+	rdp_client_dll_file_name_ = f;
 }
 
 static bool checkRdpClientDll()
 {
-	if (_waccess(rdp_client_dll_.c_str(), 0) != 0) {
+	if (_waccess(rdp_client_dll_file_name_.c_str(), 0) != 0) {
 		return false;
     }
 	return true;
@@ -403,11 +432,11 @@ static bool checkRdpClientDll()
 
 static bool checkClientRegistory(std::wstring &dll)
 {
-	if (!reg_read_cur_user(rdpClientRegistryKey, L"Name", dll)) {
+	if (!reg_read_cur_user(rdp_client_registry_key_, L"Name", dll)) {
 		// 設定されていないので利用できる
 		return true;
 	}
-	if (dll != rdp_client_dll_) {
+	if (dll != rdp_client_dll_file_name_) {
 		// 異なるdllが設定されている
 		return false;
 	}
@@ -417,12 +446,12 @@ static bool checkClientRegistory(std::wstring &dll)
 
 static void clearClientRegistry()
 {
-	reg_write_cur_user(rdpClientRegistryKey, nullptr, nullptr);
+	reg_write_cur_user(rdp_client_registry_key_, nullptr, nullptr);
 }
 
 static bool setRdpClientRegistry()
 {
-	bool r = reg_write_cur_user(rdpClientRegistryKey, L"Name", rdp_client_dll_.c_str());
+	bool r = reg_write_cur_user(rdp_client_registry_key_, L"Name", rdp_client_dll_file_name_.c_str());
 	if (r == false) {
 		clearClientRegistry();
 	}
@@ -444,7 +473,7 @@ bool rdpSshRelayInit()
 //
 bool rdpSshRelayCheckClientDll(std::wstring &dll)
 {
-	dll = rdp_client_dll_;
+	dll = rdp_client_dll_file_name_;
 	return checkRdpClientDll();
 }
 
@@ -493,9 +522,25 @@ bool rdpSshRelayCheckServer()
 	return true;
 }
 
-void rdpSshRelaySetServer()
+bool rdpSshRelaySetupServer()
 {
-	addTerminalServerRegistoryEntry();
+	return SetupRdpServerRegistory();
+}
+
+bool rdpSshRelayTeardownServer()
+{
+	return TeardownRdpServerRegistory();
+}
+
+bool rdpSshRelayCheckCom()
+{
+	if (rdpSshRelayCheckServer() == true &&
+		rdpSshRelayIsRemoteSession() == true) {
+		if (hVirtChannel_ != nullptr) {
+			return true;
+		}
+	}
+	return false;
 }
 
 bool rdpSshRelayServerStart()
@@ -509,10 +554,6 @@ bool rdpSshRelayServerStart()
 		return false;
 	}
 
-	// if (!rdpSshRelayIsRemoteSession()) {
-	// 	return false;
-	// }
-	
     DWORD sessionId = getSessionId();
 	dbgprintf("sessionid %d\n", sessionId);
 

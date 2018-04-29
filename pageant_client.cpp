@@ -2,6 +2,8 @@
  * Pageant client code.
  */
 
+#include "pageant_client.h"
+
 #undef UNICODE
 #undef _UNICODE
 #include <stdio.h>
@@ -9,12 +11,13 @@
 #include <assert.h>
 #include <windows.h>
 #include <aclapi.h>
+#include <string>
+#include <sstream>
+#include <iomanip>
 
-#include "pageant_client.h"
 #include "puttymem.h"
 #include "misc.h"
 
-//#include "putty.h"
 //#include "pageant.h" /* for AGENT_MAX_MSGLEN */
 #define AGENT_MAX_MSGLEN (8*1024)
 
@@ -77,16 +80,6 @@ static PSID get_user_sid(void)
     return ret;
 }
 
-int agent_exists(void)
-{
-    HWND hwnd;
-    hwnd = FindWindow("Pageant", "Pageant");
-    if (!hwnd)
-		return FALSE;
-    else
-		return TRUE;
-}
-
 #if 0
 void agent_cancel_query(agent_pending_query *q)
 {
@@ -97,28 +90,24 @@ void agent_cancel_query(agent_pending_query *q)
 void *agent_query(
     void *in, int inlen, void **out, int *outlen)
 {
-    HWND hwnd;
-    char *mapname;
-    HANDLE filemap;
-    unsigned char *p, *ret;
-    int retlen;
-    COPYDATASTRUCT cds;
+    unsigned char *p;
     PSECURITY_DESCRIPTOR psd = NULL;
 
     *out = NULL;
     *outlen = 0;
 
-    hwnd = FindWindow("Pageant", "Pageant");
+    HWND hwnd = FindWindowA("Pageant", "Pageant");
     if (!hwnd)
 		return NULL;		       /* *out == NULL, so failure */
 
+	std::string mapname;
 	{
-		const size_t size = 128;
-		char *p = (char *)malloc(size);
-		sprintf_s(p, size, "PageantRequest%08x", (unsigned)GetCurrentThreadId());
-		mapname = p;
+		std::ostringstream ss;
+		ss << "PageantRequest"
+		   << std::hex << std::setw(8) << std::setfill('0')
+		   << (unsigned)GetCurrentThreadId();
+		mapname = ss.str();
 	}
-//    mapname = dupprintf("PageantRequest%08x", (unsigned)GetCurrentThreadId());
 
     SECURITY_ATTRIBUTES *psa = NULL;
 	SECURITY_ATTRIBUTES sa;
@@ -152,17 +141,18 @@ void *agent_query(
 		}
 	}
 
-	filemap = CreateFileMapping(INVALID_HANDLE_VALUE, psa, PAGE_READWRITE,
-								0, AGENT_MAX_MSGLEN, mapname);
+    HANDLE filemap =
+		CreateFileMappingA(INVALID_HANDLE_VALUE, psa, PAGE_READWRITE,
+						   0, AGENT_MAX_MSGLEN, mapname.c_str());
 	if (filemap == NULL || filemap == INVALID_HANDLE_VALUE) {
-		sfree(mapname);
 		return NULL;		       /* *out == NULL, so failure */
 	}
 	p = (unsigned char *)MapViewOfFile(filemap, FILE_MAP_WRITE, 0, 0, 0);
 	memcpy(p, in, inlen);
+    COPYDATASTRUCT cds;
 	cds.dwData = AGENT_COPYDATA_ID;
-	cds.cbData = DWORD(1 + strlen(mapname));
-	cds.lpData = mapname;
+	cds.cbData = DWORD(1 + mapname.size());
+	cds.lpData = const_cast<void *>(reinterpret_cast<const void *>(mapname.c_str()));
 
 	/*
 	 * The user either passed a null callback (indicating that the
@@ -179,8 +169,8 @@ void *agent_query(
 	SetFocus(hCallingWindow);
 #endif // PUTTY_CAC
 	if (id > 0) {
-		retlen = 4 + GET_32BIT(p);
-		ret = (unsigned char *)snewn(retlen, unsigned char);
+		int retlen = 4 + GET_32BIT(p);
+		unsigned char *ret = (unsigned char *)snewn(retlen, unsigned char);
 		if (ret) {
 			memcpy(ret, p, retlen);
 			*out = ret;
@@ -189,7 +179,6 @@ void *agent_query(
 	}
 	UnmapViewOfFile(p);
 	CloseHandle(filemap);
-	sfree(mapname);
 	if (psd)
 		LocalFree(psd);
 	return NULL;

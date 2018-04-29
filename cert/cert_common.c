@@ -25,6 +25,8 @@
 #include "ssh.h"
 #endif
 
+#include "../puttymem.h"
+
 #define strlwr(p)	_strlwr(p)
 #define wcsdup(p)	_wcsdup(p)
 #define strdup(p)	_strdup(p)
@@ -147,7 +149,7 @@ LPSTR cert_prompt(LPCSTR szIden, HWND hWnd)
 	return NULL;
 }
 
-LPBYTE cert_sign(struct ssh2_userkey * userkey, LPCBYTE pDataToSign, int iDataToSignLen, int * iWrappedSigLen, HWND hWnd)
+LPBYTE cert_sign(const struct ssh2_userkey * userkey, LPCBYTE pDataToSign, int iDataToSignLen, int * iWrappedSigLen, HWND hWnd)
 {
 	LPBYTE pRawSig = NULL;
 	int iRawSigLen = 0;

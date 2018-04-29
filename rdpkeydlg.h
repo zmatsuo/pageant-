@@ -1,4 +1,4 @@
-// rdpkeydlg.h
+﻿// rdpkeydlg.h
 
 #ifndef RDPKEYDLG_H
 #define RDPKEYDLG_H
@@ -14,8 +14,10 @@ class RdpKeyDlg : public QDialog
     Q_OBJECT
 
 public:
-    explicit RdpKeyDlg(QWidget *parent = 0);
+	static RdpKeyDlg *createInstance(QWidget *parent = 0);
     ~RdpKeyDlg();
+private:
+    explicit RdpKeyDlg(QWidget *parent = 0);
 
 private slots:
     void on_pushButton_clicked();
@@ -23,8 +25,16 @@ private slots:
 
 private:
     void showKeys();
+    void showEvent(QShowEvent* event);
 
     Ui::RdpKeyDlg *ui;
+	static RdpKeyDlg *instance;
 };
 
 #endif // RDPKEYDLG_H
+
+// Local Variables:
+// mode: c++
+// coding: utf-8-with-signature
+// tab-width: 4
+// End:

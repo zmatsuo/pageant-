@@ -45,9 +45,21 @@ AboutDlg::AboutDlg(QWidget *parent) :
 	versionDetail();
 }
 
+AboutDlg *AboutDlg::instance = nullptr;
+
 AboutDlg::~AboutDlg()
 {
     delete ui;
+	instance = nullptr;
+}
+
+AboutDlg *AboutDlg::createInstance(QWidget *parent)
+{
+	if (instance != nullptr) {
+		return instance;
+	}
+	instance = new AboutDlg(parent);
+	return instance;
 }
 
 void AboutDlg::on_buttonBox_helpRequested()

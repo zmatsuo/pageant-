@@ -79,13 +79,7 @@
     <ClCompile Include="main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="misc.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="tree234.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="version.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="winutils.c">
@@ -187,25 +181,13 @@
     <ClCompile Include="winpgnt.cpp">
       <Filter>agent\winpgnt</Filter>
     </ClCompile>
-    <ClCompile Include="pageant_cpp.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="misc_cpp.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="ssh-agent_ms.cpp">
       <Filter>agent\ssh-agent-ms</Filter>
     </ClCompile>
-    <ClCompile Include="libunixdomain\ud_socket.c">
-      <Filter>ud_socket</Filter>
-    </ClCompile>
-    <ClCompile Include="libunixdomain\sock_server.c">
-      <Filter>ud_socket</Filter>
-    </ClCompile>
     <ClCompile Include="winhelp.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="cert\pkcs_helper.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="winutils_cpp.cpp">
@@ -269,6 +251,30 @@
       <Filter>Generated Files\Release</Filter>
     </ClCompile>
     <ClCompile Include="debug.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="malloc_minefield.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="sshbn_cpp.cpp">
+      <Filter>ssh</Filter>
+    </ClCompile>
+    <ClCompile Include="misc.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="version.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="sock_server.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ud_socket.c">
+      <Filter>ud_socket</Filter>
+    </ClCompile>
+    <ClCompile Include="cert\pkcs_helper.c">
+      <Filter>cert</Filter>
+    </ClCompile>
+    <ClCompile Include="keyfile.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -418,12 +424,6 @@
     <ClInclude Include="network.h">
       <Filter>Source Files</Filter>
     </ClInclude>
-    <ClInclude Include="libunixdomain\ud_socket.h">
-      <Filter>ud_socket</Filter>
-    </ClInclude>
-    <ClInclude Include="libunixdomain\sock_server.h">
-      <Filter>ud_socket</Filter>
-    </ClInclude>
     <ClInclude Include="winhelp.h">
       <Filter>Source Files</Filter>
     </ClInclude>
@@ -472,9 +472,6 @@
     <ClInclude Include="keystore.h">
       <Filter>Source Files</Filter>
     </ClInclude>
-    <ClInclude Include="keystore2.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
     <ClInclude Include="rdp_ssh_relay.h">
       <Filter>agent</Filter>
     </ClInclude>
@@ -486,6 +483,27 @@
     </ClInclude>
     <ClInclude Include="rdp_ssh_relay_def.h">
       <Filter>agent</Filter>
+    </ClInclude>
+    <ClInclude Include="sshbn_export.h">
+      <Filter>ssh</Filter>
+    </ClInclude>
+    <ClInclude Include="sshbn_cpp.h">
+      <Filter>ssh</Filter>
+    </ClInclude>
+    <ClInclude Include="sock_server.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ud_socket.h">
+      <Filter>ud_socket</Filter>
+    </ClInclude>
+    <ClInclude Include="tree234.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="resource.h">
+      <Filter>Generated Files</Filter>
+    </ClInclude>
+    <ClInclude Include="keyfile.h">
+      <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -500,6 +518,11 @@
     </Text>
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="pageant+.rc" />
+    <Image Include="icon1.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="pageant+.rc">
+      <Filter>Resource Files</Filter>
+    </ResourceCompile>
   </ItemGroup>
 </Project>

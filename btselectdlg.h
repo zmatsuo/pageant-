@@ -16,8 +16,10 @@ class BtSelectDlg : public QDialog ,bta_deviceinfo_listener
     Q_OBJECT
 
 public:
-    explicit BtSelectDlg(QWidget *parent = 0);
+	static BtSelectDlg *createInstance(QWidget *parent = 0);
     ~BtSelectDlg();
+private:
+    explicit BtSelectDlg(QWidget *parent = 0);
 
 private slots:
     void on_buttonBox_accepted();
@@ -32,6 +34,7 @@ signals:
 
 private:
     Ui::BtSelectDlg *ui;
+    static BtSelectDlg *instance;
 
     std::vector<DeviceInfoType> deviceInfos_;
     void showKeys();

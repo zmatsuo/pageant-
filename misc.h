@@ -24,9 +24,6 @@
 extern "C" {
 #endif
 
-unsigned long parse_blocksize(const char *bs);
-char ctrlparse(char *s, char **next);
-
 char *dupstr(const char *s);
 char *dupcat(const char *s1, ...);
 char *dupprintf(const char *fmt, ...)
@@ -73,8 +70,6 @@ int get_ssh_uint32(int *datalen, const void **data, unsigned *ret);
 int match_ssh_id(int stringlen, const void *string, const char *id);
 
 char *buildinfo(const char *newline);
-
-#include "debug.h"
 
 #ifndef lenof
 #define lenof(x) ( (sizeof((x))) / (sizeof(*(x))))

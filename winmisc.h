@@ -3,7 +3,8 @@
 
 #include <SDKDDKVer.h>
 #include <windows.h>
-#include <Shlobj.h>	// for CSIDL_ constant
+#include <Shlobj.h>		// for CSIDL_ constant
+#include <tlhelp32.h>	// for PROCESSENTRY32W
 
 #include <string>
 #include <vector>
@@ -86,7 +87,6 @@ void SetThreadName(const char* threadName);
 void setThreadName(std::thread *thread, const char *threadName);		// todo debugへ持っていく
 
 // misc stuff
-HWND get_hwnd();
 std::wstring get_full_path(const wchar_t *filename, bool search_path = false);
 
 std::wstring _FormatMessage(DWORD last_error);
@@ -96,6 +96,11 @@ bool _GetFileSize(const wchar_t *path, uint64_t &size);
 bool _GetFileAttributes(const wchar_t *path, DWORD &attributes);
 bool _CreateDirectory(const wchar_t *path);
 bool _PathFileExists(const wchar_t *path);
+std::wstring _GetTempPath();
+bool _ShellExecuteExAdmin(
+	const wchar_t *exe, const wchar_t *param, DWORD *exit_code);
+std::vector<HWND> _EnumWindows();
+std::vector<PROCESSENTRY32W> _Process();
 
 // Local Variables:
 // mode: c++

@@ -18,7 +18,6 @@ fi
 mkdir -p ${dest}/pageant+
 cp x64/Release/pageant+.exe ${dest}/pageant+
 cp x64/Release/pageant+_rdp_client.dll ${dest}/pageant+
-cp registory/rdp_registory.reg ${dest}/pageant+
 ${windeployqt} -no-angle --no-opengl-sw --no-translations ${dest}/pageant+/pageant+.exe
 (cd ${dest} && /bin/find . -type f | xargs -I% zip ../${zip}.zip %)
 rm -rf ${dest}

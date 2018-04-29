@@ -1,4 +1,12 @@
-﻿#undef UNICODE
+﻿/**
+   keyviewdlg.cpp
+
+   Copyright (c) 2018 zmatsuo
+
+   This software is released under the MIT License.
+   http://opensource.org/licenses/mit-license.php
+*/
+#undef UNICODE
 //#define STRICT
 
 #include <assert.h>
@@ -14,7 +22,6 @@
 #pragma warning(pop)
 
 #include "pageant+.h"
-#include "winpgnt.h"
 #include "debug.h"
 #include "winhelp_.h"
 #include "misc.h"
@@ -29,6 +36,7 @@
 #include "ckey.h"
 #include "codeconvert.h"
 #include "keystore.h"
+#include "winutils_qt.h"
 
 #include "keyviewdlg.h"
 #pragma warning(push)
@@ -59,12 +67,24 @@ keyviewdlg::keyviewdlg(QWidget *parent) :
 			Qt::QueuedConnection);
 }
 
+keyviewdlg *keyviewdlg::instance = nullptr;
+
 keyviewdlg::~keyviewdlg()
 {
 	gWin = nullptr;
 
 	keystoreUnRegistListener(this);
 	delete ui;
+	instance = nullptr;
+}
+
+keyviewdlg *keyviewdlg::createInstance(QWidget *parent)
+{
+	if (instance != nullptr) {
+		return instance;
+	}
+	instance = new keyviewdlg(parent);
+	return instance;
 }
 
 #define FINGERPRINT_SHA256_COLUMN	3
@@ -75,6 +95,40 @@ void keyviewdlg::change()
 	dbgprintf("KeystoreListener change!!\n");
 	emit keylistUpdateSignal();
 	dbgprintf("change() leave\n");
+}
+
+class KeyListItem {
+public:
+	int no;
+	std::string algorithm;
+	int size;		// key size(bit)
+	std::string name;
+	std::string md5;
+	std::string sha256;
+	std::string comment;
+	std::string comment2;
+};
+
+static std::vector<KeyListItem> keylist_update2()
+{
+	std::vector<KeyListItem> keylist;
+	std::vector<ckey> keys = keystore_get_keys();
+
+	int n = 0;
+	for(const auto &ckey : keys) {
+		KeyListItem item;
+		item.no = n++;
+//		item.name = keylistSimple[i];
+		item.algorithm = ckey.alg_name();
+		item.size = ckey.bits();
+		item.md5 = ckey.fingerprint_md5();
+		item.sha256 = ckey.fingerprint_sha256();
+		item.comment = ckey.key_comment();
+		item.comment2 = ckey.key_comment2();
+		keylist.push_back(item);
+	}
+
+	return keylist;
 }
 
 void keyviewdlg::keylistUpdate()
@@ -151,6 +205,46 @@ void keyviewdlg::on_pushButton_4_clicked()
 	addBtCert();
 }
 
+static char *pageant_get_pubkey(const ckey &_key)
+{
+    struct ssh2_userkey *key = _key.get();
+
+	int blob_len;
+    unsigned char *blob = key->alg->public_blob(key->data, &blob_len);
+    const size_t comment_len = strlen(key->comment);
+    const size_t base64_len = 8 + blob_len * 4 / 3 + 1 + comment_len + 2 + 1;
+    char *base64_ptr = (char *)malloc(base64_len);
+
+    char *p = base64_ptr;
+    memcpy(p, "ssh-rsa ", 8);
+    p += 8;
+    int i = 0;
+    while (i < blob_len) {
+		int n = (blob_len - i < 3 ? blob_len - i : 3);
+		base64_encode_atom(blob + i, n, p);
+		p += 4;
+		i += n;
+    }
+    *p++ = ' ';
+    memcpy(p, key->comment, comment_len);
+    p += comment_len;
+    *p++ = '\r';
+    *p++ = '\n';
+    *p   = '\0';
+    return base64_ptr;
+}
+
+static char *pageant_get_pubkey(const char *fingerprint_sha256)
+{
+	ckey key;
+	bool r = keystore_get(fingerprint_sha256, key);
+	if (r == false) {
+		return nullptr;
+	}
+	
+	return pageant_get_pubkey(key);
+}
+
 // pubkey to clipboard
 void keyviewdlg::on_pushButton_3_clicked()
 {
@@ -160,7 +254,7 @@ void keyviewdlg::on_pushButton_3_clicked()
 	const QModelIndexList &indexes = selection->selectedRows();
 	const int count = indexes.count();
 	if (count == 0) {
-		message_box(L"鍵が選択されていません", L"pageant+", MB_OK);
+		message_box(this, L"鍵が選択されていません", L"pageant+", MB_OK);
 	} else {
 		const QStandardItemModel *model = (QStandardItemModel *)ui->treeView->model();
 		std::vector<std::string> selectedArray;
@@ -196,8 +290,8 @@ void keyviewdlg::on_pushButton_3_clicked()
 			msg += ng_keys;
 			msg += u8"公開鍵の取得に失敗しました";
 		}
-		std::wstring msg_w = mb_to_wc(msg);
-		message_box(msg_w.c_str(), L"pageant+", MB_OK);
+		std::wstring msg_w = utf8_to_wc(msg);
+		message_box(this, msg_w.c_str(), L"pageant+", MB_OK);
 	}
 }
 
@@ -210,15 +304,18 @@ void keyviewdlg::on_pushButtonRemoveKey_clicked()
 	const QModelIndexList &indexes = selection->selectedRows();
 	const int count = indexes.count();
 	if (count == 0) {
-		message_box(L"鍵が選択されていません", L"pageant+", MB_OK);
+		message_box(this, L"鍵が選択されていません", L"pageant+", MB_OK);
 	} else {
-		std::vector<int> selectedArray;
+		const QStandardItemModel *model = (QStandardItemModel *)ui->treeView->model();
+		std::vector<std::string> selected;
 		for (int i = 0; i < count; i++) {
-			selectedArray.push_back(indexes[i].row());
+			const QStandardItem *item = model->item(indexes[i].row(), FINGERPRINT_SHA256_COLUMN);
+			selected.push_back(item->text().toStdString());
 		}
-		std::sort(selectedArray.begin(), selectedArray.end());
 
-		pageant_delete_key2((int)selectedArray.size(), &selectedArray[0]);
+		for (const auto &fingerprint : selected) {
+			keystore_remove(fingerprint.c_str());
+		}
 	}
 	keylistUpdate();
 }

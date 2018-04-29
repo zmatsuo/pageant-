@@ -2,7 +2,7 @@
 
 #define strdup(s)	dupstr(s)
 
-passphrase::passphrase(QWidget *parent, PassphraseDlgInfo *ptr)
+PassphraseDlg::PassphraseDlg(QWidget *parent, PassphraseDlgInfo *ptr)
 	: QDialog(parent)
 {
     ui.setupUi(this);
@@ -16,11 +16,11 @@ passphrase::passphrase(QWidget *parent, PassphraseDlgInfo *ptr)
     infoPtr_ = ptr;
 }
 
-passphrase::~passphrase()
+PassphraseDlg::~PassphraseDlg()
 {
 }
 
-void passphrase::accept()
+void PassphraseDlg::accept()
 {
 	QString s = ui.lineEdit->text();
 	bool c = ui.checkBox->isChecked();
@@ -33,7 +33,7 @@ void passphrase::accept()
     QDialog::accept();
 }
 
-void passphrase::reject()
+void PassphraseDlg::reject()
 {
 	*infoPtr_->passphrase = NULL;
 	QDialog::reject();
@@ -57,7 +57,7 @@ char *pin_dlg(const wchar_t *text, const wchar_t *caption, HWND hWnd, BOOL *pSav
 		pps.saveAvailable = true;
 	}
 
-	DIALOG_RESULT_T r = passphraseDlg(&pps);
+	DIALOG_RESULT_T r = ShowPassphraseDlg(&pps);
 	if (r == DIALOG_RESULT_CANCEL) {
 		if (pSavePassword != NULL) {
 			*pSavePassword = FALSE;

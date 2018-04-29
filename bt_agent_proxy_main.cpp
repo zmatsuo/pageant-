@@ -9,6 +9,7 @@
 #include <chrono>
 #include <regex>
 #include <sstream>
+#include <qwidget.h>
 
 #include <crtdbg.h>
 
@@ -19,12 +20,13 @@
 #endif
 #endif
 
-#define ENABLE_DEBUG_PRINT
+//#define ENABLE_DEBUG_PRINT
 #include "debug.h"
 #include "codeconvert.h"
 #include "gui_stuff.h"
 #include "pageant.h"
 #include "keystore.h"
+#include "winutils_qt.h"
 
 #include "bt_agent_proxy.h"
 
@@ -109,6 +111,37 @@ static bool bt_agent_proxy_main_send(const uint8_t *data, size_t len)
     return bta_send(hBta_, data, len);
 }
 
+bool bt_agent_proxy_main_handle_msg(
+	const std::vector<uint8_t> &request,
+	std::vector<uint8_t> &response)
+{
+    receive_event = false;
+    bool r = bt_agent_proxy_main_send(&request[0], request.size());
+	if (!r) {
+		response.clear();
+		return false;
+	}
+	auto start = std::chrono::system_clock::now();
+    while(!receive_event) {
+		std::this_thread::sleep_for(std::chrono::microseconds(1));
+		auto now = std::chrono::system_clock::now();
+		auto elapse =
+			std::chrono::duration_cast<std::chrono::milliseconds>(now - start);
+		if (elapse >= timeoutMs) {
+			break;
+		}
+    }
+	if (receive_event) {
+		response.resize(receive_size);
+		memcpy(&response[0], &receive_buf[0], receive_size);
+		return true;
+	} else {
+		response.clear();
+		return false;
+	}
+}
+
+#if 0
 void *bt_agent_proxy_main_handle_msg(const void *msgv, size_t *replylen)
 {
     receive_event = false;
@@ -137,6 +170,7 @@ void *bt_agent_proxy_main_handle_msg(const void *msgv, size_t *replylen)
 		return nullptr;
 	}
 }
+#endif
 
 bt_agent_proxy_t *bt_agent_proxy_main_get_handle()
 {
@@ -320,15 +354,6 @@ bool bt_agent_proxy_main_disconnect(const wchar_t *target_device)
 	return bt_agent_proxy_main_disconnect(deviceInfo);
 }
 
-#if 1
-static void bt_agent_query_synchronous_fn(void *in, size_t inlen, void **out, size_t *outlen)
-{
-	size_t reply_len = inlen;
-	void *reply = bt_agent_proxy_main_handle_msg(in, &reply_len);	// todo: size_tに変更
-	*out = reply;
-	*outlen = reply_len;
-}
-
 // 鍵取得
 bool bt_agent_proxy_main_get_key(
 	const wchar_t *target_device,
@@ -341,53 +366,23 @@ bool bt_agent_proxy_main_get_key(
 		std::wostringstream oss;
 		oss << L"bluetooth 接続失敗\n"
 			<< target_device;
-		message_boxW(oss.str().c_str(), L"pageant+", MB_OK, 0);
+		QWidget *w = getDispalyedWindow();
+		message_box(w, oss.str().c_str(), L"pageant+", MB_OK, 0);
 		return false;
 	}
 
-	// BT問い合わせする
-	pagent_set_destination(bt_agent_query_synchronous_fn);
-	int length;
-	void *p = pageant_get_keylist2(&length);
-	pagent_set_destination(nullptr);
-	if (p == nullptr) {
-		// 応答なし
-		dbgprintf("BT応答なし\n");
-		return false;
-	}
-	std::vector<uint8_t> from_bt((uint8_t *)p, ((uint8_t *)p) + length);
-	sfree(p);
-	p = &from_bt[0];
-
-
-	debug_memdump(p, length, 1);
-
-	std::string target_device_utf8 = wc_to_utf8(target_device);
-
-	// 鍵を抽出
-	const char *fail_reason = nullptr;
-	r = parse_public_keys(p, length, keys, &fail_reason);
-	if (r == false) {
-		dbgprintf("err %s\n", fail_reason);
-		return false;
-	}
+	//
+	int err = pageant_get_keylist(bt_agent_proxy_main_handle_msg, keys);
 
 	// ファイル名をセット TODO:ここでやる?
+	std::string target_device_utf8 = wc_to_utf8(target_device);
 	for(ckey &key : keys) {
 		std::ostringstream oss;
 		oss << "btspp://" << target_device_utf8 << "/" << key.fingerprint_sha1();
 		key.set_fname(oss.str().c_str());
 	}
 
-	for(const ckey &key : keys) {
-		dbgprintf("key\n");
-		dbgprintf(" '%s'\n", key.fingerprint().c_str());
-		dbgprintf(" md5 %s\n", key.fingerprint_md5().c_str());
-		dbgprintf(" sha256 %s\n", key.fingerprint_sha256().c_str());
-		dbgprintf(" alg %s %d\n", key.alg_name().c_str(), key.bits());
-		dbgprintf(" comment %s\n", key.key_comment().c_str());
-		dbgprintf(" comment2 %s\n", key.key_comment2().c_str());
-	}
+	ckey::dump_keys(keys);
 
 	return true;
 }
@@ -426,9 +421,7 @@ bool bt_agent_proxy_main_add_key(
 		for(auto fnamae : fnames) {
 			for(auto key : keys) {
 				if (key.key_comment() == fnamae) {
-					ssh2_userkey *key_st;
-					key.get_raw_key(&key_st);
-					if (!pageant_add_ssh2_key(key_st)) {
+					if (!keystore_add(key)) {
 						dbgprintf("key %s add err\n", key.fingerprint_sha256().c_str());
 					}
 				}
@@ -437,7 +430,6 @@ bool bt_agent_proxy_main_add_key(
 	}
 	return true;
 }
-#endif
 
 // Local Variables:
 // mode: c++

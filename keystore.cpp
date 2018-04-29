@@ -1,10 +1,20 @@
-﻿#include <stddef.h>
+﻿/**
+   keystore.cpp
+
+   Copyright (c) 2018 zmatsuo
+
+   This software is released under the MIT License.
+   http://opensource.org/licenses/mit-license.php
+*/
+
+#include "keystore.h"
+
+#include <stddef.h>
 #include <stdlib.h>
 #include <assert.h>
-#include <vector>
 #include <algorithm>
 
-#define ENABLE_DEBUG_PRINT
+//#define ENABLE_DEBUG_PRINT
 #include "puttymem.h"
 #include "tree234.h"
 #include "ssh.h"
@@ -14,12 +24,7 @@
 #include "ckey.h"
 #include "debug.h"
 
-#include "keystore.h"
 
-/*
- * rsakeys stores SSH-1 RSA keys. ssh2keys stores all SSH-2 keys.
- */
-static tree234 *rsakeys;
 static tree234 *ssh2keys;
 
 static std::vector<KeystoreListener *> listeners;
@@ -49,46 +54,6 @@ void keystoreRegistListener(KeystoreListener *listener)
 void keystoreUnRegistListener(KeystoreListener *listener)
 {
 	listeners.erase(std::remove(listeners.begin(), listeners.end(), listener), listeners.end());
-}
-
-/*
- * Key comparison function for the 2-3-4 tree of RSA keys.
- */
-static int cmpkeys_rsa(const void *av, const void *bv)
-{
-    const struct RSAKey *a = (struct RSAKey *) av;
-    const struct RSAKey *b = (struct RSAKey *) bv;
-    Bignum am, bm;
-    int alen, blen;
-
-    am = a->modulus;
-    bm = b->modulus;
-    /*
-     * Compare by length of moduli.
-     */
-    alen = bignum_bitcount(am);
-    blen = bignum_bitcount(bm);
-    if (alen > blen)
-		return +1;
-    else if (alen < blen)
-		return -1;
-    /*
-     * Now compare by moduli themselves.
-     */
-    alen = (alen + 7) / 8;	       /* byte count */
-    while (alen-- > 0) {
-		int abyte, bbyte;
-		abyte = bignum_byte(am, alen);
-		bbyte = bignum_byte(bm, alen);
-		if (abyte > bbyte)
-			return +1;
-		else if (abyte < bbyte)
-			return -1;
-    }
-    /*
-     * Give up.
-     */
-    return 0;
 }
 
 /*
@@ -172,191 +137,50 @@ static int cmpkeys_ssh2_asymm(const void *av, const void *bv)
     return c;
 }
 
-/*
- * Create an SSH-1 key list in a malloc'ed buffer; return its
- * length.
- */
-void *pageant_make_keylist1(int *length)
-{
-    int i, nkeys;
-	size_t len;
-    struct RSAKey *key;
-    unsigned char *blob, *p, *ret;
-    int bloblen;
-
-    /*
-     * Count up the number and length of keys we hold.
-     */
-    len = 4;
-    nkeys = 0;
-    for (i = 0; NULL != (key = (struct RSAKey *)index234(rsakeys, i)); i++) {
-		nkeys++;
-		blob = rsa_public_blob(key, &bloblen);
-		len += bloblen;
-		sfree(blob);
-		len += 4 + strlen(key->comment);
-    }
-
-    /* Allocate the buffer. */
-    p = ret = snewn(len, unsigned char);
-    if (length) *length = len;
-
-    PUT_32BIT(p, nkeys);
-    p += 4;
-    for (i = 0; NULL != (key = (struct RSAKey *)index234(rsakeys, i)); i++) {
-		blob = rsa_public_blob(key, &bloblen);
-		memcpy(p, blob, bloblen);
-		p += bloblen;
-		sfree(blob);
-		PUT_32BIT(p, strlen(key->comment));
-		memcpy(p + 4, key->comment, strlen(key->comment));
-		p += 4 + strlen(key->comment);
-    }
-
-    assert(p - ret == len);
-    return ret;
-}
-
-/*
- * Create an SSH-2 key list in a malloc'ed buffer; return its
- * length.
- */
-void *pageant_make_keylist2(int *length)
-{
-    struct ssh2_userkey *key;
-    int i, nkeys;
-	size_t len;
-    unsigned char *blob, *p, *ret;
-    int bloblen;
-
-    /*
-     * Count up the number and length of keys we hold.
-     */
-    len = 4;
-    nkeys = 0;
-    for (i = 0; NULL != (key = (struct ssh2_userkey *)index234(ssh2keys, i)); i++) {
-		nkeys++;
-		len += 4;	       /* length field */
-		blob = key->alg->public_blob(key->data, &bloblen);
-		len += bloblen;
-		sfree(blob);
-		len += 4 + strlen(key->comment);
-    }
-
-    /* Allocate the buffer. */
-    p = ret = snewn(len, unsigned char);
-    if (length) *length = len;
-
-    /*
-     * Packet header is the obvious five bytes, plus four
-     * bytes for the key count.
-     */
-    PUT_32BIT(p, nkeys);
-    p += 4;
-    for (i = 0; NULL != (key = (struct ssh2_userkey *)index234(ssh2keys, i)); i++) {
-		blob = key->alg->public_blob(key->data, &bloblen);
-		PUT_32BIT(p, bloblen);
-		p += 4;
-		memcpy(p, blob, bloblen);
-		p += bloblen;
-		sfree(blob);
-		const char *comment = key->comment;
-		size_t comment_len = strlen(comment);
-		PUT_32BIT(p, comment_len);
-		memcpy(p + 4, comment, comment_len);
-		p += 4 + comment_len;
-    }
-
-    assert(p - ret == len);
-    return ret;
-}
-
-struct RSAKey *pageant_nth_ssh1_key(int i)
-{
-    return (struct RSAKey *)index234(rsakeys, i);
-}
-
-struct ssh2_userkey *pageant_nth_ssh2_key(int i)
-{
-    return (struct ssh2_userkey *)index234(ssh2keys, i);
-}
-
-int pageant_count_ssh1_keys(void)
-{
-    return count234(rsakeys);
-}
-
-int pageant_count_ssh2_keys(void)
-{
-    return count234(ssh2keys);
-}
-
-int pageant_add_ssh1_key(struct RSAKey *rkey)
-{
-	int result = add234(rsakeys, rkey) == rkey;
-	callListeners();
-	return result;
-}
-
-int pageant_add_ssh2_key(struct ssh2_userkey *skey)
+static bool pageant_add_ssh2_key(struct ssh2_userkey *skey)
 {
 	int result = add234(ssh2keys, skey) == skey;
 	callListeners();
-    return result;
+    return result == 0 ? false : true;
 }
 
-static void pageant_delete_ssh2_key_all_()
+bool keystore_add(ckey &key)
+{
+	struct ssh2_userkey *skey = key.release();
+	bool r = pageant_add_ssh2_key(skey);
+	if (!r) {
+		key.set(skey);
+	}
+	return r;
+}
+
+static void clear_keys()
 {
     struct ssh2_userkey *skey;
     while ((skey = (struct ssh2_userkey *)index234(ssh2keys, 0)) != NULL) {
 		del234(ssh2keys, skey);
-		skey->alg->freekey(skey->data);
-		sfree(skey);
+		ckey key(skey);
     }
 }
 
-void pageant_delete_ssh2_key_all()
+void keystore_remove_all()
 {
-	pageant_delete_ssh2_key_all_();
+	clear_keys();
 	callListeners();
 }
 
-int pageant_delete_ssh1_key(struct RSAKey *rkey)
-{
-    struct RSAKey *deleted = (struct RSAKey *)del234(rsakeys, rkey);
-    if (!deleted)
-        return FALSE;
-    assert(deleted == rkey);
-	callListeners();
-    return TRUE;
-}
-
-static void pagent_delete_ssh1_key_all_()
-{
-    struct RSAKey *rkey;
-    while ((rkey = (struct RSAKey *)index234(rsakeys, 0)) != NULL) {
-		del234(rsakeys, rkey);
-		freersakey(rkey);
-		sfree(rkey);
-    }
-}
-
-void pageant_delete_ssh1_key_all()
-{
-	pagent_delete_ssh1_key_all_();
-	callListeners();
-}
-
-int pageant_delete_ssh2_key(struct ssh2_userkey *skey)
+static int pageant_delete_ssh2_key(const struct ssh2_userkey *skey)
 {
     struct ssh2_userkey *deleted = (struct ssh2_userkey *)del234(ssh2keys, skey);
     if (!deleted)
         return FALSE;
     assert(deleted == skey);
+	ckey key(deleted);
 	callListeners();
     return TRUE;
 }
 
+#if 0
 static int pageant_search_fingerprint(const void *av, const void *bv)
 {
 	const char *search_fingerprint = (const char *)av;
@@ -369,26 +193,24 @@ static int pageant_search_fingerprint(const void *av, const void *bv)
 	sfree(fingerprint);
 	return c;
 }
+#endif
 
 static int pageant_search_fingerprint_sha256(const void *av, const void *bv)
 {
 	const char *search_fingerprint = (const char *)av;
 	const struct ssh2_userkey *key = (struct ssh2_userkey *) bv;
-	char *fingerprint = ssh2_fingerprint_sha256(key);
+	ckey _key = ckey::create(key);
+	std::string fingerprint_s = _key.fingerprint_sha256();
+	const char *fingerprint = fingerprint_s.c_str();
 	int c = 1;
 	if (strcmp(search_fingerprint, fingerprint) == 0) {
 		c = 0;
 	}
-	sfree(fingerprint);
 	return c;
 }
 
-struct RSAKey *pageant_get_ssh1_key(const struct RSAKey *key)
-{
-    return (struct RSAKey *)find234(rsakeys, key, NULL);
-}
-
-struct ssh2_userkey *pageant_get_ssh2_key_from_blob(const unsigned char *blob, size_t blob_len)
+static struct ssh2_userkey *pageant_get_ssh2_key_from_blob(
+	const unsigned char *blob, size_t blob_len)
 {
 	struct blob b;
 	b.blob_ = blob;
@@ -396,16 +218,38 @@ struct ssh2_userkey *pageant_get_ssh2_key_from_blob(const unsigned char *blob, s
 	return (struct ssh2_userkey *)find234(ssh2keys, (void *)&b, cmpkeys_ssh2_asymm);
 }
 
+bool keystore_get_from_blob(const std::vector<uint8_t> &blob, ckey &key)
+{
+	struct ssh2_userkey *skey =
+		pageant_get_ssh2_key_from_blob(&blob[0], blob.size());
+	if (skey == nullptr) {
+		return false;
+	}
+	key = ckey::create(skey);
+	return true;
+}
+
+bool keystore_get(const ckey &public_key, ckey &key)
+{
+	std::vector<uint8_t> blob_v = public_key.public_blob_v();
+	ckey private_key;
+	bool r = keystore_get_from_blob(blob_v, private_key);
+	key = private_key;
+	return r;
+}
+
 // @retval	ssh2_userey
 // @retval	nullptr		見つからなかった
-struct ssh2_userkey *pageant_get_ssh2_key_from_fp(const char *fingerprint)
+#if 0
+static struct ssh2_userkey *pageant_get_ssh2_key_from_fp(const char *fingerprint)
 {
     struct ssh2_userkey *key;
     key = (struct ssh2_userkey *)find234(ssh2keys, fingerprint, pageant_search_fingerprint);
     return key;
 }
+#endif
 
-struct ssh2_userkey *pageant_get_ssh2_key_from_fp_sha256(const char *fingerprint)
+static struct ssh2_userkey *pageant_get_ssh2_key_from_fp_sha256(const char *fingerprint)
 {
     struct ssh2_userkey *key;
     key = (struct ssh2_userkey *)find234(ssh2keys, fingerprint, pageant_search_fingerprint_sha256);
@@ -414,111 +258,64 @@ struct ssh2_userkey *pageant_get_ssh2_key_from_fp_sha256(const char *fingerprint
 
 void keystore_init()
 {
-    rsakeys = newtree234(cmpkeys_rsa);
     ssh2keys = newtree234(cmpkeys_ssh2);
 }
 
 void keystore_exit()
 {
-	pagent_delete_ssh1_key_all_();
-	sfree(rsakeys);
-    rsakeys = nullptr;
-	pageant_delete_ssh2_key_all_();
+	clear_keys();
     sfree(ssh2keys);
     ssh2keys = nullptr;
 }
 
-//int pageant_delete_key(struct pageant_pubkey *key, char **retstr)
-//int pageant_delete_ssh2_key(struct ssh2_userkey *skey)
-
-void pageant_del_key(const char *fingerprint)
-{
-    struct ssh2_userkey *key = pageant_get_ssh2_key_from_fp(fingerprint);
-    if (key == NULL) {
-		return;
-    }
-
-    char *fingerprint2 = ssh2_fingerprint(key->alg, key->data);
-    printf("f %s %s\n", fingerprint, fingerprint2);
-    sfree(fingerprint2);
-
-    pageant_delete_ssh2_key(key);
-}
-
-char *pageant_get_pubkey(const char *fingerprint_sha256)
-{
-    struct ssh2_userkey *key = pageant_get_ssh2_key_from_fp_sha256(fingerprint_sha256);
-    if (key == NULL) {
-		return NULL;
-    }
-
-    int blob_len;
-    unsigned char *blob = key->alg->public_blob(key->data, &blob_len);
-    const size_t comment_len = strlen(key->comment);
-    const size_t base64_len = 8 + blob_len * 4 / 3 + 1 + comment_len + 2 + 1;
-    char *base64_ptr = (char *)malloc(base64_len);
-
-    char *p = base64_ptr;
-    memcpy(p, "ssh-rsa ", 8);
-    p += 8;
-    int i = 0;
-    while (i < blob_len) {
-		int n = (blob_len - i < 3 ? blob_len - i : 3);
-		base64_encode_atom(blob + i, n, p);
-		p += 4;
-		i += n;
-    }
-    *p++ = ' ';
-    memcpy(p, key->comment, comment_len);
-    p += comment_len;
-    *p++ = '\r';
-    *p++ = '\n';
-    *p   = '\0';
-    return base64_ptr;
-}
-
 //////////////////////////////////////////////////////////////////////////////
 
-void pageant_delete_key2(int selectedCount, const int *selectedArray)
+std::vector<ckey> keystore_get_keys()
 {
-    struct RSAKey *rkey;
-    struct ssh2_userkey *skey;
+	std::vector<ckey> keys;
 
-    int itemNum = selectedCount;
-    if (itemNum == 0) {
-		return;
-    }
+	struct ssh2_userkey *key;
+	for (int i = 0; NULL != (key = (struct ssh2_userkey *)index234(ssh2keys, i)); i++) {
+		ckey _ckey = ckey::create(key);
+		keys.emplace_back(_ckey);
+	}
 
-    int rCount = pageant_count_ssh1_keys();
-    int sCount = pageant_count_ssh2_keys();
-		
-    /* go through the non-rsakeys until we've covered them all, 
-     * and/or we're out of selected items to check. note that
-     * we go *backwards*, to avoid complications from deleting
-     * things hence altering the offset of subsequent items
-     */
-    for (int i = sCount - 1; (itemNum > 0) && (i >= 0); i--) {
-		skey = pageant_nth_ssh2_key(i);
-			
-		if (selectedArray[itemNum-1] == rCount + i) {
+	return keys;
+}
+
+bool keystore_get(const char *fingerprint, ckey &key)
+{
+	std::vector<ckey> keys = keystore_get_keys();
+
+	for (auto &akey : keys) {
+		auto sha256 = akey.fingerprint_sha256();
+		if (sha256 == fingerprint) {
+			struct ssh2_userkey *skey = pageant_get_ssh2_key_from_fp_sha256(fingerprint);
+			key = ckey::create(skey);
+			return true;
+		}
+	}
+	return false;
+}
+
+bool keystore_remove(const char *fingerprint)
+{
+	std::vector<ckey> keys = keystore_get_keys();
+
+	for (auto &key : keys) {
+		auto sha256 = key.fingerprint_sha256();
+		if (sha256 == fingerprint) {
+			struct ssh2_userkey *skey = pageant_get_ssh2_key_from_fp_sha256(fingerprint);
 			pageant_delete_ssh2_key(skey);
-			skey->alg->freekey(skey->data);
-			sfree(skey);
-			itemNum--;
+			return true;
 		}
-    }
-		
-    /* do the same for the rsa keys */
-    for (int i = rCount - 1; (itemNum >= 0) && (i >= 0); i--) {
-		rkey = pageant_nth_ssh1_key(i);
+	}
+	return false;
+}
 
-		if(selectedArray[itemNum] == i) {
-			pageant_delete_ssh1_key(rkey);
-			freersakey(rkey);
-			sfree(rkey);
-			itemNum--;
-		}
-    }
+bool keystore_remove(const ckey &key)
+{
+	return keystore_remove(key.fingerprint_sha256().c_str());
 }
 
 // Local Variables:

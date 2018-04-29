@@ -39,8 +39,8 @@ SOURCES += main.cpp\
     sshsh512.c \
     sshsha.c \
     tree234.c \
-    version.c \
-    misc.c \
+    version.cpp \
+    misc.cpp \
     misc_cpp.cpp \
     winpgnt.cpp \
     winpgntc.c \
@@ -51,11 +51,10 @@ SOURCES += main.cpp\
     passphrasedlg.cpp \
     aboutdlg.cpp \
     confirmacceptdlg.cpp \
-    libunixdomain/sock_server.c \
-    libunixdomain/ud_socket.c \
+    sock_server.c \
+    ud_socket.c \
     ssh-agent_emu.cpp \
     pageant.cpp \
-    pageant_cpp.cpp \
     sshsh256.c \
     sshecc.c \
     cert/cert_capi.c \
@@ -77,9 +76,10 @@ SOURCES += main.cpp\
     obfuscate.cpp \
     passphrases.cpp \
     keystore.cpp \
-    keystore2.cpp \
     rdpkeydlg.cpp \
-    rdp_ssh_relay.cpp
+    rdp_ssh_relay.cpp \
+    sshbn_cpp.cpp \
+    keyfile.cpp
     
 HEADERS  += mainwindow.h \
     passphrasedlg.h \
@@ -99,7 +99,6 @@ HEADERS  += mainwindow.h \
     obfuscate.h \
     passphrases.h \
     keystore.h \
-    keystore2.h \
     rdpkeydlg.h \
     rdp_ssh_relay.h
     

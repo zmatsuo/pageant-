@@ -153,7 +153,7 @@ void *findrelpos234(tree234 * t, const void *e, cmpfn234 cmp, int relation,
  * is out of range (delpos234) or the element is already not in the
  * tree (del234) then they return NULL.
  */
-void *del234(tree234 * t, void *e);
+void *del234(tree234 * t, const void *e);
 void *delpos234(tree234 * t, int index);
 
 /*

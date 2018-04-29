@@ -9,13 +9,16 @@ bool rdpSshRelayInit();
 
 // server
 bool rdpSshRelayCheckServer();
+bool rdpSshRelaySetupServer();		// UAC
+bool rdpSshRelayTeardownServer();	// UAC
 bool rdpSshRelayServerStart();
 void rdpSshRelayServerStop();
+bool rdpSshRelayIsRemoteSession();
+bool rdpSshRelayCheckCom();
+std::wstring rdpSshRelayGetClientName();
 bool rdpSshRelaySendReceive(
 	const std::vector<uint8_t> &send,
 	std::vector<uint8_t> &receive);
-bool rdpSshRelayIsRemoteSession();
-std::wstring rdpSshRelayGetClientName();
 
 // client
 bool rdpSshRelayCheckClient();

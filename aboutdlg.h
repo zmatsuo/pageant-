@@ -1,5 +1,4 @@
-#ifndef ABOUTDLG_H
-#define ABOUTDLG_H
+#pragma once
 
 #pragma warning(push)
 #pragma warning(disable:4127)
@@ -17,9 +16,11 @@ class AboutDlg : public QDialog
  //   Q_OBJECT
 
 public:
-    explicit AboutDlg(QWidget *parent = 0);
+	static AboutDlg *createInstance(QWidget *parent = 0);
     ~AboutDlg();
     void helpRequest();
+private:
+    explicit AboutDlg(QWidget *parent = 0);
 
 private slots:
     void on_buttonBox_helpRequested();
@@ -27,6 +28,11 @@ private slots:
 private:
     void versionDetail();
     Ui::AboutDlg *ui;
+	static AboutDlg *instance;
 };
 
-#endif // ABOUTDLG_H
+// Local Variables:
+// mode: c++
+// coding: utf-8-with-signature
+// tab-width: 4
+// End:

@@ -6,19 +6,10 @@
 #include <stdlib.h>
 #include <windows.h>
 
+#include "winpageant_client.h"
 #include "misc.h"
 #include "puttymem.h"
 #include "pageant_msg.h"
-
-int agent_exists(void)
-{
-    HWND hwnd;
-    hwnd = FindWindow("Pageant", "Pageant");
-    if (!hwnd)
-	return FALSE;
-    else
-	return TRUE;
-}
 
 /*
  * Unfortunately, this asynchronous agent request mechanism doesn't

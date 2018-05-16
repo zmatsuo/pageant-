@@ -9,14 +9,18 @@ Windows用のssh agentです。putty pageantをベースにしています。
 次の経路でssh関連のプログラムと通信を行うことができます。
 - pageant (putty ssh-agent)
 - ssh-agent unix domain socket (cygwin emulation)
-- ssh-agent unix domain socket (Windows Native, Windows10 Redstone 4~)
+- ssh-agent unix domain socket (Windows Native) *1
+- Microsoft ssh-agent compatible (Named Pipe) *1
 - ssh-agent TCP接続 (socat(WSL)からの接続用)
-- ssh-agent Microsoft (0.0.17.0以降は未対応)
 
+  *1 Windows10 version 1803(Redstone 4)より正式採用されました。
+ 
 次のようなこともできます。
 - 秘密鍵をandroidデバイス上に保存しておくBT pageant+も利用できます
 - RDP(リモートデスクトップ)の接続先から手元のpageant+を利用できます
 - スマートキー(マイナンバーカード)を利用できます
+- よく使われる秘密鍵ファイルフォーマットをサポートしています(Putty形式,OpenSSH形式,ssh.com形式)
+- 読み込んだ秘密鍵からsshサーバー用公開鍵を抽出できます
 
 まだまだ気になるところはありますが、概ね動作します。
 
@@ -26,10 +30,11 @@ Windows用のssh agentです。putty pageantをベースにしています。
 - RDP(リモートデスクトップ)のVirtual Channelを利用
     - 接続した先(サーバ側)のpageant+から、ローカル(クライアント側)のpageant+を利用できます
 - Windows Native unix domain socket対応
-    - Redstone 4(RS4)以降で利用可能です
+    - Windows 10 version 1803 Redstone 4(RS4)以降で利用可能です
 	- ([build17061から](https://blogs.msdn.microsoft.com/commandline/2017/12/19/af_unix-comes-to-windows/)利用可能だと思われます)
 	- [socat + TCP](https://github.com/zmatsuo/pageant-/wiki/WSL%E3%81%8B%E3%82%89-pageant---%E3%82%92%E5%88%A9%E7%94%A8%E3%81%99%E3%82%8B)を使用せずにWSLから直接利用できます
 	- Windows側からは `c:/path/.ssh-ageant` とした場合、WSL側からは `export SSH_AUTH_SOCK=/mnt/c/path/.ssh-agent`などと設定します
+- Windows 10 version 1803(Redstone 4)より正式版となったMicorsoftによる移植版OpenSSHのageantとなることができる
 - sshの秘密鍵のパスフレーズを記憶,適当なタイミングで忘れることができる
 - ほとんどのsshクライアントと通信できる
 - スマートカードを使うことができる
@@ -45,15 +50,21 @@ Windows用のssh agentです。putty pageantをベースにしています。
 - 他のsshエージェントを止める
 	- pageant(putty)
 	- ssh-pageant(cygwinなど)
+	- Microsoft OpenSSH ageant
 - 環境変数`SSH_AUTH_SOCK`を調整する
+	- Microsoft版OpenSSH を使用するときは設定しない(又は`\\.\pipe\openssh-ssh-agent`)
 - pageant+を起動する
 - 必要に応じて設定から自動起動するようにする
-- `ssh-add -l`で接続できればok
+- `ssh-add -l`などで接続できればok
 
 ## 鍵ファイル
 
 - 'Add Key file'ボタンを押してファイルを追加
 - `ssh-add -l`で鍵を表示できればok
+
+## Micorsoft版OpenSSH
+
+- 環境変数`SSH_AUTH_SOCK`を設定しない場合の初期値は`\\.\pipe\openssh-ssh-agent`
 
 ## リモートデスクトップ経由(RDP relay)
 
@@ -99,9 +110,7 @@ Windows用のssh agentです。putty pageantをベースにしています。
 ## 鍵ファイル
 
 - addボタンで使用できる鍵ファイル種類
-	- putty形式の秘密鍵
 	- RSA 2048bit,4096bitのみテスト
-	- 他の形式も使えるかもしれない
 
 ## 動作確認できたスマートカード
 
@@ -131,8 +140,8 @@ pageant+のスタートタップ登録をもう一度やり直してください
 	- socatを経由したソケット接続
 
 ## OpenSSH
-- Win32 port of OpenSSH
-	- v0.0.17.0以降未対応
+- OpenSSH
+	- Windows 10 version 1803(Redstone 4)より正式版となったMicorsoftによる移植版
 
 ## cygwin/msys ssh family
 - cygwin/msys ssh
@@ -158,7 +167,7 @@ iniファイルに保存することもできます。
 - `HKEY_CURRENT_USER\Software\pageant+\IniFile`
 
 このレジストリが設定してあると、指定iniファイルを使用します。
-REG_EXPAND_SZの場合は環境変数(%HOME%など)の展開が行われます
+REG_EXPAND_SZの場合は環境変数参照(%HOME%など)があると展開されます。
 (`%HOME%\.pageant+.ini`など)。
 
 設定がない場合、iniファイルを探します。

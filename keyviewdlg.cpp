@@ -27,12 +27,10 @@
 #include "misc.h"
 #include "misc_cpp.h"
 #include "winmisc.h"
-#include "filename.h"
 #include "setting.h"
 #include "gui_stuff.h"
 #include "pageant.h"
 #include "winutils.h"
-#include "ssh.h"
 #include "ckey.h"
 #include "codeconvert.h"
 #include "keystore.h"
@@ -97,47 +95,13 @@ void keyviewdlg::change()
 	dbgprintf("change() leave\n");
 }
 
-class KeyListItem {
-public:
-	int no;
-	std::string algorithm;
-	int size;		// key size(bit)
-	std::string name;
-	std::string md5;
-	std::string sha256;
-	std::string comment;
-	std::string comment2;
-};
-
-static std::vector<KeyListItem> keylist_update2()
-{
-	std::vector<KeyListItem> keylist;
-	std::vector<ckey> keys = keystore_get_keys();
-
-	int n = 0;
-	for(const auto &ckey : keys) {
-		KeyListItem item;
-		item.no = n++;
-//		item.name = keylistSimple[i];
-		item.algorithm = ckey.alg_name();
-		item.size = ckey.bits();
-		item.md5 = ckey.fingerprint_md5();
-		item.sha256 = ckey.fingerprint_sha256();
-		item.comment = ckey.key_comment();
-		item.comment2 = ckey.key_comment2();
-		keylist.push_back(item);
-	}
-
-	return keylist;
-}
-
 void keyviewdlg::keylistUpdate()
 {
 	dbgprintf("keylistUpdate() enter\n");
-	std::vector<KeyListItem> k = keylist_update2();
+	std::vector<ckey> keys = keystore_get_keys();
 	QStandardItemModel *model;
 
-	if (k.size() == 0) {
+	if (keys.size() == 0) {
 		model = new QStandardItemModel(1, 1, this);
 		QStandardItem *item = new QStandardItem(QString(u8"no key"));
 		model->setItem(0, 0, item);
@@ -145,31 +109,39 @@ void keyviewdlg::keylistUpdate()
 		ui->treeView->setModel(model);
 		return;
 	}
-	model = new QStandardItemModel((int)k.size(), 5, this);
+	model = new QStandardItemModel((int)keys.size(), 7, this);
 	int n = 0;
-//	model->setHeaderData(n++, Qt::Horizontal, QObject::tr("key"));
 	model->setHeaderData(n++, Qt::Horizontal, QObject::tr("algorithm"));
 	model->setHeaderData(n++, Qt::Horizontal, QObject::tr("size(bit)"));
 	model->setHeaderData(n++, Qt::Horizontal, QObject::tr("MD5/hex fingerpinrt"));
 	model->setHeaderData(n++, Qt::Horizontal, QObject::tr("SHA-256/base64 fingerprint"));
 	assert(n-1 == FINGERPRINT_SHA256_COLUMN);
 	model->setHeaderData(n++, Qt::Horizontal, QObject::tr("comment"));
+	model->setHeaderData(n++, Qt::Horizontal, tr("expiration(sec)"));
+	model->setHeaderData(n++, Qt::Horizontal, tr("confirmation"));
 	int colum = 0;
-	for (const auto a : k) {
+	time_t now = time(NULL);
+	for (const auto &key : keys) {
 		QStandardItem *item;
 		n = 0;
-		item = new QStandardItem(QString::fromStdString(a.algorithm));
+		item = new QStandardItem(QString::fromStdString(key.alg_name()));
 		model->setItem(colum, n++, item);
-		item = new QStandardItem(QString::fromStdString(std::to_string(a.size)));
+		item = new QStandardItem(QString::fromStdString(std::to_string(key.bits())));
 		model->setItem(colum, n++, item);
-		item = new QStandardItem(QString::fromStdString(a.md5));
+		item = new QStandardItem(QString::fromStdString(key.fingerprint_md5()));
 		model->setItem(colum, n++, item);
-		item = new QStandardItem(QString::fromStdString(a.sha256));
+		item = new QStandardItem(QString::fromStdString(key.fingerprint_sha256()));
 		model->setItem(colum, n++, item);
-		item = new QStandardItem(QString::fromStdString(a.comment));
+		item = new QStandardItem(QString::fromStdString(key.key_comment()));
 		model->setItem(colum, n++, item);
-//		item = new QStandardItem(QString::fromStdString(a.name));
-//		model->setItem(colum, n++, item);
+		time_t expiration_time = key.expiration_time();
+		std::string expiration_str = expiration_time == 0 ? "---" : std::to_string(expiration_time - now);
+		item = new QStandardItem(QString::fromStdString(expiration_str));
+		model->setItem(colum, n++, item);
+		std::string confirmation =
+			key.get_confirmation_required() ? "required" : "---";
+		item = new QStandardItem(QString::fromStdString(confirmation));
+		model->setItem(colum, n++, item);
 		colum++;
 	}
 
@@ -183,66 +155,23 @@ void keyviewdlg::keylistUpdate()
 void keyviewdlg::on_pushButtonAddKey_clicked()
 {
 	addFileCert();
-	keylistUpdate();
 }
 
 // CAPI Cert
 void keyviewdlg::on_pushButton_clicked()
 {
 	addCAPICert();
-	keylistUpdate();
 }
 
 // PKCS Cert
 void keyviewdlg::on_pushButton_2_clicked()
 {
 	addPKCSCert();
-	keylistUpdate();
 }
 
 void keyviewdlg::on_pushButton_4_clicked()
 {
 	addBtCert();
-}
-
-static char *pageant_get_pubkey(const ckey &_key)
-{
-    struct ssh2_userkey *key = _key.get();
-
-	int blob_len;
-    unsigned char *blob = key->alg->public_blob(key->data, &blob_len);
-    const size_t comment_len = strlen(key->comment);
-    const size_t base64_len = 8 + blob_len * 4 / 3 + 1 + comment_len + 2 + 1;
-    char *base64_ptr = (char *)malloc(base64_len);
-
-    char *p = base64_ptr;
-    memcpy(p, "ssh-rsa ", 8);
-    p += 8;
-    int i = 0;
-    while (i < blob_len) {
-		int n = (blob_len - i < 3 ? blob_len - i : 3);
-		base64_encode_atom(blob + i, n, p);
-		p += 4;
-		i += n;
-    }
-    *p++ = ' ';
-    memcpy(p, key->comment, comment_len);
-    p += comment_len;
-    *p++ = '\r';
-    *p++ = '\n';
-    *p   = '\0';
-    return base64_ptr;
-}
-
-static char *pageant_get_pubkey(const char *fingerprint_sha256)
-{
-	ckey key;
-	bool r = keystore_get(fingerprint_sha256, key);
-	if (r == false) {
-		return nullptr;
-	}
-	
-	return pageant_get_pubkey(key);
 }
 
 // pubkey to clipboard
@@ -267,10 +196,10 @@ void keyviewdlg::on_pushButton_3_clicked()
 		std::string ng_keys;
 		std::string to_clipboard_str;
 		for (const auto &fp_sha256 : selectedArray) {
-			char *pubkey = pageant_get_pubkey(fp_sha256.c_str());
-			if (pubkey != nullptr) {
-				to_clipboard_str += pubkey;
-				free(pubkey);
+			ckey key;
+			bool r = keystore_get(fp_sha256.c_str(), key);
+			if (r) {
+				to_clipboard_str += key.get_pubkey();
 				ok_keys += fp_sha256;
 				ok_keys += "\n";
 			} else {
@@ -317,7 +246,7 @@ void keyviewdlg::on_pushButtonRemoveKey_clicked()
 			keystore_remove(fingerprint.c_str());
 		}
 	}
-	keylistUpdate();
+//	keylistUpdate();
 }
 
 //////////////////////////////////////////////////////////////////////////////

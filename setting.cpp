@@ -9,6 +9,7 @@
 #define REG_HKCU_APP_PATH   "Software\\pageant+"
 #define PUTTY_DEFAULT       L"Default%20Settings"
 #define PUTTY_REGKEY        L"Software\\SimonTatham\\PuTTY\\Sessions"
+#define AGENT_PIPE_ID		"\\\\.\\pipe\\openssh-ssh-agent"
 
 class settings;
 
@@ -540,8 +541,12 @@ static void set_default()
     }
     key = "ssh-agent/ms_ssh";
     if (setting_isempty(key)) {
-        setting_set_bool(key, false);
+        setting_set_bool(key, true);
     }
+    key = "ssh-agent/sock_path_ms";
+	if (setting_isempty(key)) {
+		setting_set_str(key, L"" AGENT_PIPE_ID);
+	}
 }
 
 static bool init_putty_ini_sub(const wchar_t *ini)
@@ -627,8 +632,7 @@ void setting_write_confirm_info(const char *keyname, const char *value)
 
 /**
  *  @param[in]  keyname
- *  @param[out] value       "accept" or "refuce" or "\0"
- *  @param[in]  value_size  このサイズは'\0'も含む
+ *  @param[out] value       "accept" or "refuce" or empty
  */
 void setting_get_confirm_info(const char *keyname, std::string &value)
 {

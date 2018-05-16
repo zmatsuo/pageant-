@@ -1,11 +1,17 @@
 ﻿/*
- * pageant.c: cross-platform code to implement Pageant.
+ * pageant.cpp
+ *
+ * based on pageant.c from putty(pageant)
+ *
+ * Copyright (c) 2018 zmatsuo
+ *
+ * This software is released under the MIT License.
+ * http://opensource.org/licenses/mit-license.php
  */
 #define _CRT_SECURE_NO_WARNINGS
 #include <stddef.h>
 #include <stdlib.h>
 #include <assert.h>
-#include <malloc.h>	// for alloca
 #include <regex>
 #include <errno.h>
 
@@ -32,11 +38,17 @@ extern "C" {
 
 #include "bt_agent_proxy_main.h"
 
+#define SSH_AGENT_CONSTRAIN_LIFETIME	1
+#define SSH_AGENT_CONSTRAIN_CONFIRM		2
+#define SSH_AGENT_CONSTRAIN_EXTENSION	3
+
 #if defined(_DEBUG)
 void dump_msg(const void *msg);		// test
 #else
 #define	dump_msg(p)
 #endif
+
+static bool confirm_any_request;
 
 /*
  * We need this to link with the RSA code, because rsaencrypt()
@@ -79,23 +91,15 @@ static void plog(void *logctx, pageant_logfn_t logfn, const char *fmt, ...)
     }
 }
 
-static int confirm_any_request;
-
-/**
- *	@retval		0	accepted
- * 	@retval		1	refused
- */
-static int accept_agent_request(int type, const ckey &public_key)
+static std::string make_confirm_key_str(int type, const ckey &public_key)
 {
-	static const char VALUE_ACCEPT[] = "accept";
-    static const char VALUE_REFUSE[] = "refuse";
-
 	std::string keyname;
     switch (type) {
     case SSH2_AGENTC_SIGN_REQUEST:
         keyname = "QUERY:";
         break;
     case SSH2_AGENTC_ADD_IDENTITY:
+	case SSH2_AGENTC_ADD_ID_CONSTRAINED:
         keyname = "ADD:";
         break;
     case SSH2_AGENTC_REMOVE_IDENTITY:
@@ -105,7 +109,7 @@ static int accept_agent_request(int type, const ckey &public_key)
         keyname = "SSH2_REMOVE_ALL";
         break;
     default:
-        return 0;
+		;
     }
 
 	if (type != SSH2_AGENTC_REMOVE_ALL_IDENTITIES)
@@ -115,54 +119,76 @@ static int accept_agent_request(int type, const ckey &public_key)
 		keyname += public_key.key_comment();
     }
 
-    int accept = -1;
-	std::string value;
-	setting_get_confirm_info(keyname.c_str(), value);
-	if (value == VALUE_ACCEPT)
-		accept = 1;
-	else if (value == VALUE_REFUSE)
-		accept = 0;
-	else
-		accept = -1;
-	if (!confirm_any_request && accept >= 0)
-		return accept;
+	return keyname;
+}
 
-    const char* title;
+
+/**
+ *	@retval		false	refused
+ * 	@retval		true	accepted
+ */
+static bool accept_agent_request(int type, const ckey &public_key)
+{
+	static const char VALUE_ACCEPT[] = "accept";
+    static const char VALUE_REFUSE[] = "refuse";
+
+	std::string keyname = make_confirm_key_str(type, public_key);
+
+	if (!public_key.get_confirmation_required()) {
+		std::string value;
+		setting_get_confirm_info(keyname.c_str(), value);
+		if (value == VALUE_ACCEPT) {
+			if (!confirm_any_request) {
+				return true;
+			}
+		}
+		else if (value == VALUE_REFUSE) {
+			if (!confirm_any_request) {
+				return false;
+			}
+		}
+	}
+
+	std::string message;
     {
 		switch (type) {
 		case SSH2_AGENTC_SIGN_REQUEST:
-			title = "Accept query of the following key?";
+			message = "Accept query of the following key?";
 			break;
 		case SSH2_AGENTC_ADD_IDENTITY:
-			title = "Accept addition of the following key?";
+		case SSH2_AGENTC_ADD_ID_CONSTRAINED:
+			message = "Accept addition of the following key?";
 			break;
 		case SSH2_AGENTC_REMOVE_IDENTITY:
-			title = "Accept deletion of the following key?";
+			message = "Accept deletion of the following key?";
 			break;
 		case SSH2_AGENTC_REMOVE_ALL_IDENTITIES:
-			title = "Accept deletion of all SSH2 identities?";
+			message = "Accept deletion of all SSH2 identities?";
 			break;
 		default:
-			title = "??";
+			message = "??";
 			break;
 		}
     }
+	message += "\n";
+	message += public_key.fingerprint_md5_comp();
+	message += public_key.key_comment();
     struct ConfirmAcceptDlgInfo info;
-    info.title = title;
-    info.fingerprint = keyname.c_str();
-    info.dont_ask_again_available = confirm_any_request == 0 ? 1 : 0;
+    info.title = "pageant+";
+    info.fingerprint = message.c_str();
+    info.dont_ask_again_available =
+		confirm_any_request && !public_key.get_confirmation_required() ? 1 : 0;
     info.dont_ask_again = 0;
     info.timeout = setting_get_confirm_timeout();
     DIALOG_RESULT_T r = confirmAcceptDlg(&info);
-    if (r == DIALOG_RESULT_CANCEL) {
-		return 0;
-    } else {
-		if (info.dont_ask_again) {
-			const char *v = (r == DIALOG_RESULT_CANCEL) ? VALUE_REFUSE : VALUE_ACCEPT;
-			setting_write_confirm_info(keyname.c_str(), v);
-		}
-		return 1;
-    }
+
+	if (info.dont_ask_again && !public_key.get_confirmation_required()) {
+		const char *v = (r == DIALOG_RESULT_CANCEL) ?
+			VALUE_REFUSE : VALUE_ACCEPT;
+		setting_write_confirm_info(keyname.c_str(), v);
+	}
+
+	return r == DIALOG_RESULT_CANCEL ? false : true;
 }
 
 static std::vector<uint8_t> make_pubkey_blob(std::vector<ckey> keys)
@@ -171,7 +197,7 @@ static std::vector<uint8_t> make_pubkey_blob(std::vector<ckey> keys)
 	PUT_32BIT(&blob[0], keys.size());
 	for (const auto &key : keys)
 	{
-		auto public_blob = key.public_blob_v();
+		auto public_blob = key.public_blob();
 		std::vector<uint8_t> length(4);
 		PUT_32BIT(&length[0], public_blob.size());
 		blob.insert(blob.end(), length.begin(), length.end());
@@ -309,20 +335,10 @@ static bool signer(
 		}
 
 		// BTへ投げる
-		const auto public_key_blob = private_key.public_blob_v();
+		const auto public_key_blob = private_key.public_blob();
 		auto request = create_agentc_sign_request(
 			public_key_blob, data);
-#if 0
-		const unsigned char *msg2 = &request[0];
-		size_t replylen = request.size();
-		void *reply = bt_agent_proxy_main_handle_msg(msg2, &replylen);
-		if (reply == NULL){
-			_signature.clear();
-			return false;
-		}
-		const std::vector<uint8_t> response_v((uint8_t *)reply, &((uint8_t *)reply)[replylen]);
-		sfree(reply);
-#endif
+
 		std::vector<uint8_t> response_v;
 		r = bt_agent_proxy_main_handle_msg(request, response_v);
 		if (r == false) {
@@ -347,7 +363,7 @@ static bool signer(
 
 		// rdpへ投げる(サーバーからクライアントへ)
 		std::vector<uint8_t> response;
-		const auto public_key_blob = private_key.public_blob_v();
+		const auto public_key_blob = private_key.public_blob();
 		auto request = create_agentc_sign_request(
 			public_key_blob, data);
 		bool r = rdpSshRelaySendReceive(request, response);
@@ -434,7 +450,7 @@ static void *pageant_handle_msg(
 		 * or not.
 		 */
 	{
-		std::vector<uint8_t> src(p, msgend);
+		const std::vector<uint8_t> src(p, msgend);
 
 		plog(logctx, logfn, "request: SSH2_AGENTC_SIGN_REQUEST");
 
@@ -506,17 +522,57 @@ static void *pageant_handle_msg(
 	}
 	break;
 	case SSH2_AGENTC_ADD_IDENTITY:
+	case SSH2_AGENTC_ADD_ID_CONSTRAINED:
 		/*
 		 * Add to the list and return SSH_AGENT_SUCCESS, or
 		 * SSH_AGENT_FAILURE if the key was malformed.
 		 */
 	{
-		plog(logctx, logfn, "request: SSH2_AGENTC_ADD_IDENTITY");
+		plog(logctx, logfn,
+			 type == SSH2_AGENTC_ADD_IDENTITY ?
+			 "request: SSH2_AGENTC_ADD_IDENTITY":
+			 "request: SSH2_AGENTC_ADD_ID_CONSTRAINED");
 		ckey key;
-		bool r = key.parse_one_private_key(
-			p,  msgend - p, &fail_reason, nullptr);
+		size_t pos = 0;
+		const std::vector<uint8_t> blob(p, msgend+1);
+		bool r = key.parse_one_private_key(blob, pos, &fail_reason);
 		if (r == false) {
 			goto failure;
+		}
+		if (type == SSH2_AGENTC_ADD_ID_CONSTRAINED) {
+			size_t left = blob.size() - pos;
+
+			bool continue_flag = true;
+			bool confirm = false;
+			while (continue_flag) {
+				uint8_t constrain_type = blob[pos++];
+				left--;
+				switch (constrain_type) {
+				case SSH_AGENT_CONSTRAIN_LIFETIME:
+				{
+					if (left < 4) {
+						continue_flag = false;
+						break;
+					}
+					uint32_t lifetime = GET_32BIT(&blob[pos]);
+					key.set_lifetime(lifetime);
+					pos += 4;
+					left -= 4;
+					break;
+				}
+				case SSH_AGENT_CONSTRAIN_CONFIRM:
+					key.require_confirmation(true);
+					break;
+				//case SSH_AGENT_CONSTRAIN_EXTENSION:
+				default:
+					continue_flag = false;
+					break;
+				}
+				if (left <= 0) {
+					continue_flag = false;
+					break;
+				}
+			}
 		}
 	    if (!accept_agent_request(type, key)) {
 			fail_reason = "refused";
@@ -526,7 +582,10 @@ static void *pageant_handle_msg(
 			plog(logctx, logfn, "submitted key: %s %s",
 				 key.fingerprint().c_str(), key.key_comment().c_str());
 		}
-
+		if (keystore_exist(key)) {
+			fail_reason = "key already present";
+			goto failure;
+		}
 		if (keystore_add(key)) {
 			PUT_32BIT(ret, 1);
 			ret[4] = SSH_AGENT_SUCCESS;
@@ -1014,9 +1073,6 @@ void dump_msg(const void *msg)
 			size_t left = msgend - p;
 			debug_memdump(p, left, 1);
 
-#define SSH_AGENT_CONSTRAIN_LIFETIME	1
-#define SSH_AGENT_CONSTRAIN_CONFIRM		2
-#define SSH_AGENT_CONSTRAIN_EXTENSION	3
 			bool continue_flag = true;
 			uint32_t lifetime = 0;
 			bool confirm = false;
@@ -1178,9 +1234,9 @@ void *pageant_handle_msg_2(const void *msgv, int *_replylen)
 }
 #endif
 
-void set_confirm_any_request(int _bool)
+void set_confirm_any_request(bool _bool)
 {
-    confirm_any_request = _bool == 0 ? 0 : 1;
+    confirm_any_request = _bool;
 }
 
 int get_confirm_any_request(void)

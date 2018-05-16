@@ -32,7 +32,6 @@
 #include "misc.h"
 #include "misc_cpp.h"
 #include "winmisc.h"
-#include "filename.h"
 #include "setting.h"
 #include "gui_stuff.h"
 #include "ssh-agent_emu.h"
@@ -40,7 +39,6 @@
 #include "pageant.h"
 #include "winutils.h"
 #include "winutils_qt.h"
-#include "ssh.h"
 #include "keyviewdlg.h"
 #include "bt_agent_proxy_main.h"
 #include "codeconvert.h"
@@ -59,14 +57,10 @@
 #pragma warning(pop)
 #include "keystore.h"
 #include "rdp_ssh_relay.h"
+#include "keyfile.h"
+#include "smartcard.h"
 
 #include "ui_mainwindow.h"
-
-#ifdef PUTTY_CAC
-extern "C" {
-#include "cert/cert_common.h"
-}
-#endif
 
 #if defined(_MSC_VER)
 #pragma comment(lib,"Wtsapi32.lib")
@@ -85,6 +79,7 @@ MainWindow::MainWindow(QWidget *parent) :
     tray_icon_->show();
     ui->setupUi(this);
 	gWin = this;
+	thread_id_ = GetCurrentThreadId();
 
 	connect(this, SIGNAL(signal_confirmAcceptDlg(struct ConfirmAcceptDlgInfo *)),
 			this, SLOT(slot_confirmAcceptDlg(struct ConfirmAcceptDlgInfo *)),
@@ -231,8 +226,9 @@ static void addStartupKeyfile(const std::wstring &fn)
 	std::vector<std::wstring> flist;
 	setting_get_keyfiles(flist);
 
-	auto iter = std::find(flist.begin(), flist.end(), fn);
-	if (iter == flist.end()) {
+	if (flist.size() == 0 ||
+		std::find(flist.begin(), flist.end(), fn) == flist.end())
+	{
 		std::wostringstream oss;
 		oss << L"次回起動時に読み込みますか?\n"
 			<< fn;
@@ -252,8 +248,8 @@ void MainWindow::on_pushButtonAddKey_clicked()
     QString caption = "Select Private Key File";
     QString filter = QString::fromUtf8(
 		u8""
-		"ppk (*.ppk);;"
-		"All Files (*.*)"
+		"All Files (*.*)" ";;"
+		"Putty (*.ppk)"
 		);
 
     QStringList files = QFileDialog::getOpenFileNames(this, caption, folder, filter);
@@ -266,12 +262,15 @@ void MainWindow::on_pushButtonAddKey_clicked()
 
 	std::vector<std::wstring> files_ws;
 	for (auto &f: files) {
-		std::wstring wsf = f.toStdWString();
-		Filename *fn = filename_from_wstr(wsf.c_str());
-		bool r = ::add_keyfile(fn);
-		filename_free(fn);
-		if (r == true) {
-			files_ws.push_back(wsf);
+		std::wstring f_ws = f.toStdWString();
+		ckey key;
+		if (load_keyfile(f_ws.c_str(), key)) {
+			keystore_add(key);
+			files_ws.push_back(f_ws);
+		} else {
+			QWidget *w = getDispalyedWindow();
+			std::wstring msg = L"load error " + f.toStdWString();
+			message_box(w, msg.c_str(), L"pageant+", MB_OK|MB_ICONERROR);
 		}
     }
 	if (files_ws.size() > 0) {
@@ -420,46 +419,40 @@ void MainWindow::on_session(QAction *action)
 void MainWindow::on_pushButton_clicked()
 {
 	dbgprintf("CAPI Cert\n");
-#ifdef PUTTY_CAC
-	//HWND hwnd = (HWND)winId();
-	HWND hwnd = NULL;
-	char * szCert = cert_prompt(IDEN_CAPI, hwnd);
-	if (szCert == NULL)
+	HWND hWnd = reinterpret_cast<HWND>(winId());
+	auto path = SmartcardSelectCAPI(hWnd);
+	if (path.empty()) {
+		// canceled
 		return;
-	Filename *fn = filename_from_str(szCert);
-	::add_keyfile(fn);
-	addStartupKeyfile(fn->path);
-
-	filename_free(fn);
-#else
-    MessageBoxA((HWND)winId(), "not support", "(^_^)",
-				MB_OK | MB_ICONEXCLAMATION);
-#endif
+	}
+	ckey key;
+	if (!SmartcardLoad(path.c_str(), key)) {
+		return;
+	}
+	if (!keystore_add(key)) {
+		return;
+	}
+	addStartupKeyfile(utf8_to_wc(path));
 }
 
 // PKCS Cert @@
 void MainWindow::on_pushButton_2_clicked()
 {
 	dbgprintf("PKCS Cert\n");
-#if 1
-	{
-		//HWND hwnd = (HWND)winId();
-		HWND hwnd = NULL;
-		char * szCert = cert_prompt(IDEN_PKCS, hwnd);
-		if (szCert == NULL)
-			return;
-		Filename *fn = filename_from_str(szCert);
-		::add_keyfile(fn);
-
-		addStartupKeyfile(fn->path);
-
-		filename_free(fn);
+	HWND hWnd = reinterpret_cast<HWND>(winId());
+	auto path = SmartcardSelectPKCS(hWnd);
+	if (path.empty()) {
+		// canceled
+		return;
 	}
-#endif
-#if 0
-    MessageBoxA((HWND)winId(), "not support", "(^_^)",
-				MB_OK | MB_ICONEXCLAMATION);
-#endif
+	ckey key;
+	if (!SmartcardLoad(path.c_str(), key)) {
+		return;
+	}
+	if (!keystore_add(key)) {
+		return;
+	}
+	addStartupKeyfile(utf8_to_wc(path));
 }
 
 void agents_stop()
@@ -508,7 +501,7 @@ void agents_start()
 
 	if (setting_get_bool("ssh-agent/ms_ssh")) {
 		bool r = false;
-		std::wstring sock_path = setting_get_str("ssh-agent/sock_path_cygwin", nullptr);
+		std::wstring sock_path = setting_get_str("ssh-agent/sock_path_ms", nullptr);
 		if (!sock_path.empty())
 		{
 			r = pipe_th_start(sock_path.c_str());
@@ -600,7 +593,7 @@ void MainWindow::lockTerminal()
 		passphrase_remove_setting();
 	}
 	if (setting_get_bool("SmartCardPin/forget_when_terminal_locked", false)) {
-		cert_forget_pin();
+		SmartcardForgetPin();
 	}
 }
 
@@ -664,10 +657,13 @@ bool MainWindow::nativeEventFilter(const QByteArray &eventType, void *message, l
 					  w == DBT_USERDEFINED ? "DBT_USERDEFINED":
 					  "??",
 					  w);
-			cert_pkcs11dll_finalize();
+			SmartcardUnloadPKCS11dll();
 			break;
 		case WM_APP:
 			on_viewKeys();
+			break;
+		case WM_APP + 1:
+			exit(1);
 			break;
 		}
 	}
@@ -712,6 +708,11 @@ void MainWindow::setToolTip(const wchar_t *str)
 	tray_icon_->setToolTip(s);
 }
 
+DWORD MainWindow::threadId()
+{
+	return thread_id_;
+}
+
 //////////////////////////////////////////////////////////////////////////////
 
 DIALOG_RESULT_T confirmAcceptDlg(struct ConfirmAcceptDlgInfo *info)
@@ -748,28 +749,21 @@ void addBtCert()
 	gWin->on_pushButtonAddBTKey_clicked();
 }
 
-// return
 DIALOG_RESULT_T ShowPassphraseDlg(struct PassphraseDlgInfo *info)
 {
-//	if (gWin->visible())
-#if 1
+	int r;
+	const DWORD thread_id = GetCurrentThreadId();
+	if (gWin->threadId() == thread_id)
 	{
 		QWidget *parent = getDispalyedWindow();
 		PassphraseDlg dlg(parent, info);
-//		PassphraseDlg dlg(info);
-//				showAndBringFront(&dlg);
-		int r2 = dlg.exec();
-		return r2 == QDialog::Accepted ? DIALOG_RESULT_OK : DIALOG_RESULT_CANCEL;
+		r = dlg.exec();
 	}
-#endif
-//	 else
-#if 0
+	else
 	{
-		
-		int r = gWin->passphraseDlg(info);
-		return r == QDialog::Accepted ? DIALOG_RESULT_OK : DIALOG_RESULT_CANCEL;
+		r = gWin->passphraseDlg(info);
 	}
-#endif
+	return r == QDialog::Accepted ? DIALOG_RESULT_OK : DIALOG_RESULT_CANCEL;
 }
 
 void showTrayMessage(

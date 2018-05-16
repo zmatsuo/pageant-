@@ -664,12 +664,14 @@ Filename *filename_copy(const Filename *fn)
 {
     return filename_from_str(fn->path);
 }
+#endif
 
 const char *filename_to_str(const Filename *fn)
 {
-    return fn->path;
+    return dup_wc_to_mb(fn->path);
 }
 
+#if 0
 int filename_equal(const Filename *f1, const Filename *f2)
 {
     return !strcmp(f1->path, f2->path);

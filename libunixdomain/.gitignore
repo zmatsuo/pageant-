@@ -1,8 +1,0 @@
-GeneratedFiles/
-.vs/
-debug/
-release/
-x64/
-*.cpp~
-*.c~
-*.h~

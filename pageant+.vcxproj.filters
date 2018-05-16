@@ -79,9 +79,6 @@
     <ClCompile Include="main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="tree234.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="winutils.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -277,6 +274,21 @@
     <ClCompile Include="keyfile.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="encode.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="import.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="sshbcrypt.c">
+      <Filter>ssh</Filter>
+    </ClCompile>
+    <ClCompile Include="sshblowf.c">
+      <Filter>ssh</Filter>
+    </ClCompile>
+    <ClCompile Include="smartcard.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="aboutdlg.ui">
@@ -421,9 +433,6 @@
     <ClInclude Include="pageant+.h">
       <Filter>Source Files</Filter>
     </ClInclude>
-    <ClInclude Include="network.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
     <ClInclude Include="winhelp.h">
       <Filter>Source Files</Filter>
     </ClInclude>
@@ -478,9 +487,6 @@
     <ClInclude Include="GeneratedFiles\ui_rdpkeydlg.h">
       <Filter>Generated Files</Filter>
     </ClInclude>
-    <ClInclude Include="inc\SysInfo.h">
-      <Filter>agent</Filter>
-    </ClInclude>
     <ClInclude Include="rdp_ssh_relay_def.h">
       <Filter>agent</Filter>
     </ClInclude>
@@ -496,13 +502,22 @@
     <ClInclude Include="ud_socket.h">
       <Filter>ud_socket</Filter>
     </ClInclude>
-    <ClInclude Include="tree234.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
     <ClInclude Include="resource.h">
       <Filter>Generated Files</Filter>
     </ClInclude>
     <ClInclude Include="keyfile.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="encode.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="sshblowf.h">
+      <Filter>ssh</Filter>
+    </ClInclude>
+    <ClInclude Include="cert\pkcs_helper.h">
+      <Filter>cert</Filter>
+    </ClInclude>
+    <ClInclude Include="smartcard.h">
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>

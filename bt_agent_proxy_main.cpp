@@ -141,37 +141,6 @@ bool bt_agent_proxy_main_handle_msg(
 	}
 }
 
-#if 0
-void *bt_agent_proxy_main_handle_msg(const void *msgv, size_t *replylen)
-{
-    receive_event = false;
-    bool r = bt_agent_proxy_main_send((uint8_t *)msgv, (size_t)*replylen);
-	if (!r) {
-		*replylen = 0;
-		return nullptr;
-	}
-	auto start = std::chrono::system_clock::now();
-    while(!receive_event) {
-		std::this_thread::sleep_for(std::chrono::microseconds(1));
-		auto now = std::chrono::system_clock::now();
-		auto elapse =
-			std::chrono::duration_cast<std::chrono::milliseconds>(now - start);
-		if (elapse >= timeoutMs) {
-			break;
-		}
-    }
-	if (receive_event) {
-		*replylen = receive_size;
-		void *p = malloc(receive_size);
-		memcpy(p, &receive_buf[0], receive_size);
-		return p;
-	} else {
-		*replylen = 0;
-		return nullptr;
-	}
-}
-#endif
-
 bt_agent_proxy_t *bt_agent_proxy_main_get_handle()
 {
 	return hBta_;

@@ -14,10 +14,6 @@
 #include "gui_stuff.h"
 #include "misc_cpp.h"
 #include "misc.h"
-extern "C" {
-void cert_forget_pin(void);
-//#include "cert_common.h"	// for cert_forget_pin()
-}
 #include "passphrases.h"
 #include "rdp_ssh_relay.h"
 
@@ -29,6 +25,7 @@ void cert_forget_pin(void);
 
 #include "pageant.h"
 #include "winutils_qt.h"
+#include "smartcard.h"
 
 static std::wstring get_recommended_ssh_sock_path()
 {
@@ -121,6 +118,8 @@ SettingDlg::SettingDlg(QWidget *parent) :
 			s = ssh_auth_sock_rec + L"\\.ssh-agent";
 		}
 		ui->lineEdit_2->setText(QString::fromStdWString(s));
+		setting_get_str("ssh-agent/sock_path_ms", s);
+		ui->lineEdit_6->setText(QString::fromStdWString(s));
 	}
 
 	// debug tab
@@ -237,8 +236,6 @@ SettingDlg::SettingDlg(QWidget *parent) :
 	}
 
 	showDetail(false);
-
-	PushDisplayedWindow(this);
 }
 
 SettingDlg *SettingDlg::instance = nullptr;
@@ -260,12 +257,21 @@ SettingDlg *SettingDlg::createInstance(QWidget *parent)
 
 void SettingDlg::on_buttonBox_accepted()
 {
-    setting_set_bool("ssh-agent/cygwin_sock", ui->checkBox->isChecked());
 	setting_set_bool("ssh-agent/pageant", ui->checkBox_3->isChecked());
+
+    setting_set_bool("ssh-agent/cygwin_sock", ui->checkBox->isChecked());
 	setting_set_bool("ssh-agent/ms_ssh", ui->checkBox_2->isChecked());
     setting_set_bool("ssh-agent/native_unix_socket",
 					 ui->checkBox_19->isChecked());
+	setting_set_str("ssh-agent/sock_path_cygwin",
+					ui->lineEdit->text().toStdWString().c_str());
+	setting_set_str("ssh-agent/sock_path",
+					ui->lineEdit_2->text().toStdWString().c_str());
+	setting_set_str("ssh-agent/sock_path_ms",
+					ui->lineEdit_6->text().toStdWString().c_str());
+	
 
+	
 	// passphrase系
 	setting_set_bool("Passphrase/save_enable",
 					 ui->checkBox_7->isChecked());
@@ -354,13 +360,6 @@ void SettingDlg::on_buttonBox_accepted()
 		}
 	}
 
-	{
-		setting_set_str("ssh-agent/sock_path_cygwin",
-						ui->lineEdit->text().toStdWString().c_str());
-		setting_set_str("ssh-agent/sock_path",
-						ui->lineEdit_2->text().toStdWString().c_str());
-	}
-	
 	// 環境変数を設定する
 	if (ui->checkBox_18->isChecked())
 	{
@@ -544,7 +543,7 @@ void SettingDlg::on_pushButton_12_clicked()
 		if (r == IDOK) {
 			passphrase_forget();
 			passphrase_remove_setting();
-			cert_forget_pin();
+			SmartcardForgetPin();
 		}
 	}
 }
@@ -556,7 +555,7 @@ void SettingDlg::on_pushButton_13_clicked()
 
 void SettingDlg::on_pushButton_14_clicked()
 {
-    cert_forget_pin();
+	SmartcardForgetPin();
 }
 
 void SettingDlg::showDetail(bool show)

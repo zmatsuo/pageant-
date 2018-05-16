@@ -38,7 +38,6 @@ SOURCES += main.cpp\
     sshrsa.c \
     sshsh512.c \
     sshsha.c \
-    tree234.c \
     version.cpp \
     misc.cpp \
     misc_cpp.cpp \
@@ -79,7 +78,12 @@ SOURCES += main.cpp\
     rdpkeydlg.cpp \
     rdp_ssh_relay.cpp \
     sshbn_cpp.cpp \
-    keyfile.cpp
+    keyfile.cpp \
+    encode.cpp \
+    smartcard.cpp \
+    import.c \
+    sshbcrypt.c \
+    sshblowf.c \
     
 HEADERS  += mainwindow.h \
     passphrasedlg.h \
@@ -100,7 +104,10 @@ HEADERS  += mainwindow.h \
     passphrases.h \
     keystore.h \
     rdpkeydlg.h \
-    rdp_ssh_relay.h
+    rdp_ssh_relay.h \
+    smartcard.h \
+    sshblowf.h \
+    sshbn.h
     
 FORMS    += mainwindow.ui \
     passphrasedlg.ui \

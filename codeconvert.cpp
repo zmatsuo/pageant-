@@ -1,11 +1,11 @@
 ﻿/**
-   codeconvert.cpp
-
-   Copyright (c) 2017 zmatsuo
-
-   This software is released under the MIT License.
-   http://opensource.org/licenses/mit-license.php
-*/
+ *	codeconvert.cpp
+ *
+ *	Copyright (c) 2017 zmatsuo
+ *
+ *	This software is released under the MIT License.
+ *	http://opensource.org/licenses/mit-license.php
+ */
 
 #include "codeconvert.h"
 

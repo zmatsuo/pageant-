@@ -11,12 +11,12 @@
 #include <assert.h>
 
 #include "filename.h"
-//#include "putty.h"
 #include "ssh.h"
 #include "misc.h"
 #include "codeconvert.h"
 #include "puttymem.h"
 
+#undef PUTTY_CAC
 #ifdef PUTTY_CAC
 #include "cert_common.h"
 #endif // PUTTY_CAC
@@ -659,8 +659,7 @@ struct ssh2_userkey *ssh2_load_userkey(
     int passlen = passphrase ? strlen(passphrase) : 0;
     const char *error = NULL;
 
-#if 0
-//#ifdef PUTTY_CAC
+#ifdef PUTTY_CAC
     {
 		char *mbs = dup_wc_to_mb(filename->path);
 		if(cert_is_certpath(mbs)) {
@@ -674,23 +673,6 @@ struct ssh2_userkey *ssh2_load_userkey(
 		free(mbs);
     }
 #endif // PUTTY_CAC
-    {
-		char *mbs = dup_wc_to_mb(filename->path);
-		if (strncmp("btspp://", mbs, 8) == 0)  {
-			// TODO bt 未実装
-			struct ssh2_userkey * userkey = snew(struct ssh2_userkey);
-			struct RSAKey * rsa2 = ssh_rsakex_newkey(NULL, 0);
-			userkey->alg = find_pubkey_alg("ssh-rsa");
-			userkey->data = rsa2;
-			userkey->comment = dupstr(mbs);
-//	    public_blob = userkey->alg->public_blob(userkey->data, pub_blob_len);
-			free(mbs);
-//	    if (algorithm) { *algorithm = dupstr(userkey->alg->name); }
-//	    if(commentptr) { *commentptr = userkey->comment; }
-			return userkey;
-		}
-		free(mbs);
-    }
     ret = NULL;			       /* return NULL for most errors */
     encryption = comment = mac = NULL;
     public_blob = private_blob = NULL;
@@ -1790,14 +1772,6 @@ int key_type(const Filename *filename)
 		}
     }
 #endif // PUTTY_CAC
-    {
-		char *mbs = dup_wc_to_mb(filename->path);
-		ret = strncmp("btspp://", mbs, 8);
-		sfree(mbs);
-		if (ret == 0) {
-			return SSH_KEYTYPE_SSH2;
-		}
-    }
     fp = f_open(filename, "r", FALSE);
     if (!fp)
 		return SSH_KEYTYPE_UNOPENABLE;

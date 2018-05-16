@@ -5,6 +5,8 @@
 #include "ui_confirmacceptdlg.h"
 #pragma warning(pop)
 
+#include "debug.h"
+
 ConfirmAcceptDlg::ConfirmAcceptDlg(
         QWidget *parent,
         struct ConfirmAcceptDlgInfo *info) :
@@ -60,13 +62,13 @@ void ConfirmAcceptDlg::timerEvent(QTimerEvent *e)
 
 void ConfirmAcceptDlg::on_buttonBox_accepted()
 {
-    printf("ok\n");
+    dbgprintf("ok\n");
     info_->dont_ask_again = ui->checkBox->isChecked() ? 1 : 0;
 }
 
 void ConfirmAcceptDlg::on_buttonBox_rejected()
 {
-    printf("cancel\n");
+    dbgprintf("cancel\n");
 }
 
 // Local Variables:

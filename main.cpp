@@ -18,14 +18,18 @@
 #include "ssh-agent_ms.h"
 #include "ssh-agent_emu.h"
 #include "gui_stuff.h"
+#if 0
 extern "C" {
 #include "cert/cert_common.h"
 }
+#endif
 #include "bt_agent_proxy_main.h"
 #include "winmisc.h"
 #include "passphrases.h"
 #include "rdp_ssh_relay.h"
 #include "keystore.h"
+#include "keyfile.h"
+#include "smartcard.h"
 
 #ifdef _DEBUG
 static void crt_set_debugflag(void)
@@ -71,6 +75,10 @@ static void debugOutputWin(const char *s)
 }
 #endif
 
+/**
+ *	@retval	true	終了する
+ *	@retval	false	このまま実行する
+ */
 static bool CheckDoubleStartup()
 {
 	std::vector<PROCESSENTRY32W> process_list = _Process();
@@ -154,7 +162,14 @@ static bool CheckDoubleStartup()
 			return false;
 		}
 
-		PostMessage(target_hWnd, WM_APP, 0, 0);
+		const INT message = 
+#if defined(DEVELOP_VERSION)
+			WM_APP + 1
+#else
+			WM_APP
+#endif
+			;
+		PostMessage(target_hWnd, message, 0, 0);
 		return true;
 	}
 }
@@ -170,7 +185,7 @@ static void add_keyfile(const std::vector<std::wstring> &keyfileAry)
 		std::string utf8_str = wc_to_utf8(f);
 		if (wcsncmp(L"btspp://", f.c_str(), 8) == 0)  {
 			bt_files.emplace_back(utf8_str);
-		} else if(cert_is_certpath(utf8_str.c_str())) {
+		} else if(SmartcardIsPath(utf8_str.c_str())) {
 			sc_files.emplace_back(utf8_str);
 		} else {
 			normal_files.emplace_back(f);
@@ -179,9 +194,10 @@ static void add_keyfile(const std::vector<std::wstring> &keyfileAry)
 
 	// 通常ファイルを読み込み
 	for(auto &f: normal_files) {
-		Filename *fn = filename_from_wstr(f.c_str());
-		add_keyfile(fn);
-		filename_free(fn);
+		ckey key;
+		if (load_keyfile(f.c_str(), key)) {
+			keystore_add(key);
+		}
 	}
 
 	// BTを読み込み
@@ -190,11 +206,8 @@ static void add_keyfile(const std::vector<std::wstring> &keyfileAry)
 	}
 
 	for(auto &f: sc_files) {
-		struct ssh2_userkey *skey = cert_load_key(f.c_str());
-		if (skey == nullptr) {
-			//*retstr = const_cast<char *>("load key from certificate failed");
-		} else {
-			ckey key(skey);
+		ckey key;
+		if (SmartcardLoad(f.c_str(), key)) {
 			key.dump();
 			keystore_add(key);
 		}
@@ -291,9 +304,9 @@ int main(int argc, char *argv[])
     }
 #endif
 
-    cert_set_pin_dlg(pin_dlg);
 	pageant_init();
 	rdpSshRelayInit();
+	SmartcardInit();
 
 	if (setting_get_bool("Passphrase/save_enable", false) &&
 		setting_get_bool("Passphrase/enable_loading_when_startup", false))

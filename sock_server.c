@@ -17,7 +17,7 @@
 #if defined(_MSC_VER) || defined(__MINGW32__)
 #include <winsock2.h>
 #include <crtdbg.h>
-#if 0
+#if 0 // _MSC_FULL_VER >= 191422628
 #include <afunix.h>		// 10.0.16299.0
 #else
 #define UNIX_PATH_MAX 108
@@ -284,7 +284,7 @@ int sock_server_open(sock_server_t *pSS)
 	case SOCK_SERVER_TYPE_UNIXDOMAIN:
 		// unix domain socket
 #if defined(_MSC_VER) || defined(__MINGW32__)
-		debug("bind unixdomain '%ls'\n", pSS->socket_path);
+		debug("bind unixdomain '%ls'\n", pSS->socket_path_w);
 		r = ud_bind(sock, pSS->fd_ud);
 #else
 		r = SOCKET_ERROR;

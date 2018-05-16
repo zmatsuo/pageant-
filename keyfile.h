@@ -1,8 +1,15 @@
-﻿
+﻿/**
+ *   keyfile.h
+ *
+ *   Copyright (c) 2018 zmatsuo
+ *
+ *   This software is released under the MIT License.
+ *   http://opensource.org/licenses/mit-license.php
+ */
+
 #pragma once
 
-#include "filename.h"		// for Filename
+#include "ckey.h"
 
-void add_keyfile(const wchar_t *filename);
-bool add_keyfile(const Filename *fn);
+bool load_keyfile(const wchar_t *filename, ckey &key);
 

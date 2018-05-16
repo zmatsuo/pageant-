@@ -11,21 +11,23 @@
 
 std::wstring _GetModuleFileName(HMODULE hModule)
 {
-	std::vector<wchar_t> buf(MAX_PATH);
+	std::wstring buf(MAX_PATH, 0);
 
 	for(;;) {
-		DWORD r = ::GetModuleFileNameW(hModule, &buf[0], (DWORD)buf.size());
+		DWORD r = ::GetModuleFileNameW(
+			hModule, &buf[0], static_cast<DWORD>(buf.size()));
 		if (r == 0) {
 			// 関数が失敗
 			buf[0] = 0;
 			break;
 		} else if (r < buf.size() - 1) {
+			buf.resize(r);
 			break;
 		} else { 
 			buf.resize(buf.size()*2);
 		}
     }
-	return &buf[0];
+	return buf;
 }
 
 std::wstring _GetCurrentDirectory()
@@ -33,26 +35,29 @@ std::wstring _GetCurrentDirectory()
     std::wstring dir;
     DWORD len = ::GetCurrentDirectoryW(0, NULL);
 	dir.resize(len);
-	::GetCurrentDirectoryW((DWORD)len, &dir[0]);
+	::GetCurrentDirectoryW(static_cast<DWORD>(len), &dir[0]);
 	dir.resize(len-1);	// remove '\0'
 	return dir;
 }
 
 static std::wstring _SearchPath(const wchar_t *filename)
 {
-	std::vector<wchar_t> buf(256);
+	std::wstring buf(MAX_PATH, 0);
 	const wchar_t *ext = NULL;
-	DWORD r = ::SearchPathW(NULL, filename, ext, (DWORD)buf.size(), &buf[0], NULL);
+	DWORD r = ::SearchPathW(
+		NULL, filename, ext, static_cast<DWORD>(buf.size()), &buf[0], NULL);
 	if (r == 0) {
 		// not found
 		return L"";
 	}
 	if (r < buf.size()) {
-		return &buf[0];
+		buf.resize(r);
+		return buf;
 	}
 	buf.resize(r);
-	r = ::SearchPathW(NULL, filename, ext, (DWORD)buf.size(), &buf[0], NULL);
-	return &buf[0];
+	r = ::SearchPathW(
+		NULL, filename, ext, static_cast<DWORD>(buf.size()), &buf[0], NULL);
+	return buf;
 }
 
 /**
@@ -148,7 +153,7 @@ bool reg_read(HKEY hKey, const wchar_t *subkey, const wchar_t *valuename,
 	bool ret_value = true;
 	data.resize(256);
 	while (1) {
-		DWORD size = (DWORD)data.size();
+		DWORD size = static_cast<DWORD>(data.size());
 		r = RegQueryValueExW(hRegKey, valuename, 0, &dwType,
 							 &data[0], &size);
 		if (r == ERROR_SUCCESS) {
@@ -183,12 +188,12 @@ bool reg_read_cur_user(const wchar_t *subkey, const wchar_t *valuename,
 
 	size_t pos = 0;
 	while(1) {
-		const wchar_t *p = (wchar_t *)&data[pos];
+		const wchar_t *p =  reinterpret_cast<wchar_t *>(&data[pos]);
 		if (*p == L'\0')
 			break;
-		std::wstring s = (wchar_t *)&data[pos];
-		strs.push_back(s);
-		pos += (s.length() + 1) * sizeof(wchar_t);
+		const size_t len = wcslen(p);
+		strs.emplace_back(p, len);
+		pos += (len + 1) * sizeof(wchar_t);
 		if (pos > data.size())
 			break;
 	}
@@ -206,10 +211,11 @@ bool reg_read_cur_user(const wchar_t *subkey, const wchar_t *valuename,
 		str.clear();
 		return false;
 	}
-	str = std::wstring((wchar_t *)&data[0]);
+	std::wstring s(reinterpret_cast<wchar_t *>(&data[0]), (data.size() / sizeof(wchar_t))-1);
 	if (dwType == REG_EXPAND_SZ) {
-		str = _ExpandEnvironmentStrings(str.c_str());
+		s = _ExpandEnvironmentStrings(s.c_str());
 	}
+	str = std::move(s);
 	return true;
 }
 
@@ -224,7 +230,7 @@ bool reg_read_cur_user(const wchar_t *subkey, const wchar_t *valuename,
 		dword = 0;
 		return false;
 	}
-	dword = *(DWORD *)&data[0];
+	dword = *(reinterpret_cast<DWORD *>(&data[0]));
 	return true;
 }
 
@@ -482,21 +488,24 @@ bool _GetPrivateProfileString(
 	std::wstring &str)
 {
 	const std::wstring key_encode = escape_str(key);
-	std::vector<wchar_t> buf(1024);
+	std::wstring buf(1024, 0);
 	buf[0] = 0;
 	while(1) {
-		DWORD r = ::GetPrivateProfileStringW(section, key_encode.c_str(), L"", &buf[0], (DWORD)buf.size(), ini);
-		if (buf[0] == L'\0') {
+		DWORD r = ::GetPrivateProfileStringW(
+			section, key_encode.c_str(), L"",
+			&buf[0], static_cast<DWORD>(buf.size()), ini);
+		if (r == 0 || buf[0] == L'\0') {
 			// エントリがない(または key= )
 			str.clear();
 			return false;
 		}
 		if (r < (DWORD)buf.size() - 2) {
+			buf.resize(r);
 			break;
 		}
 		buf.resize(buf.size()*2);
 	}
-	str = &buf[0];
+	str = std::move(buf);
 	return true;
 }
 
@@ -506,13 +515,14 @@ bool _GetPrivateProfileSectionNames(
 {
 	std::vector<wchar_t> buf(256);
 	for(;;) {
-		DWORD r = ::GetPrivateProfileSectionNamesW(&buf[0], (DWORD)buf.size(), ini);
+		DWORD r = ::GetPrivateProfileSectionNamesW(
+			&buf[0], static_cast<DWORD>(buf.size()), ini);
 		if (r == 0) {
 			// no entry
 			strAry.clear();
 			return false;
 			break;
-		} else if ( r< (DWORD)buf.size() - 2) {
+		} else if ( r < static_cast<DWORD>(buf.size()) - 2) {
 			// ok
 			break;
 		} else {
@@ -522,8 +532,9 @@ bool _GetPrivateProfileSectionNames(
 	strAry.clear();
 	wchar_t *p = &buf[0];
 	while(*p != '\0') {
-		strAry.push_back(p);
-		p += wcslen(p) + 1;
+		size_t size = wcslen(p);
+		strAry.emplace_back(p, size);
+		p += size + 1;
 	}
 	return true;
 }

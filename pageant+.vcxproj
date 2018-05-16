@@ -163,6 +163,7 @@
     <ClCompile Include="bt_agent_proxy.cpp" />
     <ClCompile Include="bt_agent_proxy_main.cpp" />
     <ClCompile Include="cert\pkcs_helper.c" />
+    <ClCompile Include="encode.cpp" />
     <ClCompile Include="GeneratedFiles\Debug\moc_btselectdlg.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
@@ -181,10 +182,14 @@
     <ClCompile Include="GeneratedFiles\Release\moc_rdpkeydlg.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="import.c" />
     <ClCompile Include="keyfile.cpp" />
     <ClCompile Include="keystore.cpp" />
     <ClCompile Include="keyviewdlg.cpp" />
+    <ClCompile Include="smartcard.cpp" />
     <ClCompile Include="sock_server.c" />
+    <ClCompile Include="sshbcrypt.c" />
+    <ClCompile Include="sshblowf.c" />
     <ClCompile Include="sshbn_cpp.cpp" />
     <ClCompile Include="ud_socket.c" />
     <ClCompile Include="aboutdlg.cpp" />
@@ -243,7 +248,6 @@
     <ClCompile Include="sshsh256.c" />
     <ClCompile Include="sshsh512.c" />
     <ClCompile Include="sshsha.c" />
-    <ClCompile Include="tree234.c" />
     <ClCompile Include="version.cpp" />
     <ClCompile Include="winhelp.cpp" />
     <ClCompile Include="winmisc.cpp" />
@@ -363,12 +367,13 @@
     </CustomBuild>
     <ClInclude Include="bt_agent_proxy.h" />
     <ClInclude Include="bt_agent_proxy_main.h" />
+    <ClInclude Include="cert\pkcs_helper.h" />
     <ClInclude Include="ckey.h" />
     <ClInclude Include="codeconvert.h" />
+    <ClInclude Include="encode.h" />
     <ClInclude Include="GeneratedFiles\ui_btselectdlg.h" />
     <ClInclude Include="GeneratedFiles\ui_rdpkeydlg.h" />
     <ClInclude Include="gui_stuff.h" />
-    <ClInclude Include="inc\SysInfo.h" />
     <ClInclude Include="keyfile.h" />
     <ClInclude Include="keystore.h" />
     <ClInclude Include="passphrases.h" />
@@ -385,10 +390,11 @@
     <ClInclude Include="rdp_ssh_relay.h" />
     <ClInclude Include="rdp_ssh_relay_def.h" />
     <ClInclude Include="resource.h" />
+    <ClInclude Include="smartcard.h" />
+    <ClInclude Include="sshblowf.h" />
     <ClInclude Include="sshbn_cpp.h" />
     <ClInclude Include="sshbn_export.h" />
     <ClInclude Include="sstring.h" />
-    <ClInclude Include="tree234.h" />
     <ClInclude Include="winutils_qt.h" />
     <CustomBuild Include="keyviewdlg.h">
       <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(QTDIR)\bin\moc.exe;%(FullPath)</AdditionalInputs>
@@ -415,7 +421,6 @@
     <ClInclude Include="GeneratedFiles\ui_settingdlg.h" />
     <ClInclude Include="misc.h" />
     <ClInclude Include="misc_cpp.h" />
-    <ClInclude Include="network.h" />
     <ClInclude Include="pageant+.h" />
     <ClInclude Include="pageant.h" />
     <ClInclude Include="pageant_.h" />

@@ -16,10 +16,6 @@
 #define TRUE 1
 #endif
 
-#include "filename.h"
-//typedef struct Filename Filename;
-//typedef struct FontSpec FontSpec;
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -38,6 +34,8 @@ int toint(unsigned);
 
 char *fgetline(FILE *fp);
 char *chomp(char *str);
+int strstartswith(const char *s, const char *t);
+int strendswith(const char *s, const char *t);
 
 // TODO: 2箇所?
 void base64_encode_atom(const unsigned char *data, int n, char *out);

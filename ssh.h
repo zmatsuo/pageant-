@@ -5,7 +5,6 @@
 #include <string.h>
 
 #include "puttymem.h"
-#include "network.h"
 #include "misc.h"
 #include "filename.h"
 
@@ -422,6 +421,14 @@ extern const struct ssh_mac ssh_hmac_sha1_96;
 extern const struct ssh_mac ssh_hmac_sha1_96_buggy;
 extern const struct ssh_mac ssh_hmac_sha256;
 
+void *aes_make_context(void);
+void aes_free_context(void *handle);
+void aes128_key(void *handle, unsigned char *key);
+void aes192_key(void *handle, unsigned char *key);
+void aes256_key(void *handle, unsigned char *key);
+void aes_iv(void *handle, unsigned char *iv);
+void aes_ssh2_encrypt_blk(void *handle, unsigned char *blk, int len);
+void aes_ssh2_decrypt_blk(void *handle, unsigned char *blk, int len);
 
 /*
  * PuTTY version number formatted as an SSH version string. 
@@ -579,6 +586,9 @@ void des_encrypt_xdmauth(const unsigned char *key,
 void des_decrypt_xdmauth(const unsigned char *key,
                          unsigned char *blk, int len);
 
+void openssh_bcrypt(const char *passphrase,
+                    const unsigned char *salt, int saltbytes,
+                    int rounds, unsigned char *out, int outbytes);
 
 /*
  * For progress updates in the key generation utility.

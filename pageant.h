@@ -26,7 +26,7 @@ void pageant_init(void);
 void pageant_exit(void);
 
 void *pageant_handle_msg_2(const void *msgv, int *replylen);
-void set_confirm_any_request(int _bool);
+void set_confirm_any_request(bool _bool);
 int get_confirm_any_request(void);
 typedef bool (*agent_query_synchronous_fn)(
 	const std::vector<uint8_t> &request,
@@ -34,8 +34,6 @@ typedef bool (*agent_query_synchronous_fn)(
 int pageant_get_keylist(
 	agent_query_synchronous_fn query_func,
 	std::vector<ckey> &keys);
-
-#include "keyfile.h"
 
 // Local Variables:
 // mode: c++

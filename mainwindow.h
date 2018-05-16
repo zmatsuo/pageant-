@@ -56,6 +56,7 @@ private:
 
     QSystemTrayIcon *tray_icon_;
     std::vector<QAction *> sessionActionAry;
+	DWORD thread_id_;
 
 public:
     void on_pushButton_clicked();		// add CAPI
@@ -67,6 +68,7 @@ public:
 		const wchar_t *title,
 		const wchar_t *message);
 	void setToolTip(const wchar_t *str);
+	DWORD threadId();
 };
 
 void agents_start();

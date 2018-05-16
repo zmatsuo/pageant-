@@ -35,11 +35,11 @@
      <x>10</x>
      <y>10</y>
      <width>481</width>
-     <height>521</height>
+     <height>519</height>
     </rect>
    </property>
    <property name="currentIndex">
-    <number>0</number>
+    <number>3</number>
    </property>
    <widget class="QWidget" name="tab">
     <attribute name="title">
@@ -49,16 +49,16 @@
      <property name="geometry">
       <rect>
        <x>20</x>
-       <y>230</y>
-       <width>261</width>
-       <height>16</height>
+       <y>130</y>
+       <width>280</width>
+       <height>20</height>
       </rect>
      </property>
      <property name="toolTip">
-      <string>pathはCygwin Emulationのpathを使用</string>
+      <string/>
      </property>
      <property name="text">
-      <string>Unix Domain Socket (Microsoft SSH ~0.0.16.0)</string>
+      <string>Unix Domain Socket (Microsoft SSH,Named Pipe)</string>
      </property>
     </widget>
     <widget class="QCheckBox" name="checkBox">
@@ -91,9 +91,9 @@
      <property name="geometry">
       <rect>
        <x>20</x>
-       <y>190</y>
+       <y>232</y>
        <width>261</width>
-       <height>16</height>
+       <height>20</height>
       </rect>
      </property>
      <property name="text">
@@ -104,9 +104,9 @@
      <property name="geometry">
       <rect>
        <x>10</x>
-       <y>260</y>
+       <y>300</y>
        <width>451</width>
-       <height>201</height>
+       <height>161</height>
       </rect>
      </property>
      <property name="title">
@@ -118,7 +118,7 @@
         <x>10</x>
         <y>20</y>
         <width>431</width>
-        <height>141</height>
+        <height>131</height>
        </rect>
       </property>
       <property name="cursor">
@@ -162,9 +162,9 @@
      <property name="geometry">
       <rect>
        <x>20</x>
-       <y>130</y>
+       <y>172</y>
        <width>211</width>
-       <height>16</height>
+       <height>20</height>
       </rect>
      </property>
      <property name="text">
@@ -211,9 +211,9 @@
      <property name="geometry">
       <rect>
        <x>80</x>
-       <y>210</y>
+       <y>252</y>
        <width>101</width>
-       <height>20</height>
+       <height>24</height>
       </rect>
      </property>
     </widget>
@@ -221,9 +221,9 @@
      <property name="geometry">
       <rect>
        <x>40</x>
-       <y>210</y>
+       <y>252</y>
        <width>41</width>
-       <height>16</height>
+       <height>20</height>
       </rect>
      </property>
      <property name="text">
@@ -270,9 +270,9 @@
      <property name="geometry">
       <rect>
        <x>20</x>
-       <y>170</y>
+       <y>212</y>
        <width>191</width>
-       <height>16</height>
+       <height>20</height>
       </rect>
      </property>
      <property name="toolTip">
@@ -286,9 +286,9 @@
      <property name="geometry">
       <rect>
        <x>20</x>
-       <y>150</y>
+       <y>192</y>
        <width>191</width>
-       <height>16</height>
+       <height>20</height>
       </rect>
      </property>
      <property name="toolTip">
@@ -296,6 +296,29 @@
      </property>
      <property name="text">
       <string>SSH Agent relay on RDP Client </string>
+     </property>
+    </widget>
+    <widget class="QLineEdit" name="lineEdit_6">
+     <property name="geometry">
+      <rect>
+       <x>70</x>
+       <y>149</y>
+       <width>261</width>
+       <height>21</height>
+      </rect>
+     </property>
+    </widget>
+    <widget class="QLabel" name="label_13">
+     <property name="geometry">
+      <rect>
+       <x>40</x>
+       <y>151</y>
+       <width>31</width>
+       <height>16</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>path</string>
      </property>
     </widget>
    </widget>
@@ -1003,8 +1026,8 @@
   </widget>
  </widget>
  <tabstops>
-  <tabstop>tabWidget</tabstop>
-  <tabstop>checkBox_5</tabstop>
+  <tabstop>spinBox</tabstop>
+  <tabstop>checkBox_17</tabstop>
   <tabstop>pushButton_5</tabstop>
   <tabstop>pushButton_2</tabstop>
   <tabstop>pushButton</tabstop>
@@ -1014,13 +1037,13 @@
   <tabstop>checkBox</tabstop>
   <tabstop>lineEdit</tabstop>
   <tabstop>checkBox_18</tabstop>
+  <tabstop>checkBox_2</tabstop>
+  <tabstop>lineEdit_6</tabstop>
   <tabstop>checkBox_6</tabstop>
   <tabstop>checkBoxSshRDPRelayClient</tabstop>
   <tabstop>checkBoxSshRDPRelayServer</tabstop>
   <tabstop>checkBox_14</tabstop>
   <tabstop>lineEdit_3</tabstop>
-  <tabstop>checkBox_2</tabstop>
-  <tabstop>checkBox_13</tabstop>
   <tabstop>pushButton_8</tabstop>
   <tabstop>pushButton_3</tabstop>
   <tabstop>pushButton_9</tabstop>
@@ -1028,6 +1051,21 @@
   <tabstop>pushButton_11</tabstop>
   <tabstop>pushButton_10</tabstop>
   <tabstop>pushButton_7</tabstop>
+  <tabstop>checkBox_4</tabstop>
+  <tabstop>checkBox_20</tabstop>
+  <tabstop>lineEdit_4</tabstop>
+  <tabstop>checkBox_21</tabstop>
+  <tabstop>checkBox_24</tabstop>
+  <tabstop>checkBox_23</tabstop>
+  <tabstop>lineEdit_5</tabstop>
+  <tabstop>checkBox_22</tabstop>
+  <tabstop>checkBox_13</tabstop>
+  <tabstop>tabWidget</tabstop>
+  <tabstop>checkBox_5</tabstop>
+  <tabstop>pushButton_6</tabstop>
+  <tabstop>checkBox_16</tabstop>
+  <tabstop>checkBox_15</tabstop>
+  <tabstop>pushButton_15</tabstop>
   <tabstop>checkBox_7</tabstop>
   <tabstop>checkBox_9</tabstop>
   <tabstop>checkBox_8</tabstop>
@@ -1037,20 +1075,6 @@
   <tabstop>checkBox_11</tabstop>
   <tabstop>checkBox_12</tabstop>
   <tabstop>pushButton_14</tabstop>
-  <tabstop>spinBox</tabstop>
-  <tabstop>checkBox_17</tabstop>
-  <tabstop>checkBox_15</tabstop>
-  <tabstop>checkBox_16</tabstop>
-  <tabstop>pushButton_15</tabstop>
-  <tabstop>pushButton_6</tabstop>
-  <tabstop>checkBox_4</tabstop>
-  <tabstop>checkBox_20</tabstop>
-  <tabstop>lineEdit_4</tabstop>
-  <tabstop>checkBox_21</tabstop>
-  <tabstop>checkBox_24</tabstop>
-  <tabstop>checkBox_23</tabstop>
-  <tabstop>lineEdit_5</tabstop>
-  <tabstop>checkBox_22</tabstop>
  </tabstops>
  <resources/>
  <connections>

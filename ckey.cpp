@@ -11,24 +11,9 @@
 #include "ssh.h"
 #include "sshbn_export.h"
 #include "sshbn_cpp.h"
+#include "encode.h"
 
 #define _strdup(s)	dupstr(s)
-
-static void free_key(struct ssh2_userkey *key)
-{
-	if (key == nullptr) {
-		return;
-	}
-	if (key->data != nullptr) {
-		key->alg->freekey(key->data);
-		key->data = nullptr;
-	}
-	if (key->comment != nullptr) {
-		sfree(key->comment);
-		key->comment = nullptr;
-	}
-	sfree(key);
-}
 
 /**
  *	publicキーblobをパースしてssh2_userkeyに取得する
@@ -71,21 +56,6 @@ static size_t parse_one_public_key(
 		*fail_reason = "bad data";
 		return 0;
 	}
-
-	// データの後ろにコメントがついている
-#if 0
-	{
-		p = msgend;
-		int commlen = toint(GET_32BIT(p));
-		p += 4;
-		char *comment = snewn(commlen + 1, char);
-		if (comment) {
-			memcpy(comment, p, commlen);
-			comment[commlen] = '\0';
-		}
-		rsa->comment = comment;
-	}
-#endif
 
 	key->data = rsa;
 	key->comment = NULL;
@@ -183,13 +153,21 @@ static bool parse_one_private_key(
 
 ckey::ckey()
 {
-	key_ = nullptr;
-	debug_rsa_ = nullptr;
+	clear_i();
 }
+
 ckey::ckey(const ckey &rhs)
 {
 	copy(rhs);
 }
+
+ckey::ckey(ssh2_userkey *key)
+{
+	clear_i();
+	key_ = key;
+	debug_rsa_ = (RSAKey *)key_->data;
+}
+
 ckey &ckey::operator=(const ckey &rhs)
 {
 	assert(!(&rhs == this));
@@ -198,24 +176,41 @@ ckey &ckey::operator=(const ckey &rhs)
 	return *this;
 }
 
+void ckey::clear_i()
+{
+	key_ = nullptr;
+	debug_rsa_ = nullptr;
+	debug_ec_ = nullptr;
+	expiration_date_ = 0;
+	confirmation_required_ = false;
+}
+
+void ckey::clear()
+{
+	free();
+}
+
 void ckey::free()
 {
 	if (key_ != nullptr) {
-		::free_key(key_);
+		if (key_->data != nullptr) {
+			key_->alg->freekey(key_->data);
+			key_->data = nullptr;
+		}
+		if (key_->comment != nullptr) {
+			sfree(key_->comment);
+			key_->comment = nullptr;
+		}
+		smemclr(key_, sizeof(*key_));
+		sfree(key_);
 		key_ = nullptr;
-		debug_rsa_ = nullptr;
 	}
+	clear_i();
 }
 
 ckey::~ckey()
 {
 	free();
-}
-
-ckey::ckey(ssh2_userkey *key)
-{
-	key_ = key;
-	debug_rsa_ = (RSAKey *)key_->data;
 }
 
 // TODO constをもどしても良い?
@@ -227,8 +222,7 @@ ssh2_userkey *ckey::get() const
 ssh2_userkey *ckey::release()
 {
 	ssh2_userkey *key = key_;
-	key_ = nullptr;
-	debug_rsa_ = nullptr;
+	clear_i();
 	return key;
 }
 
@@ -252,36 +246,27 @@ std::string ckey::alg_name() const
 // bit数 bignum_bitcount(key->modulus)で取れる
 int ckey::bits() const
 {
-	int bloblen;
-	unsigned char *blob = public_blob(&bloblen);
-	int bits = key_->alg->pubkey_bits(key_->alg, blob, bloblen);
-	sfree(blob);
+	auto blob = public_blob();
+	int bits = key_->alg->pubkey_bits(key_->alg, &blob[0], blob.size());
 	return bits;
 }
 
 // MD5/hex
 std::string ckey::fingerprint_md5() const
 {
-	int bloblen;
-	unsigned char *blob = public_blob(&bloblen);
+	auto blob = public_blob();
 
 	unsigned char digest[16];
-	MD5Simple(blob, bloblen, digest);
-	sfree(blob);
+	MD5Simple(&blob[0], blob.size(), digest);
 
-	char fingerprint_str[16 * 3];
-	for (int i = 0; i < 16; i++)
-		sprintf(fingerprint_str + i * 3, "%02x%s", digest[i], i == 15 ? "" : ":");
-	return std::string(fingerprint_str);
+	return hex_encode(digest, 16, true);
 }
 
 std::string ckey::fingerprint_md5_comp() const
 {
-	int bloblen;
-	unsigned char *blob = public_blob(&bloblen);
+	auto blob = public_blob();
 
-	char *f = ssh2_fingerprint_blob(blob, bloblen);
-	sfree(blob);
+	char *f = ssh2_fingerprint_blob(&blob[0], blob.size());
 
 	std::string fingerprint = f;
 	sfree(f);
@@ -292,122 +277,21 @@ std::string ckey::fingerprint_md5_comp() const
 // ある?
 std::string ckey::fingerprint_sha1() const
 {
-	int bloblen;
-	unsigned char *blob = public_blob(&bloblen);
+	auto blob = public_blob();
 
 	unsigned char sha1[20];
-	SHA_Simple(blob, bloblen, sha1);
-	sfree(blob);
+	SHA_Simple(&blob[0], blob.size(), sha1);
 
-	char sha1_str[40 + 1];
-	for (int i = 0; i < 20; i++)
-		sprintf(sha1_str + i * 2, "%02x", sha1[i]);
-
-	return std::string(sha1_str);
+	return hex_encode(sha1, sizeof(sha1), false);
 }
-
-/**
- *	@retval	paddingの長さを含まない出力文字列長
- *		todo: miscの関数と入れ替える
- */
-static size_t base64_encode_atom_2(const unsigned char *data, size_t *n, char *out)
-{
-    static const char base64_chars[] =
-		"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    uint32_t u32;
-	size_t output_len = 0;
-	if (*n >= 3) {
-		u32 = data[0] << 16;
-		u32 |= data[1] << 8;
-		u32 |= data[2];
-		out[0] = base64_chars[(u32 >> 18) & 0x3F];
-		out[1] = base64_chars[(u32 >> 12) & 0x3F];
-		out[2] = base64_chars[(u32 >> 6) & 0x3F];
-		out[3] = base64_chars[u32 & 0x3F];
-		output_len = 4;
-		*n -= 3;
-	} else if (*n == 2) {
-		u32 = data[0] << 16;
-		u32 |= data[1] << 8;
-		out[0] = base64_chars[(u32 >> 18) & 0x3F];
-		out[1] = base64_chars[(u32 >> 12) & 0x3F];
-		out[2] = base64_chars[(u32 >> 6) & 0x3F];
-		out[3] = '=';
-		output_len = 3;
-		*n = 0;
-	} else if (*n == 1) {
-		u32 = data[0] << 16;
-		out[0] = base64_chars[(u32 >> 18) & 0x3F];
-		out[1] = base64_chars[(u32 >> 12) & 0x3F];
-		out[2] = '=';
-		out[3] = '=';
-		output_len = 2;
-		*n = 0;
-	}
-	return output_len;
-}
-
-static std::string base64_encode(const void *data, size_t datalen, bool padding_enable)
-{
-	const uint8_t *src = (uint8_t *)data;
-	std::vector<char> buf;
-	buf.reserve(datalen*4/3 + 1);
-	size_t pos = 0;
-	size_t out_len = 0;
-    while (datalen > 0) {
-		buf.resize(pos+4);
-		char *out = &buf[pos];
-		out_len = base64_encode_atom_2(src, &datalen, out);
-		src += 3;
-		pos += out_len;
-    }
-	if (padding_enable)
-		buf.push_back('\0');
-	else {
-		if (out_len == 4)
-			buf.push_back('\0');
-		else
-			buf[pos] = '\0';		// cut padding
-	}
-	return &buf[0];
-}
-
-#if 0
-static unsigned char *public_blob_v2(const struct ssh2_userkey *key, int *len)
-{
-	return key->alg->public_blob(key->data, len);
-}
-
-static char *ssh2_fingerprint_sha256(const struct ssh2_userkey *key)
-{
-	int len;
-	unsigned char *blob;
-	blob = public_blob_v2(key, &len);
-
-	unsigned char sha256[256/8];
-	SHA256_Simple(blob, len, sha256);
-	sfree(blob);
-
-	auto s = base64_encode(sha256, 32, false);
-	char *fp_sha256 = snewn(s.length() + 1, char);
-	memcpy(fp_sha256, s.c_str(), s.length()+1);
-
-	return fp_sha256;
-}
-#endif
 
 // SHA256/base64
 std::string ckey::fingerprint_sha256() const
 {
-	int bloblen;
-	unsigned char *blob = public_blob(&bloblen);
-	if (blob == nullptr) {
-		return "";
-	}
+	auto blob = public_blob();
 
 	unsigned char sha256[256/8];
-	SHA256_Simple(blob, bloblen, sha256);
-	sfree(blob);
+	SHA256_Simple(&blob[0], blob.size(), sha256);
 
 	return base64_encode(sha256, 32, false);
 }
@@ -502,6 +386,18 @@ bool ckey::parse_one_private_key(
 	return r;
 }
 
+bool ckey::parse_one_private_key(
+	const std::vector<uint8_t> &blob, size_t &pos,
+	const char **fail_reason)
+{
+	size_t key_len;
+	bool r = parse_one_private_key(
+		&blob[pos], blob.size() - pos,
+		fail_reason, &key_len);
+	pos += key_len;
+	return r;
+}
+
 void ckey::get_raw_key(ssh2_userkey **key) const
 {
 	ssh2_userkey *ret_key = snew(struct ssh2_userkey);
@@ -509,17 +405,17 @@ void ckey::get_raw_key(ssh2_userkey **key) const
 	*key = ret_key;
 }
 
-unsigned char *ckey::public_blob(int *len) const
+unsigned char *ckey::public_blob_o(int *len) const
 {
 	if (key_->data == nullptr)
 		return nullptr;
 	return key_->alg->public_blob(key_->data, len);
 }
 
-std::vector<uint8_t> ckey::public_blob_v() const
+std::vector<uint8_t> ckey::public_blob() const
 {
 	int len;
-	unsigned char *blob = public_blob(&len);
+	unsigned char *blob = public_blob_o(&len);
 	std::vector<uint8_t> blob_v(blob, &blob[len]);		// todo
 	sfree(blob);
 	return blob_v;
@@ -528,8 +424,13 @@ std::vector<uint8_t> ckey::public_blob_v() const
 void ckey::copy(const ckey &rhs)
 {
 	key_ = snew(struct ssh2_userkey);
-	copy_ssh2_userkey(*key_, *rhs.key_);
-	debug_rsa_ = (RSAKey *)key_->data;
+	if (rhs.key_ != nullptr) {
+		copy_ssh2_userkey(*key_, *rhs.key_);
+		debug_rsa_ = (RSAKey *)key_->data;
+		debug_ec_ = (ec_key *)key_->data;
+	}
+	expiration_date_ = rhs.expiration_date_;
+	confirmation_required_ = rhs.confirmation_required_;
 }
 
 void ckey::RSAKey_copy(const RSAKey &rhs)
@@ -546,10 +447,24 @@ void ckey::copy_ssh2_userkey(ssh2_userkey &dest, const ssh2_userkey &src)
 	if (src.comment != nullptr) {
 		dest.comment = _strdup(src.comment);
 	}
-	RSAKey *rsa = snew(struct RSAKey);
-	dest.data = rsa;
-	const RSAKey *src_rsa = (RSAKey *)src.data;
-	copy_RSAKey(*rsa, *src_rsa);
+	if (dest.alg == &ssh_rsa) {
+		// ssh-rsa
+		RSAKey *rsa = snew(struct RSAKey);
+		dest.data = rsa;
+		const RSAKey *src_rsa = (RSAKey *)src.data;
+		copy_RSAKey(*rsa, *src_rsa);
+	} else if (dest.alg == &ssh_ecdsa_nistp256 ||
+			   dest.alg == &ssh_ecdsa_nistp384 ||
+			   dest.alg == &ssh_ecdsa_nistp521)
+	{
+		ec_key *eckey = snew(struct ec_key);
+		dest.data = eckey;
+		const ec_key *src_eckey = (ec_key *)src.data;
+		copy_ec(*eckey, *src_eckey);
+	} else {
+        assert(0);
+		exit(1);
+	}
 }
 
 void ckey::copy_RSAKey(RSAKey &dest, const RSAKey &src)
@@ -576,46 +491,21 @@ void ckey::copy_RSAKey(RSAKey &dest, const RSAKey &src)
 	}
 }
 
-/**
- * keyのfingerprint取得(md5)
- * Return a buffer malloced to be as big as necessary (caller must free).
- */
-#if 0
-char *getfingerprint(int type, const void *key)
+void ckey::copy_ec(ec_key &dest, const ec_key &src)
 {
-    if (type == SSH1_AGENTC_REMOVE_ALL_RSA_IDENTITIES ||
-		type == SSH2_AGENTC_REMOVE_ALL_IDENTITIES) {
-		return NULL;
-    }
-    if (key == NULL) {
-		return NULL;
-    }
+	memset(&dest, 0, sizeof(ec_key));
+	dest.signalg = src.signalg;
+	dest.privateKey = copybn(src.privateKey);
 
-    const size_t fingerprint_length = 512;
-    char* fingerprint = (char*) malloc(fingerprint_length);
-    fingerprint[0] = '\0';
-    if (type == SSH1_AGENTC_RSA_CHALLENGE
-		|| type == SSH1_AGENTC_ADD_RSA_IDENTITY
-		|| type == SSH1_AGENTC_REMOVE_RSA_IDENTITY) {
-		strcpy(fingerprint, "ssh1:");
-		rsa_fingerprint(fingerprint + 5, fingerprint_length - 5, (struct RSAKey*) key);
-    } else {
-		struct ssh2_userkey* skey = (struct ssh2_userkey*) key;
-//	char* fp = skey->alg->fingerprint(skey->data);
-		char test[100];
-		strcpy(test, "aslkj sadf adsf aeg adf");
-		char* fp = test;
-		strncpy(fingerprint, fp, fingerprint_length);
-		size_t fp_length = strlen(fingerprint);
-		if (fp_length < fingerprint_length - 2) {
-			fingerprint[fp_length] = ' ';
-			strncpy(fingerprint + fp_length + 1, skey->comment,
-					fingerprint_length - fp_length - 1);
-		}
-    }
-    return fingerprint;
+	dest.publicKey.curve = src.publicKey.curve;
+	dest.publicKey.infinity = src.publicKey.infinity;
+	dest.publicKey.x = copybn(src.publicKey.x);
+	dest.publicKey.y = copybn(src.publicKey.y);
+	if (src.publicKey.z != nullptr) {
+		dest.publicKey.z = copybn(src.publicKey.z);
+	}
+	dest.privateKey = copybn(src.privateKey);
 }
-#endif
 
 bool parse_public_keys(
 	const void *data, size_t len,
@@ -684,21 +574,31 @@ ckey ckey::create(const ssh2_userkey *key)
 void ckey::dump() const
 {
 	std::ostringstream oss;
-	const RSAKey *rsa = (RSAKey *)key_->data;
-	oss
-		<< "key\n"
+	oss << "key\n"
+		<< " alg " << alg_name() << " " << bits() << "\n"
 		<< " fingerprint " << fingerprint() << "\n"
 		<< " md5 " << fingerprint_md5() << "\n"
 		<< " sha256 " << fingerprint_sha256() << "\n"
-		<< " alg " << alg_name() << " " << bits() << "\n"
 		<< " comment " << key_comment() << "\n"
-		<< " comment2 " << key_comment2() << "\n"
-		<< " exponent " << bignum_tostr(rsa->exponent) << "\n"
-		<< " modulus " << bignum_tostr(rsa->modulus) << "\n"
-		<< " private_exponent " << bignum_tostr(rsa->private_exponent) << "\n"
-		<< " p " << bignum_tostr(rsa->p) << "\n"
-		<< " q " << bignum_tostr(rsa->q) << "\n"
-		<< " iqmp " << bignum_tostr(rsa->iqmp) << "\n";
+		<< " comment2 " << key_comment2() << "\n";
+	if (key_->alg == &ssh_rsa) {
+		const RSAKey *rsa = (RSAKey *)key_->data;
+		oss << " exponent " << bignum_tostr(rsa->exponent) << "\n"
+			<< " modulus " << bignum_tostr(rsa->modulus) << "\n"
+			<< " private_exponent " << bignum_tostr(rsa->private_exponent) << "\n"
+			<< " p " << bignum_tostr(rsa->p) << "\n"
+			<< " q " << bignum_tostr(rsa->q) << "\n"
+			<< " iqmp " << bignum_tostr(rsa->iqmp) << "\n";
+	} else if (key_->alg == &ssh_ecdsa_nistp256 ||
+			   key_->alg == &ssh_ecdsa_nistp384 ||
+			   key_->alg == &ssh_ecdsa_nistp521)
+	{
+		ec_key *eckey = (ec_key *)key_->data;
+		oss << " privateKey " << bignum_tostr(eckey->privateKey) << "\n"
+			<< " publicKey.x " << bignum_tostr(eckey->publicKey.x) << "\n"
+			<< " publicKey.y " << bignum_tostr(eckey->publicKey.y) << "\n"
+			<< " publicKey.z " << bignum_tostr(eckey->publicKey.z) << "\n";
+	}
 	dbgprintf(oss.str().c_str());
 }
 
@@ -707,6 +607,65 @@ void ckey::dump_keys(const std::vector<ckey> &keys)
 	for(const ckey &key : keys) {
 		key.dump();
 	}
+}
+
+bool ckey::operator==(const ckey & rhs) const
+{
+	return compare(*this, rhs);
+}
+
+bool ckey::compare(const ckey &a, const ckey &b)
+{
+	const RSAKey *a_rsa = (RSAKey *)a.key_->data;
+	const RSAKey *b_rsa = (RSAKey *)b.key_->data;
+
+	if (bignum_cmp(a_rsa->exponent, b_rsa->exponent) == 0 &&
+		bignum_cmp(a_rsa->modulus, b_rsa->modulus) == 0 
+#if 0
+		bignum_cmp(a_rsa->private_exponent, b_rsa->private_exponent) == 0 &&
+		bignum_cmp(a_rsa->p, b_rsa->p) == 0 &&
+		bignum_cmp(a_rsa->q, b_rsa->q) == 0 &&
+		bignum_cmp(a_rsa->iqmp, b_rsa->iqmp) == 0
+#endif
+		)
+	{
+		return true;
+	}
+	return false;
+}
+
+void ckey::set_lifetime(uint32 seconds)
+{
+	expiration_date_ = time(NULL) + seconds;
+}
+
+time_t ckey::expiration_time() const
+{
+	return expiration_date_;
+}
+
+void ckey::require_confirmation(bool require)
+{
+	confirmation_required_ = require;
+}
+
+bool ckey::get_confirmation_required() const
+{
+	return confirmation_required_;
+}
+
+std::string ckey::get_pubkey() const
+{
+	auto _public_blob = public_blob();
+
+	std::string pubkey_str;
+	pubkey_str += alg_name() + " ";
+	pubkey_str += base64_encode(_public_blob, true);
+    pubkey_str += " ";
+    pubkey_str += key_comment();
+    pubkey_str += "\r\n";
+
+    return pubkey_str;
 }
 
 // Local Variables:

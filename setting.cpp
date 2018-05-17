@@ -547,6 +547,10 @@ static void set_default()
 	if (setting_isempty(key)) {
 		setting_set_str(key, L"" AGENT_PIPE_ID);
 	}
+	key = "confirm/confirm_any_request";
+	if (setting_isempty(key)) {
+		setting_set_bool(key, true);
+	}
 }
 
 static bool init_putty_ini_sub(const wchar_t *ini)

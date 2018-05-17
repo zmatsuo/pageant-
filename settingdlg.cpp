@@ -179,7 +179,7 @@ SettingDlg::SettingDlg(QWidget *parent) :
 	// confirm系
 	{
 		ui->checkBox_10->setChecked(
-			get_confirm_any_request());
+			setting_get_bool("confirm/confirm_any_request"));
 	}
 
 	// relay系
@@ -285,11 +285,8 @@ void SettingDlg::on_buttonBox_accepted()
 					 ui->checkBox_12->isChecked());
 
 	// confirm系
-	{
-		const bool confirm_any_request = ui->checkBox_10->isChecked();
-		setting_set_bool("confirm/confirm_any_request", confirm_any_request);
-		set_confirm_any_request(confirm_any_request);
-	}
+	setting_set_bool("confirm/confirm_any_request",
+					 ui->checkBox_10->isChecked());
 	
 	// startup
 	setting_set_startup(ui->checkBox_13->isChecked());

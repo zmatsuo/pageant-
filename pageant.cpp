@@ -48,8 +48,6 @@ void dump_msg(const void *msg);		// test
 #define	dump_msg(p)
 #endif
 
-static bool confirm_any_request;
-
 /*
  * We need this to link with the RSA code, because rsaencrypt()
  * pads its data with random bytes. Since we only use rsadecrypt()
@@ -133,56 +131,54 @@ static bool accept_agent_request(int type, const ckey &public_key)
     static const char VALUE_REFUSE[] = "refuse";
 
 	std::string keyname = make_confirm_key_str(type, public_key);
+	std::string value;
+	setting_get_confirm_info(keyname.c_str(), value);
+	if (value == VALUE_REFUSE) {
+		return false;
+	}
 
-	if (!public_key.get_confirmation_required()) {
-		std::string value;
-		setting_get_confirm_info(keyname.c_str(), value);
-		if (value == VALUE_ACCEPT) {
-			if (!confirm_any_request) {
-				return true;
-			}
-		}
-		else if (value == VALUE_REFUSE) {
-			if (!confirm_any_request) {
-				return false;
-			}
-		}
+	const bool required_confirmation = 
+		(setting_get_bool("confirm/confirm_any_request") ||
+		 public_key.get_confirmation_required()) ? true : false;
+
+	if (!required_confirmation &&
+		value == VALUE_ACCEPT)
+	{
+		return true;
 	}
 
 	std::string message;
-    {
-		switch (type) {
-		case SSH2_AGENTC_SIGN_REQUEST:
-			message = "Accept query of the following key?";
-			break;
-		case SSH2_AGENTC_ADD_IDENTITY:
-		case SSH2_AGENTC_ADD_ID_CONSTRAINED:
-			message = "Accept addition of the following key?";
-			break;
-		case SSH2_AGENTC_REMOVE_IDENTITY:
-			message = "Accept deletion of the following key?";
-			break;
-		case SSH2_AGENTC_REMOVE_ALL_IDENTITIES:
-			message = "Accept deletion of all SSH2 identities?";
-			break;
-		default:
-			message = "??";
-			break;
-		}
-    }
+	switch (type) {
+	case SSH2_AGENTC_SIGN_REQUEST:
+		message = "Accept query of the following key?";
+		break;
+	case SSH2_AGENTC_ADD_IDENTITY:
+	case SSH2_AGENTC_ADD_ID_CONSTRAINED:
+		message = "Accept addition of the following key?";
+		break;
+	case SSH2_AGENTC_REMOVE_IDENTITY:
+		message = "Accept deletion of the following key?";
+		break;
+	case SSH2_AGENTC_REMOVE_ALL_IDENTITIES:
+		message = "Accept deletion of all SSH2 identities?";
+		break;
+	default:
+		message = "??";
+		break;
+	}
+
 	message += "\n";
 	message += public_key.fingerprint_md5_comp();
 	message += public_key.key_comment();
     struct ConfirmAcceptDlgInfo info;
     info.title = "pageant+";
     info.fingerprint = message.c_str();
-    info.dont_ask_again_available =
-		confirm_any_request && !public_key.get_confirmation_required() ? 1 : 0;
+    info.dont_ask_again_available = required_confirmation ? 0 : 1;
     info.dont_ask_again = 0;
     info.timeout = setting_get_confirm_timeout();
     DIALOG_RESULT_T r = confirmAcceptDlg(&info);
 
-	if (info.dont_ask_again && !public_key.get_confirmation_required()) {
+	if (info.dont_ask_again) {
 		const char *v = (r == DIALOG_RESULT_CANCEL) ?
 			VALUE_REFUSE : VALUE_ACCEPT;
 		setting_write_confirm_info(keyname.c_str(), v);
@@ -475,7 +471,9 @@ static void *pageant_handle_msg(
 			goto failure;
 		}
 		uint32 flags = toint(GET_32BIT(&src[pos]));
-#if 0	// TODO 要調査
+		// 0を送ってくる場合がある
+		// SSH_AGENT_RSA_SHA2_512として扱えばokみたい
+#if 0
 		if (flags != SSH_AGENT_RSA_SHA2_512) {
 			fail_reason = "bad flags";
 			goto failure;
@@ -543,7 +541,6 @@ static void *pageant_handle_msg(
 			size_t left = blob.size() - pos;
 
 			bool continue_flag = true;
-			bool confirm = false;
 			while (continue_flag) {
 				uint8_t constrain_type = blob[pos++];
 				left--;
@@ -1233,16 +1230,6 @@ void *pageant_handle_msg_2(const void *msgv, int *_replylen)
     return reply;
 }
 #endif
-
-void set_confirm_any_request(bool _bool)
-{
-    confirm_any_request = _bool;
-}
-
-int get_confirm_any_request(void)
-{
-    return confirm_any_request;
-}
 
 // Local Variables:
 // coding: utf-8-with-signature

@@ -18,11 +18,6 @@
 #include "ssh-agent_ms.h"
 #include "ssh-agent_emu.h"
 #include "gui_stuff.h"
-#if 0
-extern "C" {
-#include "cert/cert_common.h"
-}
-#endif
 #include "bt_agent_proxy_main.h"
 #include "winmisc.h"
 #include "passphrases.h"
@@ -162,15 +157,15 @@ static bool CheckDoubleStartup()
 			return false;
 		}
 
-		const INT message = 
 #if defined(DEVELOP_VERSION)
-			WM_APP + 1
+		// 起動済みのpageant+に終了をリクエスト
+		PostMessage(target_hWnd, WM_APP+1, 0, 0);
+		return false;
 #else
-			WM_APP
+		// 起動済みのpageant+にkeyview表示をリクエスト
+		PostMessage(target_hWnd, WM_APP, 0, 0);
+		return true;	// 自分は終了する
 #endif
-			;
-		PostMessage(target_hWnd, message, 0, 0);
-		return true;
 	}
 }
 
@@ -313,8 +308,6 @@ int main(int argc, char *argv[])
 	{
 		passphrase_load_setting();
 	}
-
-	set_confirm_any_request(setting_get_bool("confirm/confirm_any_request", false));
 
 	agents_start();
 

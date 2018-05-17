@@ -26,8 +26,6 @@ void pageant_init(void);
 void pageant_exit(void);
 
 void *pageant_handle_msg_2(const void *msgv, int *replylen);
-void set_confirm_any_request(bool _bool);
-int get_confirm_any_request(void);
 typedef bool (*agent_query_synchronous_fn)(
 	const std::vector<uint8_t> &request,
 	std::vector<uint8_t> &response);

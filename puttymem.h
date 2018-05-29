@@ -17,7 +17,9 @@
 #include <crtdbg.h>
 
 #if defined(_DEBUG)
-#define malloc(size)	_malloc_dbg(size,_NORMAL_BLOCK,__FILE__,__LINE__)
+#define malloc(size)		_malloc_dbg(size,_NORMAL_BLOCK,__FILE__,__LINE__)
+#define calloc(num, size)   _calloc_dbg(num, size, _NORMAL_BLOCK, __FILE__, __LINE__)
+//#define free(ptr)			_free_dbg(ptr, _NORMAL_BLOCK);
 #if defined(__cplusplus)
 #define new ::new(_NORMAL_BLOCK, __FILE__, __LINE__)
 #endif

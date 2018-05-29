@@ -166,7 +166,7 @@ static bool load_importable_key(const Filename *filename, int type, ckey &key)
 				key.set(skey);
 				return true;
 			} else {
-				dbgprintf("import_ssh2() eror '%s'\n", errmsg);
+				dbgprintf("import_ssh2() error '%s'\n", errmsg);
 				//sfree(errmsg);
 			}
 		}

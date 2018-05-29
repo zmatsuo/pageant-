@@ -69,6 +69,19 @@ void SmartcardUnloadPKCS11dll()
 	cert_pkcs11dll_finalize();
 }
 
+std::vector<uint8_t> SmartcardSign(const ckey &key, const std::vector<uint8_t> &data, int rsaFlag)
+{
+	const unsigned char *dataptr = &data[0];
+	size_t datalen = data.size();
+	const struct ssh2_userkey *skey = key.get();
+	int siglen = 0;
+	uint8_t *signature = cert_sign(skey, (LPCBYTE)dataptr, datalen, &siglen, NULL, rsaFlag);
+	std::vector<uint8_t> _signature(signature, signature + siglen);
+	smemclr(signature, siglen);
+	sfree(signature);
+	return _signature;
+}
+
 // Local Variables:
 // mode: c++
 // coding: utf-8-with-signature

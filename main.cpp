@@ -299,6 +299,7 @@ int main(int argc, char *argv[])
     }
 #endif
 
+	keystore_init();
 	pageant_init();
 	rdpSshRelayInit();
 	SmartcardInit();
@@ -329,6 +330,7 @@ int main(int argc, char *argv[])
 	agents_stop();
 
 	pageant_exit();
+	keystore_exit();
 	setting_exit();
 	passphrase_exit();
 

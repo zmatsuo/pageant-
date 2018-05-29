@@ -27,6 +27,12 @@
 
 #include "../puttymem.h"
 
+#if defined(_DEBUG)
+#define malloc(size)		_malloc_dbg(size,_NORMAL_BLOCK,__FILE__,__LINE__) 
+#define calloc(num, size)   _calloc_dbg(num, size, _NORMAL_BLOCK, __FILE__, __LINE__)
+#define free(ptr)			_free_dbg(ptr, _NORMAL_BLOCK);
+#endif
+
 #define strlwr(p)	_strlwr(p)
 #define wcsdup(p)	_wcsdup(p)
 #define strdup(p)	_strdup(p)
@@ -149,7 +155,7 @@ LPSTR cert_prompt(LPCSTR szIden, HWND hWnd)
 	return NULL;
 }
 
-LPBYTE cert_sign(const struct ssh2_userkey * userkey, LPCBYTE pDataToSign, int iDataToSignLen, int * iWrappedSigLen, HWND hWnd)
+LPBYTE cert_sign(const struct ssh2_userkey * userkey, LPCBYTE pDataToSign, int iDataToSignLen, int * iWrappedSigLen, HWND hWnd,int rsaFlag)
 {
 	LPBYTE pRawSig = NULL;
 	int iRawSigLen = 0;
@@ -165,7 +171,7 @@ LPBYTE cert_sign(const struct ssh2_userkey * userkey, LPCBYTE pDataToSign, int i
 
 	if (cert_is_pkcspath(userkey->comment))
 	{
-		pRawSig = cert_pkcs_sign(userkey, pDataToSign, iDataToSignLen, &iRawSigLen, hWnd);
+		pRawSig = cert_pkcs_sign(userkey, pDataToSign, iDataToSignLen, &iRawSigLen, hWnd, rsaFlag);
 	}
 
 	// sanity check
@@ -209,12 +215,20 @@ LPBYTE cert_sign(const struct ssh2_userkey * userkey, LPCBYTE pDataToSign, int i
 		// algorithm name
 		// size of binary signature (4 bytes in big endian)
 		// binary signature
-		int iAlgoNameLen = strlen(userkey->alg->name);
+		const char *algName;
+		if (rsaFlag == SSH_AGENT_RSA_SHA2_256) {
+			algName = "rsa-sha2-256";
+		} else if (rsaFlag == SSH_AGENT_RSA_SHA2_512) {
+			algName = "rsa-sha2-512";
+		} else {
+			algName = userkey->alg->name;
+		}
+		int iAlgoNameLen = strlen(algName);
 		*iWrappedSigLen = 4 + iAlgoNameLen + 4 + iRawSigLen;
 		pWrappedSig = snewn(*iWrappedSigLen, unsigned char);
 		unsigned char * pWrappedPos = pWrappedSig;
 		PUT_32BIT(pWrappedPos, iAlgoNameLen); pWrappedPos += 4;
-		memcpy(pWrappedPos, userkey->alg->name, iAlgoNameLen); pWrappedPos += iAlgoNameLen;
+		memcpy(pWrappedPos, algName, iAlgoNameLen); pWrappedPos += iAlgoNameLen;
 		PUT_32BIT(pWrappedPos, iRawSigLen); pWrappedPos += 4;
 		memcpy(pWrappedPos, pRawSig, iRawSigLen);
 	}
@@ -469,7 +483,7 @@ void cert_convert_legacy(LPSTR szCert)
 LPBYTE cert_get_hash(LPCSTR szAlgo, LPCBYTE pDataToHash, DWORD iDataToHashSize, DWORD * iHashedDataSize, BOOL bPrependDigest)
 {
 	// id-sha1 OBJECT IDENTIFIER 
-	const BYTE OID_SHA1[] = {
+	static const BYTE OID_SHA1[] = {
 		0x30, 0x21, /* type Sequence, length 0x21 (33) */
 		0x30, 0x09, /* type Sequence, length 0x09 */
 		0x06, 0x05, /* type OID, length 0x05 */
@@ -477,6 +491,16 @@ LPBYTE cert_get_hash(LPCSTR szAlgo, LPCBYTE pDataToHash, DWORD iDataToHashSize, 
 		0x05, 0x00, /* NULL */
 		0x04, 0x14  /* Octet string, length 0x14 (20), followed by sha1 hash */
 	};
+    static const BYTE OID_SHA2_256[] = {
+		0x30, 0x31, 0x30, 0x0d, 0x06, 0x09, 0x60,
+		0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x01,
+		0x05, 0x00, 0x04, 0x20,
+    };
+    static const BYTE OID_SHA2_512[] = {
+		0x30, 0x51, 0x30, 0x0d, 0x06, 0x09, 0x60,
+		0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x03,
+		0x05, 0x00, 0x04, 0x40,
+    };
 
 	HCRYPTPROV hHashProv = (ULONG_PTR)NULL;
 	HCRYPTHASH hHash = (ULONG_PTR)NULL;
@@ -484,19 +508,29 @@ LPBYTE cert_get_hash(LPCSTR szAlgo, LPCBYTE pDataToHash, DWORD iDataToHashSize, 
 	*iHashedDataSize = 0;
 
 	// determine algo to use for hashing
-	ALG_ID iHashAlg = CALG_SHA1;
+	ALG_ID iHashAlg = CALG_SHA1;	// "ssh-rsa"
 	if (strcmp(szAlgo, "ecdsa-sha2-nistp256") == 0) iHashAlg = CALG_SHA_256;
 	if (strcmp(szAlgo, "ecdsa-sha2-nistp384") == 0) iHashAlg = CALG_SHA_384;
 	if (strcmp(szAlgo, "ecdsa-sha2-nistp521") == 0) iHashAlg = CALG_SHA_512;
+	if (strcmp(szAlgo, "rsa-sha2-256") == 0) iHashAlg = CALG_SHA_256;
+	if (strcmp(szAlgo, "rsa-sha2-512") == 0) iHashAlg = CALG_SHA_512;
 
 	// for sha1, prepend the hash digest if requested
 	// this is necessary for some signature algorithms
 	DWORD iDigestSize = 0;
 	LPBYTE pDigest = NULL;
-	if (iHashAlg == CALG_SHA1 && bPrependDigest)
+	if (bPrependDigest)
 	{
-		iDigestSize = sizeof(OID_SHA1);
-		pDigest = (LPBYTE)OID_SHA1;
+		if (iHashAlg == CALG_SHA1) {
+			iDigestSize = sizeof(OID_SHA1);
+			pDigest = (LPBYTE)OID_SHA1;
+		} else if (iHashAlg == CALG_SHA_256) {
+			iDigestSize = sizeof(OID_SHA2_256);
+			pDigest = (LPBYTE)OID_SHA2_256;
+		} else if (iHashAlg == CALG_SHA_512) {
+			iDigestSize = sizeof(OID_SHA2_512);
+			pDigest = (LPBYTE)OID_SHA2_512;
+		}
 	}
 
 	// acquire crytpo provider, hash data, and export hashed binary data

@@ -951,6 +951,86 @@ static unsigned char *rsa2_sign(void *key, const char *data, int datalen,
     return bytes;
 }
 
+static unsigned char *rsa2_sign_ex(
+    void *key, const char *data, int datalen,
+    int *siglen, int rsaflag)
+{
+    struct RSAKey *rsa = (struct RSAKey *) key;
+    unsigned char *bytes;
+    int nbytes;
+    unsigned char hash[64];
+    int hashlen;
+    Bignum in, out;
+    int i, j;
+    static const unsigned char asn1_weird_stuff_sha2_256[] = {
+	0x00, 0x30, 0x31, 0x30, 0x0d, 0x06, 0x09, 0x60,
+	0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x01,
+	0x05, 0x00, 0x04, 0x20,
+    };
+    static const unsigned char asn1_weird_stuff_sha2_512[] = {
+	0x00, 0x30, 0x51, 0x30, 0x0d, 0x06, 0x09, 0x60,
+	0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x03,
+	0x05, 0x00, 0x04, 0x40,
+    };
+    const unsigned char *digestinfo;
+    int digestinfolen;
+    const char *alg;
+    int alglen;
+
+    if (rsaflag == SSH_AGENT_RSA_SHA2_256) {
+	digestinfo = asn1_weird_stuff_sha2_256;
+	digestinfolen = sizeof(asn1_weird_stuff_sha2_256);
+	SHA256_Simple(data, datalen, hash);
+	hashlen = 32;
+	alg = "rsa-sha2-256";
+	alglen = 12;
+    } else if (rsaflag == SSH_AGENT_RSA_SHA2_512) {
+	digestinfo = asn1_weird_stuff_sha2_512;
+	digestinfolen = sizeof(asn1_weird_stuff_sha2_512);
+	SHA512_Simple(data, datalen, hash);
+	hashlen = 64;
+	alg = "rsa-sha2-512";
+	alglen = 12;
+    } else {
+	digestinfo = asn1_weird_stuff;
+	digestinfolen = sizeof(asn1_weird_stuff);
+	SHA_Simple(data, datalen, hash);
+	hashlen = 20;
+	alg = "ssh-rsa";
+	alglen = 7;
+    }
+
+    nbytes = (bignum_bitcount(rsa->modulus) - 1) / 8;
+    assert(1 <= nbytes - hashlen - digestinfolen);
+    bytes = snewn(nbytes, unsigned char);
+
+    bytes[0] = 1;
+    for (i = 1; i < nbytes - hashlen - digestinfolen; i++)
+	bytes[i] = 0xFF;
+    for (i = nbytes - hashlen - digestinfolen, j = 0; i < nbytes - hashlen; i++, j++)
+	bytes[i] = digestinfo[j];
+    for (i = nbytes - hashlen, j = 0; i < nbytes; i++, j++)
+	bytes[i] = hash[j];
+
+    in = bignum_from_bytes(bytes, nbytes);
+    sfree(bytes);
+
+    out = rsa_privkey_op(in, rsa);
+    freebn(in);
+
+    nbytes = (bignum_bitcount(out) + 7) / 8;
+    bytes = snewn(4 + alglen + 4 + nbytes, unsigned char);
+    PUT_32BIT(bytes, alglen);
+    memcpy(bytes + 4, alg, alglen);
+    PUT_32BIT(bytes + 4 + alglen, nbytes);
+    for (i = 0; i < nbytes; i++)
+	bytes[4 + alglen + 4 + i] = bignum_byte(out, nbytes - 1 - i);
+    freebn(out);
+
+    *siglen = 4 + alglen + 4 + nbytes;
+    return bytes;
+}
+
 const struct ssh_signkey ssh_rsa = {
     rsa2_newkey,
     rsa2_freekey,
@@ -967,6 +1047,7 @@ const struct ssh_signkey ssh_rsa = {
     "ssh-rsa",
     "rsa2",
     NULL,
+    rsa2_sign_ex,
 };
 
 void *ssh_rsakex_newkey(char *data, int len)

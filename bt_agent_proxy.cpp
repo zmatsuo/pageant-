@@ -14,18 +14,17 @@
 #include <assert.h>
 #include <crtdbg.h>
 
-#if defined(_DEBUG)
-#define malloc(size)		_malloc_dbg(size,_NORMAL_BLOCK,__FILE__,__LINE__) 
-#define calloc(num, size)   _calloc_dbg(num, size, _NORMAL_BLOCK, __FILE__, __LINE__)
-#if defined(__cplusplus)
-#define new ::new(_NORMAL_BLOCK, __FILE__, __LINE__)
-#endif
-#endif
-
 #include "bt_agent_proxy.h"
 //#define ENABLE_DEBUG_PRINT
 #include "debug.h"
 #include "winmisc.h"
+
+#if defined(_DEBUG)
+#define malloc(size)		_malloc_dbg(size, _NORMAL_BLOCK,__FILE__,__LINE__) 
+#define calloc(num, size)   _calloc_dbg(num, size, _NORMAL_BLOCK, __FILE__, __LINE__)
+#define free(ptr)			_free_dbg(ptr, _NORMAL_BLOCK);
+#define new ::new(_NORMAL_BLOCK, __FILE__, __LINE__)
+#endif
 
 //#define ENABLE_BT_DEVICE_INQUIRY_DEBUG_PRINT
 

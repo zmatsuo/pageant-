@@ -134,3 +134,6 @@ mingw:LIBS += -luuid
 mingw:LIBS += -lWtsapi32
 mingw:LIBS += -lComctl32
 
+RC_FILE = pageant+.rc
+    
+

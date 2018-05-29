@@ -6,7 +6,7 @@
 
 #include "ckey.h"
 
-#include <string>
+#include <stdint.h>
 #include <vector>
 
 /*
@@ -25,7 +25,9 @@ typedef void (*pageant_logfn_t)(void *logctx, const char *fmt, va_list ap);
 void pageant_init(void);
 void pageant_exit(void);
 
-void *pageant_handle_msg_2(const void *msgv, int *replylen);
+void pageant_handle_msg(
+	const uint8_t *request_ptr, size_t request_len,
+	std::vector<uint8_t> &reply);
 typedef bool (*agent_query_synchronous_fn)(
 	const std::vector<uint8_t> &request,
 	std::vector<uint8_t> &response);

@@ -9,10 +9,10 @@
     <ClInclude Include="version.h" />
     <ClInclude Include="pageant+.h" />
     <ClInclude Include="setting.h" />
-    <ClInclude Include="pageant_client.h" />
     <ClInclude Include="rdp_ssh_relay_def.h" />
     <ClInclude Include="misc_cpp.h" />
     <ClInclude Include="puttymem.h" />
+    <ClInclude Include="winpageant_client.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="winmisc.cpp" />
@@ -20,10 +20,10 @@
     <ClCompile Include="winutils.c" />
     <ClCompile Include="debug.cpp" />
     <ClCompile Include="setting.cpp" />
-    <ClCompile Include="pageant_client.cpp" />
     <ClCompile Include="misc_cpp.cpp" />
     <ClCompile Include="pageant+_rdp_client.cpp" />
     <ClCompile Include="misc.cpp" />
     <ClCompile Include="version.cpp" />
+    <ClCompile Include="winpageant_client.cpp" />
   </ItemGroup>
 </Project>

@@ -170,8 +170,8 @@
     <ClInclude Include="setting.h" />
     <ClInclude Include="version.h" />
     <ClInclude Include="winmisc.h" />
+    <ClInclude Include="winpageant_client.h" />
     <ClInclude Include="winutils.h" />
-    <ClInclude Include="pageant_client.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="codeconvert.cpp" />
@@ -181,8 +181,8 @@
     <ClCompile Include="setting.cpp" />
     <ClCompile Include="version.cpp" />
     <ClCompile Include="winmisc.cpp" />
+    <ClCompile Include="winpageant_client.cpp" />
     <ClCompile Include="winutils.c" />
-    <ClCompile Include="pageant_client.cpp" />
     <ClCompile Include="pageant+_rdp_client.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -32,6 +32,10 @@
 #include "pageant.h"
 #include "puttymem.h"
 
+#if defined(_DEBUG)
+#define new ::new(_NORMAL_BLOCK, __FILE__, __LINE__)
+#endif
+
 #if 0
 #define debug(...)
 #else
@@ -51,6 +55,7 @@ typedef struct {
 	uint8_t *send_buf;
 	size_t send_size;
 	bool flash;
+	std::vector<uint8_t> reply;
 } echo_server_data_t;
 
 class SocketServer {
@@ -126,13 +131,14 @@ static int ssh_agent_server(sock_server_notify_param_st *notify)
 		if (me->recv_size >= 5) {
 			int len = msglen(&me->recv_buf[0]);
 			if (me->recv_size >= len) {
-				int replaylen;
-				void *send = pageant_handle_msg_2(		// pageant.c
-					&me->recv_buf[0], &replaylen);
-				me->send_buf = (uint8_t *)send;
-				me->send_size = replaylen;
-				notify->send.ptr = (uint8_t *)send;
-				notify->send.size = replaylen;
+				pageant_handle_msg(
+					&me->recv_buf[0], me->recv_size,
+					me->reply);
+				smemclr(&me->recv_buf[0], me->recv_size);
+				me->send_buf = nullptr;
+				me->send_size = 0;
+				notify->send.ptr = &me->reply[0];
+				notify->send.size = me->reply.size();
 				debug("send %zd\n", notify->send.size);
 				notify->recv.size = 0;
 				notify->timeout = CONNECT_TIMEOUT;
@@ -144,8 +150,7 @@ static int ssh_agent_server(sock_server_notify_param_st *notify)
 	{
 		debug("send finish\n");
 
-		smemclr(me->send_buf,me->send_size);
-		sfree(me->send_buf);
+		smemclr(&me->reply[0], me->reply.size());
 		me->send_buf = NULL;
 		me->send_size = 0;
 		notify->send.ptr = NULL;

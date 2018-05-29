@@ -7,25 +7,20 @@ Windows用のssh agentです。putty pageantをベースにしています。
 - 秘密鍵を手元(ローカル)に置いておいてなるべくコピーせずに済むようにする
 
 次の経路でssh関連のプログラムと通信を行うことができます。
-- pageant (putty ssh-agent)
+- pageant (putty ssh-agent compatible)
 - ssh-agent unix domain socket (cygwin emulation)
 - ssh-agent unix domain socket (Windows Native) *1
-- Microsoft ssh-agent compatible (Named Pipe) *1
+- Microsoft ssh *1 (Named Pipe,Microsoft ssh-agant compatible)
 - ssh-agent TCP接続 (socat(WSL)からの接続用)
 
   *1 Windows10 version 1803(Redstone 4)より正式採用されました。
  
-次のようなこともできます。
-- 秘密鍵をandroidデバイス上に保存しておくBT pageant+も利用できます
-- RDP(リモートデスクトップ)の接続先から手元のpageant+を利用できます
-- スマートキー(マイナンバーカード)を利用できます
-- よく使われる秘密鍵ファイルフォーマットをサポートしています(Putty形式,OpenSSH形式,ssh.com形式)
-- 読み込んだ秘密鍵からsshサーバー用公開鍵を抽出できます
-
 まだまだ気になるところはありますが、概ね動作します。
 
 # できること
 
+- rsa-sha2-256/512 で署名ができます  
+  (OpenSSH 7.7から従来の(ssh-rsa(SHA1))署名を行うと警告が出ます)
 - BT pageant+を利用できます
 - RDP(リモートデスクトップ)のVirtual Channelを利用
     - 接続した先(サーバ側)のpageant+から、ローカル(クライアント側)のpageant+を利用できます
@@ -34,10 +29,11 @@ Windows用のssh agentです。putty pageantをベースにしています。
 	- ([build17061から](https://blogs.msdn.microsoft.com/commandline/2017/12/19/af_unix-comes-to-windows/)利用可能だと思われます)
 	- [socat + TCP](https://github.com/zmatsuo/pageant-/wiki/WSL%E3%81%8B%E3%82%89-pageant---%E3%82%92%E5%88%A9%E7%94%A8%E3%81%99%E3%82%8B)を使用せずにWSLから直接利用できます
 	- Windows側からは `c:/path/.ssh-ageant` とした場合、WSL側からは `export SSH_AUTH_SOCK=/mnt/c/path/.ssh-agent`などと設定します
-- Windows 10 version 1803(Redstone 4)より正式版となったMicorsoftによる移植版OpenSSHのageantとなることができる
-- sshの秘密鍵のパスフレーズを記憶,適当なタイミングで忘れることができる
-- ほとんどのsshクライアントと通信できる
-- スマートカードを使うことができる
+- Windows 10 version 1803(Redstone 4)より正式版となったMicorsoftによる移植版OpenSSHのageantとなることができます
+- sshの秘密鍵のパスフレーズを記憶,適当なタイミングで忘れることができます
+- スマートキー(マイナンバーカード)を使うことができます
+- よく使われる秘密鍵ファイルフォーマットをサポートしています(Putty形式,OpenSSH形式,ssh.com形式)
+- 読み込んだ秘密鍵からsshサーバー用公開鍵を抽出できます
 
 # 使い方
 
@@ -81,7 +77,9 @@ Windows用のssh agentです。putty pageantをベースにしています。
 
 ## マイナンバーカード(スマートカード)
 
-- マイナンバーカードに対応したOpenSCをインストールしておく(手元でビルドした[野良ビルド版](https://github.com/zmatsuo/pageant-/releases/download/170718/OpenSC.msi)で動作確認しています)
+- マイナンバーカードに対応したOpenSCをインストールしておく  
+  opensc 0.17.0 からマイナンバーカード対応のようです  
+  [0.18.0](https://github.com/OpenSC/OpenSC/releases/tag/0.18.0)で動作確認しました
 - 'Add PKCS Cert'ボタンを押す
 - `C:\Program Files\OpenSC Project\OpenSC\pkcs11\opensc-pkcs11.dll`を選ぶ
 - 証明書選択で次のものを選ぶ
@@ -109,8 +107,7 @@ Windows用のssh agentです。putty pageantをベースにしています。
 
 ## 鍵ファイル
 
-- addボタンで使用できる鍵ファイル種類
-	- RSA 2048bit,4096bitのみテスト
+- 楕円曲線暗号系のテストはあまり行っていません
 
 ## 動作確認できたスマートカード
 

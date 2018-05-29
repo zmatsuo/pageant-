@@ -24,6 +24,11 @@
 static HWND ghwnd;
 static std::thread *winpgnt_th;
 
+static inline int msglen(const void *p)
+{
+	return ntohl(*(const uint32_t *)p);
+}
+
 static LRESULT wm_copydata(const COPYDATASTRUCT *cds)
 {
 	if (cds->dwData != AGENT_COPYDATA_ID)
@@ -72,15 +77,16 @@ static LRESULT wm_copydata(const COPYDATASTRUCT *cds)
 		LocalFree(psd1);
 		LocalFree(psd2);
 
-		void *p = MapViewOfFile(filemap, FILE_MAP_WRITE, 0, 0, 0);
+		uint8_t *p = (uint8_t *)MapViewOfFile(filemap, FILE_MAP_WRITE, 0, 0, 0);
 		dbgprintf("p is %p\n", p);
-		{
-			int reply_len;
-			uint8_t *reply = (uint8_t *)pageant_handle_msg_2(p, &reply_len);
-			memcpy(p, reply, reply_len);
-			smemclr(reply, reply_len);
-			sfree(reply);
-		}
+
+		size_t request_len = msglen(p) + 4;
+		std::vector<uint8_t> reply;
+		pageant_handle_msg(p, request_len, reply);
+		smemclr(p, request_len);
+		memcpy(p, &reply[0], reply.size());
+		smemclr(&reply[0], reply.size());
+
 		UnmapViewOfFile(p);
 	}
 	CloseHandle(filemap);

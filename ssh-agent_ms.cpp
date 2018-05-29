@@ -118,18 +118,17 @@ static int pipe_main()
 				}
 			}
 
-			int reply_len;
-			uint8_t *reply = (uint8_t *)pageant_handle_msg_2(szData, &reply_len);
+			std::vector<uint8_t> reply;
+			pageant_handle_msg(szData, read_data_size, reply);
 			smemclr(szData, read_data_size);
 
 			DWORD dwResult;
-			BOOL r = WriteFile(hPipe, reply, 4, &dwResult, NULL);
+			BOOL r = WriteFile(hPipe, &reply[0], 4, &dwResult, NULL);
 			r = FlushFileBuffers(hPipe);
-			r = WriteFile(hPipe, &reply[4], reply_len-4, &dwResult, NULL);
+			r = WriteFile(hPipe, &reply[4], reply.size()-4, &dwResult, NULL);
 			r = FlushFileBuffers(hPipe);
 
-			smemclr(reply, reply_len);
-			sfree(reply);
+			smemclr(&reply[0], reply.size());
 		}
 	cleanup:
 		BOOL r = DisconnectNamedPipe(hPipe);

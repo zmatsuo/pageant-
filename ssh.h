@@ -379,6 +379,8 @@ struct ssh_signkey {
     const char *name;
     const char *keytype;               /* for host key cache */
     const void *extra;                 /* private to the public key methods */
+    unsigned char *(*sign_rsa) (void *key, const char *data, int datalen,
+			       int *siglen, int flag);
 };
 
 struct ssh2_userkey {

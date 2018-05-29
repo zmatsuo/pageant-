@@ -16,7 +16,6 @@
 #include <errno.h>
 
 #include "puttymem.h"
-#define ENABLE_DEBUG_PRINT
 #include "ssh.h"
 #include "pageant.h"
 #include "pageant_.h"
@@ -25,18 +24,13 @@
 #include "setting.h"
 #include "passphrases.h"
 #include "ckey.h"
-#include "debug.h"
 #include "keystore.h"
 #include "codeconvert.h"
 #include "rdp_ssh_relay.h"
-
-#ifdef PUTTY_CAC
-extern "C" {
-#include "cert/cert_common.h"
-}
-#endif // PUTTY_CAC
-
+#include "smartcard.h"
 #include "bt_agent_proxy_main.h"
+#define ENABLE_DEBUG_PRINT
+#include "debug.h"
 
 #define SSH_AGENT_CONSTRAIN_LIFETIME	1
 #define SSH_AGENT_CONSTRAIN_CONFIRM		2
@@ -288,7 +282,8 @@ static std::vector<uint8_t> parse_sign_response(
 static bool signer(
 	const ckey &public_key,
 	const std::vector<uint8_t> &data,
-	std::vector<uint8_t> &_signature)
+	std::vector<uint8_t> &_signature,
+	uint32_t flags)
 {
 	ckey private_key;
 	keystore_get(public_key, private_key);
@@ -298,12 +293,9 @@ static bool signer(
 
 	unsigned char *signature = nullptr;
 	int siglen = 0;
-	if (cert_is_certpath(comment.c_str()))
+	if (SmartcardIsPath(comment.c_str()))
 	{
-		const unsigned char *dataptr = &data[0];
-		size_t datalen = data.size();
-		signature = cert_sign(skey, (LPCBYTE)dataptr, datalen, &siglen, NULL);
-		_signature.clear();
+		_signature = SmartcardSign(private_key, data, flags);
 	}
 	else if (strncmp("btspp://", comment.c_str(), 8) == 0)
 	{
@@ -335,15 +327,15 @@ static bool signer(
 		auto request = create_agentc_sign_request(
 			public_key_blob, data);
 
-		std::vector<uint8_t> response_v;
-		r = bt_agent_proxy_main_handle_msg(request, response_v);
+		std::vector<uint8_t> response;
+		r = bt_agent_proxy_main_handle_msg(request, response);
 		if (r == false) {
 			_signature.clear();
 			return false;
 		}
 		
 		// 応答チェック
-		_signature = parse_sign_response(response_v);
+		_signature = parse_sign_response(response);
 		if (_signature.empty()) {
 			return false;
 		}
@@ -378,15 +370,25 @@ static bool signer(
 	{
 		const unsigned char *dataptr = &data[0];
 		size_t datalen = data.size();
-		signature = skey->alg->sign(skey->data, (const char *)dataptr,
-									datalen, &siglen);
 		_signature.clear();
+		if (skey->alg == &ssh_rsa) {
+			signature = skey->alg->sign_rsa(
+				skey->data, (const char *)dataptr,
+				datalen, &siglen, flags);
+		} else {
+			signature = skey->alg->sign(
+				skey->data, (const char *)dataptr,
+				datalen, &siglen);
+		}
 	}
 
 	if (signature != nullptr) {
-		_signature.resize(siglen);
-		memcpy(&_signature[0], signature, siglen);
+		_signature.assign(signature, signature + siglen);
+		smemclr(signature, siglen);
 		sfree(signature);
+	}
+	if (_signature.empty()) {
+		return false;
 	}
 	return true;
 }
@@ -470,17 +472,8 @@ static void *pageant_handle_msg(
 			fail_reason = "request truncated before string to sign";
 			goto failure;
 		}
-		uint32 flags = toint(GET_32BIT(&src[pos]));
-		// 0を送ってくる場合がある
-		// SSH_AGENT_RSA_SHA2_512として扱えばokみたい
-#if 0
-		if (flags != SSH_AGENT_RSA_SHA2_512) {
-			fail_reason = "bad flags";
-			goto failure;
-		}
-#endif
+		uint32_t flags = toint(GET_32BIT(&src[pos]));
 
-		//
 		ckey public_key;
 		r = public_key.parse_one_public_key(key_blob, &fail_reason);
 		if (r == false) {
@@ -498,7 +491,7 @@ static void *pageant_handle_msg(
 	    }
 
 		std::vector<uint8_t> signature;
-		r = signer(public_key, data_v, signature);
+		r = signer(public_key, data_v, signature, flags);
 		if (r == false) {
 			fail_reason = "sign error";
 			goto failure;
@@ -684,224 +677,11 @@ static void *pageant_failure_msg(int *outlen)
 
 void pageant_init(void)
 {
-	keystore_init();
 }
 
 void pageant_exit(void)
 {
-	keystore_exit();
 }
-
-/* ----------------------------------------------------------------------
- * The agent plug.
- */
-#if 0
-/*
- * Coroutine macros similar to, but simplified from, those in ssh.c.
- */
-#define crBegin(v)	{ int *crLine = &v; switch(v) { case 0:;
-#define crFinish(z)	} *crLine = 0; return (z); }
-#define crGetChar(c) do                                         \
-    {                                                           \
-        while (len == 0) {                                      \
-            *crLine =__LINE__; return 1; case __LINE__:;        \
-        }                                                       \
-        len--;                                                  \
-        (c) = (unsigned char)*data++;                           \
-    } while (0)
-
-struct pageant_conn_state {
-    const struct plug_function_table *fn;
-    /* the above variable absolutely *must* be the first in this structure */
-
-    Socket connsock;
-    void *logctx;
-    pageant_logfn_t logfn;
-    unsigned char lenbuf[4], pktbuf[AGENT_MAX_MSGLEN];
-    unsigned len, got;
-    int real_packet;
-    int crLine;            /* for coroutine in pageant_conn_receive */
-};
-
-static int pageant_conn_closing(Plug plug, const char *error_msg,
-                                int error_code, int calling_back)
-{
-    struct pageant_conn_state *pc = (struct pageant_conn_state *)plug;
-    if (error_msg)
-        plog(pc->logctx, pc->logfn, "%p: error: %s", pc, error_msg);
-    else
-        plog(pc->logctx, pc->logfn, "%p: connection closed", pc);
-    sk_close(pc->connsock);
-    sfree(pc);
-    return 1;
-}
-
-static void pageant_conn_sent(Plug plug, int bufsize)
-{
-    /* struct pageant_conn_state *pc = (struct pageant_conn_state *)plug; */
-
-    /*
-     * We do nothing here, because we expect that there won't be a
-     * need to throttle and unthrottle the connection to an agent -
-     * clients will typically not send many requests, and will wait
-     * until they receive each reply before sending a new request.
-     */
-}
-
-static void pageant_conn_log(void *logctx, const char *fmt, va_list ap)
-{
-    /* Wrapper on pc->logfn that prefixes the connection identifier */
-    struct pageant_conn_state *pc = (struct pageant_conn_state *)logctx;
-    char *formatted = dupvprintf(fmt, ap);
-    plog(pc->logctx, pc->logfn, "%p: %s", pc, formatted);
-    sfree(formatted);
-}
-
-static int pageant_conn_receive(Plug plug, int urgent, char *data, int len)
-{
-    struct pageant_conn_state *pc = (struct pageant_conn_state *)plug;
-    char c;
-
-    crBegin(pc->crLine);
-
-    while (len > 0) {
-        pc->got = 0;
-        while (pc->got < 4) {
-            crGetChar(c);
-            pc->lenbuf[pc->got++] = c;
-        }
-
-        pc->len = GET_32BIT(pc->lenbuf);
-        pc->got = 0;
-        pc->real_packet = (pc->len < AGENT_MAX_MSGLEN-4);
-
-        while (pc->got < pc->len) {
-            crGetChar(c);
-            if (pc->real_packet)
-                pc->pktbuf[pc->got] = c;
-            pc->got++;
-        }
-
-        {
-            void *reply;
-            int replylen;
-
-            if (pc->real_packet) {
-                reply = pageant_handle_msg(pc->pktbuf, pc->len, &replylen, pc,
-                                           pc->logfn?pageant_conn_log:NULL);
-            } else {
-                plog(pc->logctx, pc->logfn, "%p: overlong message (%u)",
-                     pc, pc->len);
-                plog(pc->logctx, pc->logfn, "%p: reply: SSH_AGENT_FAILURE "
-                     "(message too long)", pc);
-                reply = pageant_failure_msg(&replylen);
-            }
-            sk_write(pc->connsock, reply, replylen);
-            smemclr(reply, replylen);
-        }
-    }
-
-    crFinish(1);
-}
-
-struct pageant_listen_state {
-    const struct plug_function_table *fn;
-    /* the above variable absolutely *must* be the first in this structure */
-
-    Socket listensock;
-    void *logctx;
-    pageant_logfn_t logfn;
-};
-
-static int pageant_listen_closing(Plug plug, const char *error_msg,
-                                  int error_code, int calling_back)
-{
-    struct pageant_listen_state *pl = (struct pageant_listen_state *)plug;
-    if (error_msg)
-        plog(pl->logctx, pl->logfn, "listening socket: error: %s", error_msg);
-    sk_close(pl->listensock);
-    pl->listensock = NULL;
-    return 1;
-}
-
-static int pageant_listen_accepting(Plug plug,
-                                    accept_fn_t constructor, accept_ctx_t ctx)
-{
-    static const struct plug_function_table connection_fn_table = {
-	NULL, /* no log function, because that's for outgoing connections */
-	pageant_conn_closing,
-        pageant_conn_receive,
-        pageant_conn_sent,
-	NULL /* no accepting function, because we've already done it */
-    };
-    struct pageant_listen_state *pl = (struct pageant_listen_state *)plug;
-    struct pageant_conn_state *pc;
-    const char *err;
-    char *peerinfo;
-
-    pc = snew(struct pageant_conn_state);
-    pc->fn = &connection_fn_table;
-    pc->logfn = pl->logfn;
-    pc->logctx = pl->logctx;
-    pc->crLine = 0;
-
-    pc->connsock = constructor(ctx, (Plug) pc);
-    if ((err = sk_socket_error(pc->connsock)) != NULL) {
-        sk_close(pc->connsock);
-        sfree(pc);
-	return TRUE;
-    }
-
-    sk_set_frozen(pc->connsock, 0);
-
-    peerinfo = sk_peer_info(pc->connsock);
-    if (peerinfo) {
-        plog(pl->logctx, pl->logfn, "%p: new connection from %s",
-             pc, peerinfo);
-    } else {
-        plog(pl->logctx, pl->logfn, "%p: new connection", pc);
-    }
-
-    return 0;
-}
-
-struct pageant_listen_state *pageant_listener_new(void)
-{
-    static const struct plug_function_table listener_fn_table = {
-        NULL, /* no log function, because that's for outgoing connections */
-        pageant_listen_closing,
-        NULL, /* no receive function on a listening socket */
-        NULL, /* no sent function on a listening socket */
-        pageant_listen_accepting
-    };
-
-    struct pageant_listen_state *pl = snew(struct pageant_listen_state);
-    pl->fn = &listener_fn_table;
-    pl->logctx = NULL;
-    pl->logfn = NULL;
-    pl->listensock = NULL;
-    return pl;
-}
-
-void pageant_listener_got_socket(struct pageant_listen_state *pl, Socket sock)
-{
-    pl->listensock = sock;
-}
-
-void pageant_listener_set_logfn(struct pageant_listen_state *pl,
-                                void *logctx, pageant_logfn_t logfn)
-{
-    pl->logctx = logctx;
-    pl->logfn = logfn;
-}
-
-void pageant_listener_free(struct pageant_listen_state *pl)
-{
-    if (pl->listensock)
-        sk_close(pl->listensock);
-    sfree(pl);
-}
-#endif
 
 /**
  * SSH2_AGENT_IDENTITIES_ANSWERを送信、
@@ -1197,39 +977,47 @@ static void pageant_logfn_test(void *logctx, const char *fmt, va_list ap)
 	dbgprintf("logtest '%s'\n", buf.c_str());
 }
 
-// replyは smemclr(), sfree() すること
-#if 1
-void *pageant_handle_msg_2(const void *msgv, int *_replylen)
+// TODO smemclr(), sfree() 考慮
+void pageant_handle_msg(
+	const uint8_t *request_ptr, size_t request_len,
+	std::vector<uint8_t> &reply)
 {
     dbgprintf("answer_msg enter --\n");
 
-    unsigned char *msg = (unsigned char *)msgv;
-    unsigned msglen;
-    void *reply;
-    int replylen;
+    const unsigned char *msg = request_ptr;
+	unsigned msglen;
+    void *_reply = nullptr;
+    int replylen = 0;
 
     dump_msg(msg);
 
-    msglen = GET_32BIT(msg);
+	if (request_len > AGENT_MAX_MSGLEN) {
+        _reply = pageant_failure_msg(&replylen);
+		goto finish;
+	}
+	msglen = GET_32BIT(msg);
     if (msglen > AGENT_MAX_MSGLEN) {
-        reply = pageant_failure_msg(&replylen);
-    } else {
-		pageant_logfn_t logfn = pageant_logfn_test;
-        reply = pageant_handle_msg(msg + 4, msglen, &replylen, NULL, logfn);
-        if (replylen > AGENT_MAX_MSGLEN) {
-            smemclr(reply, replylen);
-            sfree(reply);
-            reply = pageant_failure_msg(&replylen);
-        }
+        _reply = pageant_failure_msg(&replylen);
+		goto finish;
     }
 
-    dump_msg(reply);
+	pageant_logfn_t logfn = pageant_logfn_test;
+	_reply = pageant_handle_msg(msg + 4, msglen, &replylen, NULL, logfn);
+	if (replylen > AGENT_MAX_MSGLEN) {
+		smemclr(_reply, replylen);
+		sfree(_reply);
+		_reply = pageant_failure_msg(&replylen);
+	}
+finish:
+	const uint8_t *reply_u8 = (uint8_t *)_reply;
+	reply.clear();
+	reply.assign(reply_u8, reply_u8 + replylen);
+	smemclr(_reply, replylen);
+	sfree(_reply);
+	
+    dump_msg(&reply[0]);
     dbgprintf("answer_msg leave --\n");
-
-    *_replylen = replylen;
-    return reply;
 }
-#endif
 
 // Local Variables:
 // coding: utf-8-with-signature

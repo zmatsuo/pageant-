@@ -7,7 +7,9 @@
 *   http://opensource.org/licenses/mit-license.php
 */
 
+#include <stdint.h>
 #include <string>
+#include <vector>
 #include "ckey.h"
 
 void SmartcardInit();
@@ -19,6 +21,7 @@ std::string SmartcardSelectPKCS(HWND hWndOwner);
 #endif
 void SmartcardForgetPin();
 void SmartcardUnloadPKCS11dll();
+std::vector<uint8_t> SmartcardSign(const ckey &key, const std::vector<uint8_t> &data, int rsaFlag);
 
 // Local Variables:
 // mode: c++

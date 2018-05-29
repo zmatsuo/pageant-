@@ -30,7 +30,7 @@ EXTERN BOOL cert_cache_enabled(DWORD bEnable);
 // functions used by putty code 
 EXTERN LPSTR cert_key_string(LPCSTR szCert);
 EXTERN LPSTR cert_prompt(LPCSTR szIden, HWND hWnd);
-EXTERN LPBYTE cert_sign(const struct ssh2_userkey * userkey, LPCBYTE pDataToSign, int iDataToSignLen, int * iWrappedSigLen, HWND hWnd);
+EXTERN LPBYTE cert_sign(const struct ssh2_userkey * userkey, LPCBYTE pDataToSign, int iDataToSignLen, int * iWrappedSigLen, HWND hWnd, int rsaFlag);
 EXTERN struct ssh2_userkey * cert_load_key(LPCSTR szCert);
 EXTERN VOID cert_display_cert(LPCSTR szCert, HWND hWnd);
 EXTERN int cert_all_certs(LPSTR ** pszCert);

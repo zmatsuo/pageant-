@@ -9,7 +9,7 @@
 #include <vector>
 
 #include "rdp_ssh_relay_def.h"
-#include "pageant_client.h"
+#include "winpageant_client.h"
 //#define ENABLE_DEBUG_PRINT
 #include "debug.h"
 #pragma warning( disable : 4996 )

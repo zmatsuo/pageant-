@@ -25,6 +25,12 @@
 #endif
 #include "../puttymem.h"
 
+#if defined(_DEBUG)
+#define malloc(size)		_malloc_dbg(size,_NORMAL_BLOCK,__FILE__,__LINE__) 
+#define calloc(num, size)   _calloc_dbg(num, size, _NORMAL_BLOCK, __FILE__, __LINE__)
+#define free(ptr)			_free_dbg(ptr, _NORMAL_BLOCK);
+#endif
+
 // required to be defined by pkcs headers
 #define CK_PTR *
 #define NULL_PTR 0
@@ -55,43 +61,8 @@ void * pkcs_get_attribute_value(CK_FUNCTION_LIST_PTR FunctionList, CK_SESSION_HA
 static void pkcs_lookup_token_cert(LPCSTR szCert, CK_SESSION_HANDLE_PTR phSession, CK_OBJECT_HANDLE_PTR phObject,
 	CK_ATTRIBUTE aFindCriteria[], CK_ULONG iFindCriteria, BOOL bReturnFirst);
 
-static CK_RV pkcs_lookup_privatekey(
-	CK_FUNCTION_LIST_PTR pFunctionList,
-	CK_SESSION_HANDLE hSession,
-	LPCBYTE pSharedKeyId, CK_ULONG iSharedKeyIdSize,
-	CK_OBJECT_HANDLE_PTR phPrivateKey)
+BYTE * cert_pkcs_sign(struct ssh2_userkey * userkey, LPCBYTE pDataToSign, int iDataToSignLen, int * iSigLen, HWND hWnd, int rsaFlag)
 {
-	*phPrivateKey = CK_INVALID_HANDLE;	
-	CK_RV rv;
-
-	// setup the find structure to identiy the private key on the token
-	CK_OBJECT_HANDLE iPrivateType = CKO_PRIVATE_KEY;
-	CK_ATTRIBUTE aFindPrivateCriteria[] = {
-		{ CKA_CLASS,    &iPrivateType,				sizeof(CK_OBJECT_CLASS) },
-		{ CKA_ID,		(CK_VOID_PTR)pSharedKeyId,	iSharedKeyIdSize },
-	};
-
-	// attempt to lookup the private key without logging in
-	CK_ULONG iCertListSize = 0;
-	rv = pFunctionList->C_FindObjectsInit(hSession, aFindPrivateCriteria, _countof(aFindPrivateCriteria));
-	if (rv != CKR_OK) return rv;
-	rv = pFunctionList->C_FindObjects(hSession, phPrivateKey, 1, &iCertListSize);
-	if (rv != CKR_OK) return rv;
-	rv = pFunctionList->C_FindObjectsFinal(hSession);
-	if (rv != CKR_OK) return rv;
-
-	if (iCertListSize == 0)
-	{
-		*phPrivateKey = CK_INVALID_HANDLE;	
-	}
-	return CKR_OK;
-}
-
-BYTE * cert_pkcs_sign(struct ssh2_userkey * userkey, LPCBYTE pDataToSign, int iDataToSignLen, int * iSigLen, HWND hWnd)
-{
-	BYTE *retval = NULL;
-	*iSigLen = 0;
-
 	// get the library to load from based on comment
 	LPSTR szLibrary = strrchr(userkey->comment, '=') + 1;
 	CK_FUNCTION_LIST_PTR pFunctionList = cert_pkcs_load_library(szLibrary);
@@ -104,6 +75,7 @@ BYTE * cert_pkcs_sign(struct ssh2_userkey * userkey, LPCBYTE pDataToSign, int iD
 	CK_ATTRIBUTE_TYPE oAttribute = 0;
 
 	// ecdsa
+	char *algName;
 	if (strstr(userkey->alg->name, "ecdsa-") == userkey->alg->name)
 	{
 		oType = CKK_EC;
@@ -140,6 +112,8 @@ BYTE * cert_pkcs_sign(struct ssh2_userkey * userkey, LPCBYTE pDataToSign, int iD
 			if (pLookupValue != NULL) free(pLookupValue);
 			return NULL;
 		}
+
+		algName = userkey->alg->name;
 	}
 
 	// rsa
@@ -150,18 +124,21 @@ BYTE * cert_pkcs_sign(struct ssh2_userkey * userkey, LPCBYTE pDataToSign, int iD
 		struct RSAKey * rsa = userkey->data;
 		iLookupSize = rsa->bytes;
 		pLookupValue = malloc(iLookupSize);
-		for (CK_ULONG i = 0; i < iLookupSize; i++)
+		for (int i = 0; i < iLookupSize; i++)
 		{
 			pLookupValue[iLookupSize - i - 1] = bignum_byte(rsa->modulus, i);
 		}
+
+		if (rsaFlag == SSH_AGENT_RSA_SHA2_256) {
+			algName = "rsa-sha2-256";
+		} else if (rsaFlag == SSH_AGENT_RSA_SHA2_512) {
+			algName = "rsa-sha2-512";
+		} else {
+			algName = userkey->alg->name;
+		}
 	}
 
-	// the message to send contains the static sha1 oid header
-	// followed by a sha1 hash of the data sent from the host
-	DWORD iHashSize = 0;
-	LPBYTE pHashData = cert_get_hash(userkey->alg->name, pDataToSign, iDataToSignLen, &iHashSize, TRUE);
-
-	// setup the find structure to identiy the public key on the token
+	// setup the find structure to identify the public key on the token
 	CK_OBJECT_CLASS iPublicType = CKO_PUBLIC_KEY;
 	CK_ATTRIBUTE aFindPubCriteria[] = {
 		{ CKA_CLASS,     &iPublicType,  sizeof(CK_OBJECT_CLASS) },
@@ -174,6 +151,9 @@ BYTE * cert_pkcs_sign(struct ssh2_userkey * userkey, LPCBYTE pDataToSign, int iD
 	CK_OBJECT_HANDLE hPublicKey = 0;
 	pkcs_lookup_token_cert(userkey->comment, &hSession,
 		&hPublicKey, aFindPubCriteria, _countof(aFindPubCriteria), TRUE);
+
+	// cleanup the modulus since we no longer need it
+	free(pLookupValue);
 
 	// check for error
 	if (hSession == 0 || hPublicKey == 0)
@@ -192,25 +172,40 @@ BYTE * cert_pkcs_sign(struct ssh2_userkey * userkey, LPCBYTE pDataToSign, int iD
 	if (pSharedKeyId == NULL)
 	{
 		// error
-		goto error;
+		pFunctionList->C_CloseSession(hSession);
+		return NULL;
 	}
+
+	// setup the find structure to identify the private key on the token
+	CK_OBJECT_HANDLE iPrivateType = CKO_PRIVATE_KEY;
+	CK_ATTRIBUTE aFindPrivateCriteria[] = {
+		{ CKA_CLASS,    &iPrivateType,	sizeof(CK_OBJECT_CLASS) },
+		{ CKA_ID,		pSharedKeyId,	iSize },
+	};
 
 	// attempt to lookup the private key without logging in
 	CK_OBJECT_HANDLE hPrivateKey;
-	if (pkcs_lookup_privatekey(pFunctionList, hSession, pSharedKeyId, iSize, &hPrivateKey) != CKR_OK)
+	CK_ULONG iCertListSize = 0;
+	if ((pFunctionList->C_FindObjectsInit(hSession, aFindPrivateCriteria, _countof(aFindPrivateCriteria))) != CKR_OK ||
+		pFunctionList->C_FindObjects(hSession, &hPrivateKey, 1, &iCertListSize) != CKR_OK ||
+		pFunctionList->C_FindObjectsFinal(hSession) != CKR_OK)
 	{
 		// error
-		goto error;
+		free(pSharedKeyId);
+		pFunctionList->C_CloseSession(hSession);
+		return NULL;
 	}
 
 	// if could not find the key, prompt the user for the pin
-	if (hPrivateKey == CK_INVALID_HANDLE)
+	if (iCertListSize == 0)
 	{
 		LPSTR szPin = cert_pin(userkey->comment, FALSE, NULL, hWnd);
 		if (szPin == NULL)
 		{
 			// error
-			goto error;
+			free(pSharedKeyId);
+			pFunctionList->C_CloseSession(hSession);
+			return NULL;
 		}
 
 		// login to the card to unlock the private key
@@ -219,7 +214,9 @@ BYTE * cert_pkcs_sign(struct ssh2_userkey * userkey, LPCBYTE pDataToSign, int iD
 			// error
 			SecureZeroMemory(szPin, strlen(szPin));
 			free(szPin);
-			goto error;
+			free(pSharedKeyId);
+			pFunctionList->C_CloseSession(hSession);
+			return NULL;
 		}
 
 		// cleanup creds
@@ -228,23 +225,34 @@ BYTE * cert_pkcs_sign(struct ssh2_userkey * userkey, LPCBYTE pDataToSign, int iD
 		free(szPin);
 
 		// attempt to lookup the private key
-		if (pkcs_lookup_privatekey(pFunctionList, hSession, pSharedKeyId, iSize, &hPrivateKey) != CKR_OK)
+		iCertListSize = 0;
+		if ((pFunctionList->C_FindObjectsInit(hSession, aFindPrivateCriteria, _countof(aFindPrivateCriteria))) != CKR_OK ||
+			pFunctionList->C_FindObjects(hSession, &hPrivateKey, 1, &iCertListSize) != CKR_OK ||
+			pFunctionList->C_FindObjectsFinal(hSession) != CKR_OK)
 		{
 			// error
-			goto error;
+			free(pSharedKeyId);
+			pFunctionList->C_CloseSession(hSession);
+			return FALSE;
 		}
 
 		// check for error
-		if (hPrivateKey == CK_INVALID_HANDLE)
+		if (iCertListSize == 0)
 		{
 			// error
-			goto error;
+			free(pSharedKeyId);
+			pFunctionList->C_CloseSession(hSession);
+			return NULL;
 		}
 	}
 
 	// no longer need the shared key identifier
 	free(pSharedKeyId);
-	pSharedKeyId = NULL;
+
+	// the message to send contains the static sha1 oid header
+	// followed by a sha1 hash of the data sent from the host
+	DWORD iHashSize = 0;
+	LPBYTE pHashData = cert_get_hash(algName, pDataToSign, iDataToSignLen, &iHashSize, TRUE);
 
 	// setup the signature process to sign using the rsa private key on the card 
 	CK_MECHANISM tSignMech;
@@ -255,46 +263,37 @@ BYTE * cert_pkcs_sign(struct ssh2_userkey * userkey, LPCBYTE pDataToSign, int iD
 	// create the hash value
 	CK_BYTE_PTR pSignature = NULL;
 	CK_ULONG iSignatureLen = 0;
-	CK_RV rv;
-	rv = pFunctionList->C_SignInit(hSession, &tSignMech, hPrivateKey);
-	if (rv == CKR_OK)
-		rv = pFunctionList->C_Sign(hSession, pHashData, iHashSize, NULL, &iSignatureLen);
-	if (rv == CKR_OK)
+	CK_RV iResult = CKR_OK;
+	if ((iResult = pFunctionList->C_SignInit(hSession, &tSignMech, hPrivateKey)) != CKR_OK ||
+		(iResult = pFunctionList->C_Sign(hSession, pHashData, iHashSize, NULL, &iSignatureLen)) != CKR_OK ||
+		(iResult = pFunctionList->C_Sign(hSession, pHashData, iHashSize,
+			pSignature = snewn(iSignatureLen, CK_BYTE), &iSignatureLen)) != CKR_OK)
 	{
-		pSignature = snewn(iSignatureLen, CK_BYTE);
-		rv = pFunctionList->C_Sign(hSession, pHashData, iHashSize, pSignature, &iSignatureLen);
-	}
-	if (rv != CKR_OK)
-	{
+		// report signing errors
+		if (iResult == CKR_KEY_TYPE_INCONSISTENT)
+		{
+			LPCSTR szMessage = "The PKCS library reported the selected certificate cannot be used to sign data.";
+			MessageBox(hWnd, szMessage, "PuTTY PKCS Signing Problem", MB_OK | MB_ICONERROR);
+		}
+		else
+		{
+			LPCSTR szMessage = "The PKCS library experienced an error attempting to perform a signing operation.";
+			MessageBox(hWnd, szMessage, "PuTTY PKCS Signing Problem", MB_OK | MB_ICONERROR);
+		}
+
 		// something failed so cleanup signature
 		if (pSignature != NULL)
 		{
 			sfree(pSignature);
-			goto error;
+			pSignature = NULL;
 		}
 	}
 
 	// return the signature to the caller
-	*iSigLen = iSignatureLen;
-	retval = pSignature;
-	goto cleanup;
-error:
-	retval = NULL;
-cleanup:
 	sfree(pHashData);
-	if (pLookupValue != NULL)
-	{
-		free(pLookupValue);
-	}
-	if (pSharedKeyId != NULL)
-	{
-		free(pSharedKeyId);
-	}
-	if (hSession != CK_INVALID_HANDLE)
-	{
-		pFunctionList->C_CloseSession(hSession);
-	}
-	return retval;
+	*iSigLen = iSignatureLen;
+	pFunctionList->C_CloseSession(hSession);
+	return pSignature;
 }
 
 void cert_pkcs_load_cert(LPCSTR szCert, PCCERT_CONTEXT* ppCertCtx, HCERTSTORE* phStore)
@@ -307,8 +306,8 @@ void cert_pkcs_load_cert(LPCSTR szCert, PCCERT_CONTEXT* ppCertCtx, HCERTSTORE* p
 	CK_FUNCTION_LIST_PTR pFunctionList = cert_pkcs_load_library(szLibrary);
 	if (pFunctionList == NULL) return;
 
-	CK_BBOOL bFalse = 0;
-	CK_BBOOL bTrue = 1;
+	CK_BBOOL bFalse = CK_FALSE;
+	CK_BBOOL bTrue = CK_TRUE;
 	CK_OBJECT_CLASS iObjectType = CKO_CERTIFICATE;
 	CK_ATTRIBUTE aFindCriteria[] = {
 		{ CKA_CLASS,    &iObjectType, sizeof(CK_OBJECT_CLASS) },
@@ -335,7 +334,6 @@ CK_FUNCTION_LIST_PTR cert_pkcs_load_library(LPCSTR szLibrary)
 	typedef struct PROGRAM_ITEM
 	{
 		struct PROGRAM_ITEM * NextItem;
-		//LPSTR * Path;
 		LPCSTR Path;
 		HMODULE Library;
 		CK_FUNCTION_LIST_PTR FunctionList;
@@ -368,7 +366,7 @@ CK_FUNCTION_LIST_PTR cert_pkcs_load_library(LPCSTR szLibrary)
 		return NULL;
 	}
 
-	// load the master function list for the librar
+	// load the master function list for the library
 	CK_FUNCTION_LIST_PTR hFunctionList = NULL;
 	CK_C_GetFunctionList C_GetFunctionList =
 		(CK_C_GetFunctionList)GetProcAddress(hModule, "C_GetFunctionList");
@@ -390,6 +388,10 @@ CK_FUNCTION_LIST_PTR cert_pkcs_load_library(LPCSTR szLibrary)
 	if (iLong != CKR_OK &&
 		iLong != CKR_CRYPTOKI_ALREADY_INITIALIZED)
 	{
+		LPCSTR szMessage = "PuTTY could not initialize the selected PKCS library. " \
+			"Usually this is the result of a buggy or misconfigured PKCS library.";
+		MessageBox(NULL, szMessage, "PuTTY PKCS Library Problem", MB_OK | MB_ICONERROR);
+
 		// error - cleanup and return
 		FreeLibrary(hModule);
 		return NULL;
@@ -413,7 +415,7 @@ HCERTSTORE cert_pkcs_get_cert_store(LPCSTR * szHint, HWND hWnd)
 	ZeroMemory(&tFileNameInfo, sizeof(OPENFILENAME));
 	tFileNameInfo.lStructSize = sizeof(OPENFILENAME);
 	tFileNameInfo.hwndOwner = hWnd;
-	tFileNameInfo.lpstrFilter = "PKCS #11 Library Files (*.dll)\0*.dll\0\0";
+	tFileNameInfo.lpstrFilter = "PKCS Library Files (*pkcs*.dll)\0*pkcs*.dll\0All Library Files (*.dll)\0*.dll\0\0";
 	tFileNameInfo.lpstrTitle = "Please Select PKCS #11 Library File";
 	tFileNameInfo.Flags = OFN_DONTADDTORECENT | OFN_FORCESHOWHIDDEN | OFN_FILEMUSTEXIST;
 	tFileNameInfo.lpstrFile = (LPSTR)&szFile;
@@ -427,7 +429,7 @@ HCERTSTORE cert_pkcs_get_cert_store(LPCSTR * szHint, HWND hWnd)
 	// get slots -- assume a safe maximum
 	CK_SLOT_ID pSlotList[32];
 	CK_ULONG iSlotCount = _countof(pSlotList);
-	if (pFunctionList->C_GetSlotList(FALSE, pSlotList, &iSlotCount) != CKR_OK)
+	if (pFunctionList->C_GetSlotList(CK_TRUE, pSlotList, &iSlotCount) != CKR_OK)
 	{
 		return NULL;
 	}
@@ -440,23 +442,18 @@ HCERTSTORE cert_pkcs_get_cert_store(LPCSTR * szHint, HWND hWnd)
 	// enumerate all slot counts
 	for (CK_ULONG iSlot = 0; iSlot < iSlotCount; iSlot++)
 	{
-		struct CK_TOKEN_INFO tTokenInfo;
-		if (pFunctionList->C_GetTokenInfo(pSlotList[iSlot], &tTokenInfo) != CKR_OK)
-		{
-			continue;
-		}
-
+		// open the session - first try read-only and then read-write
 		CK_SESSION_HANDLE hSession;
-		CK_RV r = pFunctionList->C_OpenSession(pSlotList[iSlot],
-//			CKF_SERIAL_SESSION | CKR_SESSION_READ_ONLY, NULL_PTR, NULL_PTR, &hSession);
-			CKF_SERIAL_SESSION                        , NULL_PTR, NULL_PTR, &hSession);
-		if (r != CKR_OK)
+		if (pFunctionList->C_OpenSession(pSlotList[iSlot],
+				CKF_SERIAL_SESSION, NULL_PTR, NULL_PTR, &hSession) != CKR_OK &&
+			pFunctionList->C_OpenSession(pSlotList[iSlot],
+				CKF_SERIAL_SESSION | CKF_RW_SESSION, NULL_PTR, NULL_PTR, &hSession) != CKR_OK)
 		{
 			continue;
 		}
 
-		CK_BBOOL bFalse = 0;
-		CK_BBOOL bTrue = 1;
+		CK_BBOOL bFalse = CK_FALSE;
+		CK_BBOOL bTrue = CK_TRUE;
 		CK_OBJECT_CLASS iObjectType = CKO_CERTIFICATE;
 		CK_ATTRIBUTE aFindCriteria[] = {
 			{ CKA_CLASS,    &iObjectType, sizeof(CK_OBJECT_CLASS) },
@@ -464,8 +461,8 @@ HCERTSTORE cert_pkcs_get_cert_store(LPCSTR * szHint, HWND hWnd)
 			{ CKA_PRIVATE,  &bFalse,      sizeof(CK_BBOOL) }
 		};
 
-		// enumerate all eligible certs in store
-		CK_OBJECT_HANDLE aCertList[32];
+		// enumerate all eligible certs in token slot
+		CK_OBJECT_HANDLE aCertList[16];
 		CK_ULONG iCertListSize = 0;
 		if (pFunctionList->C_FindObjectsInit(hSession, aFindCriteria, _countof(aFindCriteria)) != CKR_OK ||
 			pFunctionList->C_FindObjects(hSession, aCertList, _countof(aCertList), &iCertListSize) != CKR_OK ||
@@ -528,7 +525,7 @@ void * pkcs_get_attribute_value(CK_FUNCTION_LIST_PTR FunctionList, CK_SESSION_HA
 		return NULL;
 	}
 
-	// set retuned size if requested
+	// set returned size if requested
 	if (iValueSize != NULL)
 	{
 		*iValueSize = aAttribute.ulValueLen;
@@ -584,7 +581,7 @@ static void pkcs_lookup_token_cert(LPCSTR szCert, CK_SESSION_HANDLE_PTR phSessio
 	// get slots -- assume a safe maximum
 	CK_SLOT_ID pSlotList[32];
 	CK_ULONG iSlotCount = _countof(pSlotList);
-	if (pFunctionList->C_GetSlotList(FALSE, pSlotList, &iSlotCount) != CKR_OK)
+	if (pFunctionList->C_GetSlotList(CK_TRUE, pSlotList, &iSlotCount) != CKR_OK)
 	{
 		return;
 	}
@@ -598,9 +595,12 @@ static void pkcs_lookup_token_cert(LPCSTR szCert, CK_SESSION_HANDLE_PTR phSessio
 			continue;
 		}
 
+		// open the session - first try read-only and then read-write
 		CK_SESSION_HANDLE hSession;
 		if (pFunctionList->C_OpenSession(pSlotList[iSlot],
-			CKF_SERIAL_SESSION | CKF_RW_SESSION, NULL_PTR, NULL_PTR, &hSession) != CKR_OK)
+				CKF_SERIAL_SESSION, NULL_PTR, NULL_PTR, &hSession) != CKR_OK &&
+			pFunctionList->C_OpenSession(pSlotList[iSlot],
+				CKF_SERIAL_SESSION | CKF_RW_SESSION, NULL_PTR, NULL_PTR, &hSession) != CKR_OK)
 		{
 			continue;
 		}

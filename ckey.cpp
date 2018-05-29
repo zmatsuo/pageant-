@@ -616,21 +616,40 @@ bool ckey::operator==(const ckey & rhs) const
 
 bool ckey::compare(const ckey &a, const ckey &b)
 {
-	const RSAKey *a_rsa = (RSAKey *)a.key_->data;
-	const RSAKey *b_rsa = (RSAKey *)b.key_->data;
-
-	if (bignum_cmp(a_rsa->exponent, b_rsa->exponent) == 0 &&
-		bignum_cmp(a_rsa->modulus, b_rsa->modulus) == 0 
-#if 0
-		bignum_cmp(a_rsa->private_exponent, b_rsa->private_exponent) == 0 &&
-		bignum_cmp(a_rsa->p, b_rsa->p) == 0 &&
-		bignum_cmp(a_rsa->q, b_rsa->q) == 0 &&
-		bignum_cmp(a_rsa->iqmp, b_rsa->iqmp) == 0
-#endif
-		)
-	{
-		return true;
+	if (a.key_->alg != b.key_->alg) {
+		return false;
 	}
+
+	if (a.key_->alg == &ssh_rsa) {
+		const RSAKey *a_rsa = (RSAKey *)a.key_->data;
+		const RSAKey *b_rsa = (RSAKey *)b.key_->data;
+
+		if (bignum_cmp(a_rsa->exponent, b_rsa->exponent) == 0 &&
+			bignum_cmp(a_rsa->modulus, b_rsa->modulus) == 0)
+		{
+			return true;
+		}
+#if 0
+	} else if (a.key_->alg == &ssh_ecdsa_nistp256 ||
+			   a.key_->alg == &ssh_ecdsa_nistp384 ||
+			   a.key_->alg == &ssh_ecdsa_nistp521)
+	{
+		const ec_key *a_ec = (ec_key *)a.key_->data;
+		const ec_key *b_ec = (ec_key *)b.key_->data;
+		if (bignum_cmp(a_ec->publicKey.x, b_ec->publicKey.x) == 0 &&
+			bignum_cmp(a_ec->publicKey.y, b_ec->publicKey.y) == 0)
+		{
+			return true;
+		}
+#endif
+	} else {
+		auto a_pub = a.public_blob();
+		auto b_pub = b.public_blob();
+		if (a_pub == b_pub) {
+			return true;
+		}
+	}
+
 	return false;
 }
 

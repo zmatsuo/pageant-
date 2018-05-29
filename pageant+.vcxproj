@@ -252,9 +252,6 @@
     <ClCompile Include="winhelp.cpp" />
     <ClCompile Include="winmisc.cpp" />
     <ClCompile Include="winpgnt.cpp" />
-    <ClCompile Include="winpgntc.c">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
-    </ClCompile>
     <ClCompile Include="winutils.c" />
     <ClCompile Include="winutils_cpp.cpp" />
     <ClCompile Include="winutils_qt.cpp" />

@@ -6,7 +6,6 @@
 #include <stdlib.h>
 #include <windows.h>
 
-#include "winpageant_client.h"
 #include "misc.h"
 #include "puttymem.h"
 #include "pageant_msg.h"

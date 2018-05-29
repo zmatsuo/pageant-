@@ -1162,33 +1162,7 @@ unsigned char *ssh2_userkey_loadpub(const Filename *filename, char **algorithm,
 		free(mbs);
     }
 #endif // PUTTY_CAC
-    {
-		char *mbs = dup_wc_to_mb(filename->path);
-		if (strncmp("btspp://", mbs, 8) == 0)  {
-			// TODO: bt 未実装
-			struct ssh2_userkey * userkey = snew(struct ssh2_userkey);
-			struct RSAKey * rsa = snew(struct RSAKey);
-			rsa->bits = 8;
-			rsa->bytes = 8 / 8;
-			rsa->exponent = bignum_from_long(0x1);
-			rsa->modulus = bignum_from_long(0);
-			rsa->private_exponent = bignum_from_long(0);
-			rsa->p = bignum_from_long(0);
-			rsa->q = bignum_from_long(0);
-			rsa->iqmp = bignum_from_long(0);
-			rsa->comment = dupstr(mbs);
-			userkey->alg = find_pubkey_alg("ssh-rsa");
-			userkey->data = rsa;
-			userkey->comment = dupstr(mbs);
-			public_blob = userkey->alg->public_blob(userkey->data, pub_blob_len);
-			free(mbs);
-			if (algorithm) { *algorithm = dupstr(userkey->alg->name); }
-			if(commentptr) { *commentptr = userkey->comment; }
-			return public_blob;
-		}
-		free(mbs);
-    }
-    public_blob = NULL;
+	public_blob = NULL;
 
     fp = f_open(filename, "rb", FALSE);
     if (!fp) {
@@ -1695,17 +1669,7 @@ char *ssh2_fingerprint(const struct ssh_signkey *alg, void *data)
     int len;
     unsigned char *blob = alg->public_blob(data, &len);
     char *ret = ssh2_fingerprint_blob(blob, len);
-#if 0
-    unsigned char sha1[20];
-	SHA_Simple(blob, len, sha1);
-    char sha1_digest[40+1];
-    for (int i = 0; i < 20; i++)
-        sprintf(sha1_digest + i*2, "%02x", sha1[i]);
-	char *r = dupprintf("%s %s", ret, sha1_digest);
-	sfree(ret);
-	ret = r;
-#endif
-	sfree(blob);
+    sfree(blob);
     return ret;
 }
 

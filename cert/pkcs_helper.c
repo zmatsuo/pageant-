@@ -8,6 +8,12 @@
 
 #include "pkcs_helper.h"
 
+#if defined(_DEBUG)
+#define malloc(size)		_malloc_dbg(size,_NORMAL_BLOCK,__FILE__,__LINE__) 
+#define calloc(num, size)   _calloc_dbg(num, size, _NORMAL_BLOCK, __FILE__, __LINE__)
+#define free(ptr)			_free_dbg(ptr, _NORMAL_BLOCK);
+#endif
+
 #define strdup(p)		_strdup(p)
 #define	stricmp(p1,p2)	_stricmp(p1,p2)
 

@@ -18,7 +18,6 @@
 #include "puttymem.h"
 #include "ssh.h"
 #include "pageant.h"
-#include "pageant_.h"
 #include "winutils.h"
 #include "gui_stuff.h"
 #include "setting.h"

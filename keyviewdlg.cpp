@@ -30,7 +30,6 @@
 #include "setting.h"
 #include "gui_stuff.h"
 #include "pageant.h"
-#include "winutils.h"
 #include "ckey.h"
 #include "codeconvert.h"
 #include "keystore.h"

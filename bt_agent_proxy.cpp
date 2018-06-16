@@ -20,9 +20,6 @@
 #include "winmisc.h"
 
 #if defined(_DEBUG)
-#define malloc(size)		_malloc_dbg(size, _NORMAL_BLOCK,__FILE__,__LINE__) 
-#define calloc(num, size)   _calloc_dbg(num, size, _NORMAL_BLOCK, __FILE__, __LINE__)
-#define free(ptr)			_free_dbg(ptr, _NORMAL_BLOCK);
 #define new ::new(_NORMAL_BLOCK, __FILE__, __LINE__)
 #endif
 
@@ -30,7 +27,8 @@
 
 #pragma comment(lib, "Bthprops.lib")
 
-typedef struct bt_agent_proxy_impl_tag {
+class bt_agent_proxy_impl_t {
+public:
 	bt_agent_proxy_t *hBta_;
 	//
 	SOCKET listen_sock_;
@@ -59,19 +57,23 @@ typedef struct bt_agent_proxy_impl_tag {
 	// disconnect req
 	bool disconnect_req_;
 	//
-	//std::vector<bta_deviceinfo_listener *> listeners_;
-	//
+	std::vector<bta_deviceinfo_listener *> listeners_;
 	std::vector<DeviceInfoType> deivceInfo_;
-} bt_agent_proxy_impl_t;
-
-static std::vector<bta_deviceinfo_listener *> listeners_;
-
-static bt_agent_proxy_impl_t *get_impl_ptr(bt_agent_proxy_t *hBta)
-{
-	assert(hBta != NULL);
-	bt_agent_proxy_impl_t *p = (bt_agent_proxy_impl_t *)hBta->impl_;
-	return p;
-}
+public:
+	bool connect_i(
+		std::wstring &name,
+		BTH_ADDR &addr,
+		int connect_result);
+	void exec_notify(bta_notify_param_t *param);
+	void bta_set_senddata(const uint8_t *data, size_t len);
+	bool bta_send_i();
+	void bta_main();
+private:
+	bool bta_listen();
+	bool get_device_name(const BTH_ADDR addr, std::wstring &name);
+	bool get_device_adr(const std::wstring &name, BTH_ADDR &addr);
+	void callListeners();
+};
 
 static std::wstring getAdr(BTH_ADDR addr)
 {
@@ -215,9 +217,8 @@ static std::vector<DeviceInfoType> PerformInquiry()
 	INT _ret = WSALookupServiceBeginW(wsaq, flags, &hLookup);
 	if ( _ret != ERROR_SUCCESS )
 	{
-		auto err = GetLastError();
-		dbgprintf("WSALookupServiceBegin failed %S(%d)\n",
-				  _FormatMessage(err).c_str(), err);
+		dbgprintf("WSALookupServiceBegin failed %S\n",
+				  _FormatMessage(GetLastError()).c_str());
 		return _retDeviceInfoList;
 	}
 
@@ -305,11 +306,10 @@ static std::vector<DeviceInfoType> PerformInquiry()
 	return _retDeviceInfoList;
 }
 
-static bool get_device_name(
-	bt_agent_proxy_impl_t *impl,
+bool bt_agent_proxy_impl_t::get_device_name(
 	const BTH_ADDR addr, std::wstring &name)
 {
-	for(const auto &l : impl->deivceInfo_) {
+	for(const auto &l : deivceInfo_) {
 		if(l.deviceAddr == addr) {
 			name = l.deviceName;
 			return true;
@@ -319,11 +319,10 @@ static bool get_device_name(
 	return false;
 }
 
-static bool get_device_adr(
-	bt_agent_proxy_impl_t *impl,
+bool bt_agent_proxy_impl_t::get_device_adr(
 	const std::wstring &name, BTH_ADDR &addr)
 {
-	for(const auto &l : impl->deivceInfo_) {
+	for(const auto &l : deivceInfo_) {
 		if(l.deviceName == name) {
 			addr = l.deviceAddr;
 			return true;
@@ -333,13 +332,14 @@ static bool get_device_adr(
 	return false;
 }
 
-static bool bta_listen(bt_agent_proxy_impl_t *impl)
+
+bool bt_agent_proxy_impl_t::bta_listen()
 {
 	SOCKET listen_sock = socket(AF_BTH, SOCK_STREAM, BTHPROTO_RFCOMM);
 	if (listen_sock == INVALID_SOCKET) {
 		return false;
 	}
-	impl->listen_sock_ = listen_sock;
+	listen_sock_ = listen_sock;
 
 	SOCKADDR_BTH sa = { 0 };
 	sa.addressFamily = AF_BTH;
@@ -385,11 +385,11 @@ static bool bta_listen(bt_agent_proxy_impl_t *impl)
 	return true;
 }
 
-static void bta_set_senddata(
-	bt_agent_proxy_impl_t *impl,
+void bt_agent_proxy_impl_t::bta_set_senddata(
 	const uint8_t *data,
 	size_t len)
 {
+	bt_agent_proxy_impl_t *impl = this;
 	// データをセットする
 	size_t pool_end = impl->send_pool_.size();
 	size_t need_pool_size = pool_end + len;
@@ -397,9 +397,9 @@ static void bta_set_senddata(
 	memcpy(&impl->send_pool_[pool_end], data, len);
 }
 
-
-static bool bta_send_i(bt_agent_proxy_impl_t *impl)
+bool bt_agent_proxy_impl_t::bta_send_i()
 {
+	bt_agent_proxy_impl_t *impl = this;
 	if (impl->send_pool_.size() == 0) {
 		return false;
 	}
@@ -423,10 +423,9 @@ static bool bta_send_i(bt_agent_proxy_impl_t *impl)
 	return true;
 }
 
-static void exec_notify(
-	bt_agent_proxy_impl_t *impl,
-	bta_notify_param_t *param)
+void bt_agent_proxy_impl_t::exec_notify(bta_notify_param_t *param)
 {
+	bt_agent_proxy_impl_t *impl = this;
 	impl->notify_func_(impl->hBta_, param);
 	if (param->type == BTA_NOTIFY_RECV) {
 		// 受信バッファ更新
@@ -441,17 +440,17 @@ static void exec_notify(
  *		1	接続成功
  *		2	cancel
  */
-static bool connect_i(
-	bt_agent_proxy_impl_t *impl,
+bool bt_agent_proxy_impl_t::connect_i(
 	std::wstring &name,
 	BTH_ADDR &addr,
 	int connect_result)
 {
+	bt_agent_proxy_impl_t *impl = this;
 	if (name.empty()) {
-		get_device_name(impl, addr, name);
+		impl->get_device_name(addr, name);
 	}
 	if (addr == 0) {
-		get_device_adr(impl, name, addr);
+		impl->get_device_adr(name, addr);
 	}
 	std::wstring addr_str = getAdr(impl->connect_req_);
 	dbgprintf("接続 %S(%S) result %d(%s)\n",
@@ -467,7 +466,7 @@ static bool connect_i(
 		notify_param.u.connect.name = name.c_str();
 		notify_param.u.connect.addr_str = addr_str.c_str();
 		notify_param.u.connect.result = connect_result == 0 ? false : true;
-		exec_notify(impl, &notify_param);
+		impl->exec_notify(&notify_param);
 	}
 	return true;
 }
@@ -484,20 +483,19 @@ static bool equalDeviceInfo(const DeviceInfoType &lh, const DeviceInfoType &rh)
 		lh.connected == rh.connected;
 }
 
-static void callListeners(
-	const std::vector<bta_deviceinfo_listener *> &listeners,
-	const std::vector<DeviceInfoType> &deivceInfos)
+void bt_agent_proxy_impl_t::callListeners()
 {
 	// TODO: lock
-	for (auto listener : listeners) {
+	for (auto listener : listeners_) {
 		if (listener != nullptr)		// todo ?
-			listener->update(deivceInfos);
+			listener->update(deivceInfo_);
 	}
 }
 
-static void bta_main(bt_agent_proxy_impl_t *impl)
+void bt_agent_proxy_impl_t::bta_main()
 {
-	bta_listen(impl);
+	bt_agent_proxy_impl_t *impl = this;
+	impl->bta_listen();
 	impl->connectedCount_ = 0;
 	impl->clientSocket_ = INVALID_SOCKET;
 	impl->clientAddr_ = 0;
@@ -542,12 +540,12 @@ static void bta_main(bt_agent_proxy_impl_t *impl)
 							equalDeviceInfo))
 			{
 				impl->deivceInfo_ = deviceInfo;
-				callListeners(listeners_, impl->deivceInfo_);
+				callListeners();
 			}
 
 			bta_notify_param_t notify_param;
 			notify_param.type = BTA_NOTIFY_DEVICEINFO_UPDATE;
-			exec_notify(impl, &notify_param);
+			impl->exec_notify(&notify_param);
 			break;
 		}
 		case WSA_WAIT_EVENT_0 + 0:
@@ -560,7 +558,7 @@ static void bta_main(bt_agent_proxy_impl_t *impl)
 				impl->pesudo_send_notify_ = false;
 				bta_notify_param_t notify_param;
 				notify_param.type = BTA_NOTIFY_SEND;
-				exec_notify(impl, &notify_param);
+				impl->exec_notify(&notify_param);
 			}
 			if (impl->connect_req_ != 0) {
 				SOCKET client = socket(AF_BTH, SOCK_STREAM, BTHPROTO_RFCOMM);
@@ -596,7 +594,7 @@ static void bta_main(bt_agent_proxy_impl_t *impl)
 
 				std::wstring device_name;
 				BTH_ADDR addr = impl->connect_req_;
-				connect_i(impl, device_name, addr, r);
+				impl->connect_i(device_name, addr, r);
 				impl->connect_req_ = 0;
 			}
 			if (impl->disconnect_req_) {
@@ -609,7 +607,7 @@ static void bta_main(bt_agent_proxy_impl_t *impl)
 
 				bta_notify_param_t notify_param;
 				notify_param.type = BTA_NOTIFY_DISCONNECT_COMPLATE;
-				exec_notify(impl, &notify_param);
+				impl->exec_notify(&notify_param);
 			}
 
 			break;
@@ -643,7 +641,7 @@ static void bta_main(bt_agent_proxy_impl_t *impl)
 
 				result = 1;
 			}
-			connect_i(impl, name, clientAddr, result);
+			impl->connect_i(name, clientAddr, result);
 			break;
 		}
 		case WSA_WAIT_EVENT_0 + 2:
@@ -669,7 +667,7 @@ static void bta_main(bt_agent_proxy_impl_t *impl)
 				notify_param.type = BTA_NOTIFY_RECV;
 				notify_param.u.recv.ptr = impl->recv_ptr_;
 				notify_param.u.recv.size = recieved;
-				exec_notify(impl, &notify_param);
+				impl->exec_notify(&notify_param);
 			}
 			if (events.lNetworkEvents & FD_WRITE) {
 				if (impl->send_pool_.size() != 0) {
@@ -677,7 +675,7 @@ static void bta_main(bt_agent_proxy_impl_t *impl)
 					impl->send_pool_.clear();
 					bta_notify_param_t notify_param;
 					notify_param.type = BTA_NOTIFY_SEND;
-					exec_notify(impl, &notify_param);
+					impl->exec_notify(&notify_param);
 				}
 			}
 			break;
@@ -710,6 +708,14 @@ static int countBluetoothRadio()
 	return count;
 }
 
+//////////////////////////////////////////////////////////////////////////////
+
+static bt_agent_proxy_impl_t *get_impl_ptr(bt_agent_proxy_t *hBta)
+{
+	assert(hBta != nullptr);
+	return hBta->impl_;
+}
+
 bt_agent_proxy_t *bta_init(const bta_init_t *info)
 {
 	if (countBluetoothRadio() == 0) {
@@ -723,10 +729,8 @@ bt_agent_proxy_t *bta_init(const bta_init_t *info)
 		return NULL;
 	}
 
-	bt_agent_proxy_t *hBta =
-		(bt_agent_proxy_t *)calloc(1, sizeof(bt_agent_proxy_t));
-	bt_agent_proxy_impl_t *impl =
-		(bt_agent_proxy_impl_t *)calloc(1, sizeof(bt_agent_proxy_impl_t));
+	bt_agent_proxy_t *hBta = new bt_agent_proxy_t();
+	bt_agent_proxy_impl_t *impl = new bt_agent_proxy_impl_t();
 	hBta->impl_ = impl;
 	impl->hBta_ = hBta;
 
@@ -736,7 +740,7 @@ bt_agent_proxy_t *bta_init(const bta_init_t *info)
 	
 	impl->hEventExit_ = WSACreateEvent();
 	impl->threadExitRequest_ = false;
-	impl->hThread_ = new std::thread(bta_main, impl);
+	impl->hThread_ = new std::thread(&bt_agent_proxy_impl_t::bta_main, impl);
 	impl->send_top_ = 0;
 	impl->recv_ptr_ = info->recv_ptr;
 	impl->recv_size_ = info->recv_size;
@@ -760,8 +764,8 @@ void bta_exit(bt_agent_proxy_t *hBta)
 	impl->hThread_ = nullptr;
 	impl->deivceInfo_.clear();
 	WSACloseEvent(impl->hEventExit_);
-	free(impl);
-	free(hBta);
+	delete impl;
+	delete hBta;
 	WSACleanup();
 }
 
@@ -795,8 +799,8 @@ bool bta_send(bt_agent_proxy_t *hBta, const uint8_t *data, size_t len)
 	bt_agent_proxy_impl_t *impl = get_impl_ptr(hBta);
 
 	// 送信する
-	bta_set_senddata(impl, data, len);
-	bool r = bta_send_i(impl);
+	impl->bta_set_senddata(data, len);
+	bool r = impl->bta_send_i();
 	if (!r) {
 		return false;
 	}
@@ -821,12 +825,13 @@ void bta_deviceinfo(bt_agent_proxy_t *hBta, std::vector<DeviceInfoType> &deivceI
 void bta_regist_deviceinfo_listener(bt_agent_proxy_t *hBta, bta_deviceinfo_listener *listener)
 {
 	bt_agent_proxy_impl_t *impl = get_impl_ptr(hBta);
-	listeners_.push_back(listener);
+	impl->listeners_.push_back(listener);
 }
 
 void bta_unregist_deviceinfo_listener(bt_agent_proxy_t *hBta, bta_deviceinfo_listener *listener)
 {
-	listeners_.erase(std::remove(listeners_.begin(), listeners_.end(), listener), listeners_.end());
+	bt_agent_proxy_impl_t *impl = get_impl_ptr(hBta);
+	impl->listeners_.erase(std::remove(impl->listeners_.begin(), impl->listeners_.end(), listener), impl->listeners_.end());
 }
 
 // Local Variables:

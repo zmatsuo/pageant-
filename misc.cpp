@@ -20,7 +20,6 @@
 #include <crtdbg.h>
 
 #include "filename.h"
-#include "winutils.h"
 #include "version.h"
 #include "puttymem.h"
 #include "misc.h"
@@ -572,16 +571,11 @@ char *buildinfo(const char *newline)
     strbuf_catf(buf, "%sCompiler: gcc %s", newline, __VERSION__);
 #elif defined _MSC_VER
     strbuf_catf(buf, "%sCompiler: Visual Studio", newline);
-#if _MSC_VER == 1913
-    strbuf_catf(buf, " 2017 / MSVC++ 15.6");
-    strbuf_catf(buf, " (%s)",
-		(_MSC_FULL_VER == 191326128) ? "15.6" :
-		"_MSC_FULL_VER=" xstr( _MSC_FULL_VER));
-#elif (_MSC_VER == 1911) || (_MSC_VER == 1912)
-    strbuf_catf(buf, " 2017 / MSVC++ 15.0");
-    strbuf_catf(buf, " (%s)",
-		(_MSC_FULL_VER == 191225835) ? "15.5.5" :
-		"_MSC_FULL_VER=" xstr( _MSC_FULL_VER));
+#if (_MSC_VER == 1914) && (_MSC_FULL_VER == 191426430)
+    strbuf_catf(buf, " 2017 15.7.3 / MSVC++ 14.14");
+#elif (_MSC_VER >= 1910)
+    strbuf_catf(buf, " 2017");
+    strbuf_catf(buf, " (_MSC_FULL_VER=" xstr( _MSC_FULL_VER) ")");
 #elif _MSC_VER == 1900
     strbuf_catf(buf, " 2015 / MSVC++ 14.0");
     strbuf_catf(buf, " (%s)",

@@ -2,7 +2,7 @@
 #ifndef _WINUTILS_H_
 #define _WINUTILS_H_
 
-#include <windows.h>	// LPCTSTR, DWORD
+//#include <windows.h>	// LPCTSTR, DWORD
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
@@ -11,12 +11,12 @@ extern "C" {
 //BOOL request_file(filereq *state, OPENFILENAME *of, int preserve, int save);
 //filereq *filereq_new(void);
 //void filereq_free(filereq *state);
-void split_into_argv(char *, int *, char ***, char ***);
+//void split_into_argv(char *, int *, char ***, char ***);
 
 __declspec(noreturn)
 void modalfatalbox(const char *fmt, ...);
 
-#include "gui_stuff.h"
+//#include "gui_stuff.h"
     
 #ifdef __cplusplus
 }

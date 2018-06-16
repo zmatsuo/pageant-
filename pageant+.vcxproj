@@ -193,7 +193,6 @@
     <ClCompile Include="sshbn_cpp.cpp" />
     <ClCompile Include="ud_socket.c" />
     <ClCompile Include="aboutdlg.cpp" />
-    <ClCompile Include="aqsync.c" />
     <ClCompile Include="cert\cert_capi.c" />
     <ClCompile Include="cert\cert_common.c" />
     <ClCompile Include="cert\cert_pkcs.c" />
@@ -420,7 +419,6 @@
     <ClInclude Include="misc_cpp.h" />
     <ClInclude Include="pageant+.h" />
     <ClInclude Include="pageant.h" />
-    <ClInclude Include="pageant_.h" />
     <ClInclude Include="pageant_msg.h" />
     <ClInclude Include="pgpkey.h" />
     <ClInclude Include="puttymem.h" />

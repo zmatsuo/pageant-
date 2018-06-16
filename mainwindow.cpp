@@ -37,7 +37,6 @@
 #include "ssh-agent_emu.h"
 #include "ssh-agent_ms.h"
 #include "pageant.h"
-#include "winutils.h"
 #include "winutils_qt.h"
 #include "keyviewdlg.h"
 #include "bt_agent_proxy_main.h"

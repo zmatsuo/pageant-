@@ -3,7 +3,6 @@
 #include <windows.h>
 #include <commctrl.h>
 
-#include "winutils.h"
 #include "winmisc.h"
 #include "winhelp.h"
 #include "winhelp_.h"

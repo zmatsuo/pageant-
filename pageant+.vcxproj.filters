@@ -148,9 +148,6 @@
     <ClCompile Include="sshsh256.c">
       <Filter>ssh</Filter>
     </ClCompile>
-    <ClCompile Include="aqsync.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="GeneratedFiles\Debug\moc_settingdlg.cpp">
       <Filter>Generated Files\Debug</Filter>
     </ClCompile>
@@ -159,9 +156,6 @@
     </ClCompile>
     <ClCompile Include="setting.cpp">
       <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="winpgntc.c">
-      <Filter>agent\winpgnt</Filter>
     </ClCompile>
     <ClCompile Include="confirmacceptdlg.cpp">
       <Filter>gui</Filter>
@@ -425,9 +419,6 @@
       <Filter>agent\ssh-agent-ms</Filter>
     </ClInclude>
     <ClInclude Include="pgpkey.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
-    <ClInclude Include="pageant_.h">
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="pageant+.h">

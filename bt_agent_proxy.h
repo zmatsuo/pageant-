@@ -2,15 +2,11 @@
 #pragma once
 
 #include <stdint.h>
-
 #include <vector>
-
-class bta_deviceinfo_listener;
 
 class bt_agent_proxy_t {
 public:
-	void *impl_;
-//	std::vector<bta_deviceinfo_listener *> listeners_;
+	class bt_agent_proxy_impl_t *impl_;
 };
 
 typedef enum {
@@ -41,7 +37,6 @@ typedef struct bta_notify_param_st {
 	////
 	uint64_t timeout;
 } bta_notify_param_t;
-
 
 typedef struct bta_init_st {
 	int size;					// sizeof(bta_init_t)

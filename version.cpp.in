@@ -1,0 +1,4 @@
+#include "version.h"
+
+const char ver[] = "@VERSION_MAJOR@.@VERSION_MINOR@.@VERSION_PATCH@";
+const char commitid[] = "@GIT_HASH@";

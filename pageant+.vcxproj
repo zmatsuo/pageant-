@@ -186,6 +186,7 @@
     <ClCompile Include="keyfile.cpp" />
     <ClCompile Include="keystore.cpp" />
     <ClCompile Include="keyviewdlg.cpp" />
+    <ClCompile Include="qtstatic.cpp" />
     <ClCompile Include="smartcard.cpp" />
     <ClCompile Include="sock_server.c" />
     <ClCompile Include="sshbcrypt.c" />
@@ -247,7 +248,7 @@
     <ClCompile Include="sshsh256.c" />
     <ClCompile Include="sshsh512.c" />
     <ClCompile Include="sshsha.c" />
-    <ClCompile Include="version.cpp" />
+    <ClCompile Include="not_cmake/version.cpp" />
     <ClCompile Include="winhelp.cpp" />
     <ClCompile Include="winmisc.cpp" />
     <ClCompile Include="winpgnt.cpp" />
@@ -478,6 +479,7 @@
     <Text Include="reference.txt" />
   </ItemGroup>
   <ItemGroup>
+    <ResourceCompile Include="not_cmake\version.rc" />
     <ResourceCompile Include="pageant+.rc" />
   </ItemGroup>
   <ItemGroup>

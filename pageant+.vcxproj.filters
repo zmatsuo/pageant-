@@ -283,6 +283,9 @@
     <ClCompile Include="smartcard.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="qtstatic.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="aboutdlg.ui">
@@ -528,6 +531,9 @@
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="pageant+.rc">
+      <Filter>Resource Files</Filter>
+    </ResourceCompile>
+    <ResourceCompile Include="build\version.rc">
       <Filter>Resource Files</Filter>
     </ResourceCompile>
   </ItemGroup>

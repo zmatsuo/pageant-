@@ -17,7 +17,7 @@
 #include "passphrases.h"
 #include "gui_stuff.h"
 #include "setting.h"
-#define ENABLE_DEBUG_PRINT
+//#define ENABLE_DEBUG_PRINT
 #include "debug.h"
 
 static std::vector<uint8_t> ssh2_userkey_loadpub(const Filename *filename)

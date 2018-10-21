@@ -55,3 +55,6 @@ debug*.log
 GPATH
 GRTAGS
 GTAGS
+
+#
+build*/

@@ -179,11 +179,14 @@
     <ClCompile Include="misc.cpp" />
     <ClCompile Include="misc_cpp.cpp" />
     <ClCompile Include="setting.cpp" />
-    <ClCompile Include="version.cpp" />
+    <ClCompile Include="not_cmake/version.cpp" />
     <ClCompile Include="winmisc.cpp" />
     <ClCompile Include="winpageant_client.cpp" />
     <ClCompile Include="winutils.c" />
     <ClCompile Include="pageant+_rdp_client.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="not_cmake\version.rc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -13,7 +13,7 @@ Windows用のssh agentです。putty pageantをベースにしています。
 - Microsoft ssh *1 (Named Pipe,Microsoft ssh-agant compatible)
 - ssh-agent TCP接続 (socat(WSL)からの接続用)
 
-  *1 Windows10 version 1803(Redstone 4)より正式採用されました。
+  *1 Windows10 version 1803(Redstone 4)から利用できます
  
 まだまだ気になるところはありますが、概ね動作します。
 
@@ -39,7 +39,10 @@ Windows用のssh agentです。putty pageantをベースにしています。
 
 ## インストール
 
-- zipファイルを解いて適当なフォルダに置いてください
+- インストーラを使用する場合  
+  インストーラ(pageant+-xxx.exe)を実行してください
+- アーカイブファイルを使用する場合  
+  ファイルを解いて適当なフォルダに置いてください
 
 ## 起動
 
@@ -197,18 +200,36 @@ REG_EXPAND_SZの場合は環境変数参照(%HOME%など)があると展開さ�
 
 reference.txt を参照してください。
 
-# ビルド
+# ビルド準備
+
+- Visual Studo 2017をインストール  
+  (MinGW 32bitでのコンパイルはテストしていません)
+- `libs/runonce.bat`を実行
+
+# リリース用ビルド
+
+ソースフォルダでコマンドプロンプトで次の通りに実行する
+```
+mkdir build
+cd build
+cmake .. -G "Visual Studio 15 2017 Win64"
+cmake --build . --config release
+make_installer.bat
+```
+
+# 開発用ビルド
 
 - 準備
-	- <https://www.qt.io/> から Qtをダウンロードしてインストールする
-	- Qt 5.10.1
-	- Visual Studo 2017をインストール
-	- MinGW 32bitではコンパイルできなくなっています
+    - <https://www.qt.io/> から Qtをダウンロードしてインストールする
+    - `not_cmake/make_version.bat`を実行して  
+      `not_cmake/version.cpp`を生成しておく
 
 - Visual Studio 2017を使用する場合
-	- `pageant+.sln`をVisual Studio 2017で開く
+    - Vsiual Studio 2017に`Qt Visual Studio Tools`をインストールする
+    - `pageant+.sln`をVisual Studio 2017で開く
+
 - Qt Creatorを使用する場合
-	- `pageant+.pro`をQt Creatorで開く
+    - `pageant+.pro`をQt Creatorで開く
 
 # X11 Forwarding (Cygwin/X + ssh)
 

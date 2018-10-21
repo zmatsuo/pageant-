@@ -1,0 +1,5 @@
+!.gitignore
+!qtlib.cmake
+download/*
+qt-*
+nsis-*

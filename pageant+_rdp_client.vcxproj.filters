@@ -23,7 +23,10 @@
     <ClCompile Include="misc_cpp.cpp" />
     <ClCompile Include="pageant+_rdp_client.cpp" />
     <ClCompile Include="misc.cpp" />
-    <ClCompile Include="version.cpp" />
     <ClCompile Include="winpageant_client.cpp" />
+    <ClCompile Include="not_cmake/version.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="not_cmake\version.rc" />
   </ItemGroup>
 </Project>

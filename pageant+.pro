@@ -38,11 +38,10 @@ SOURCES += main.cpp\
     sshrsa.c \
     sshsh512.c \
     sshsha.c \
-    version.cpp \
+    not_cmake/version.cpp \
     misc.cpp \
     misc_cpp.cpp \
     winpgnt.cpp \
-    winpgntc.c \
     winhelp.cpp \
     winmisc.cpp \
     winutils.c \
@@ -59,7 +58,6 @@ SOURCES += main.cpp\
     cert/cert_capi.c \
     cert/cert_common.c \
     cert/cert_pkcs.c \
-    aqsync.c \
     settingdlg.cpp \
     setting.cpp \
     ssh-agent_ms.cpp \

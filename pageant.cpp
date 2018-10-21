@@ -28,7 +28,7 @@
 #include "rdp_ssh_relay.h"
 #include "smartcard.h"
 #include "bt_agent_proxy_main.h"
-#define ENABLE_DEBUG_PRINT
+//#define ENABLE_DEBUG_PRINT
 #include "debug.h"
 
 #define SSH_AGENT_CONSTRAIN_LIFETIME	1

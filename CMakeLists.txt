@@ -11,7 +11,7 @@ cmake_policy(SET CMP0043 NEW)
 
 set(VERSION_MAJOR "0")
 set(VERSION_MINOR "9")
-set(VERSION_PATCH "0")
+set(VERSION_PATCH "1")
 
 find_package(Git)
 if(GIT_FOUND)
@@ -219,27 +219,8 @@ if(USE_STATIC_QTLIB)
     debug ${Qt5_DIR}/../../../plugins/platforms/qminimald.lib
     optimized ${Qt5_DIR}/../../../plugins/platforms/qwindows.lib
     debug ${Qt5_DIR}/../../../plugins/platforms/qwindowsd.lib
-#    optimized ${Qt5_DIR}/../../../plugins/platforms/qdirect2d.lib
-#    debug ${Qt5_DIR}/../../../plugins/platforms/qdirect2dd.lib
-
-#    optimized ${Qt5_DIR}/../../../plugins/imageformats/qgif.lib
-#    debug ${Qt5_DIR}/../../../plugins/imageformats/qgifd.lib
-#    optimized ${Qt5_DIR}/../../../plugins/imageformats/qicns.lib
-#    debug ${Qt5_DIR}/../../../plugins/imageformats/qicnsd.lib
     optimized ${Qt5_DIR}/../../../plugins/imageformats/qico.lib
     debug ${Qt5_DIR}/../../../plugins/imageformats/qicod.lib
-#    optimized ${Qt5_DIR}/../../../plugins/imageformats/qjpeg.lib
-#    debug ${Qt5_DIR}/../../../plugins/imageformats/qjpegd.lib
-#    optimized ${Qt5_DIR}/../../../plugins/imageformats/qsvg.lib
-#    debug ${Qt5_DIR}/../../../plugins/imageformats/qsvgd.lib
-#    optimized ${Qt5_DIR}/../../../plugins/imageformats/qtga.lib
-#    debug ${Qt5_DIR}/../../../plugins/imageformats/qtgad.lib
-#    optimized ${Qt5_DIR}/../../../plugins/imageformats/qtiff.lib
-#    debug ${Qt5_DIR}/../../../plugins/imageformats/qtiffd.lib
-#    optimized ${Qt5_DIR}/../../../plugins/imageformats/qwbmp.lib
-#    debug ${Qt5_DIR}/../../../plugins/imageformats/qwbmpd.lib
-#    optimized ${Qt5_DIR}/../../../plugins/imageformats/qwebp.lib
-#    debug ${Qt5_DIR}/../../../plugins/imageformats/qwebpd.lib
 
     optimized ${Qt5_DIR}/../../qtlibpng.lib
     debug ${Qt5_DIR}/../../qtlibpngd.lib

@@ -429,8 +429,10 @@ public:
             std::wstring base = base_;
             base += L"\\";
             base += section;
-            std::wstring str;
-            bool r = reg_read_cur_user(base_.c_str(), key.c_str(), str);
+			std::vector<uint8_t> data;
+			DWORD dwType;
+			bool r = reg_read(
+				HKEY_CURRENT_USER, base.c_str(), key.c_str(), dwType, data);
             return r == false ? true : false;
         }
         return true;

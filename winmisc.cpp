@@ -897,7 +897,7 @@ bool _ShellExecuteExAdmin(
 	return true;
 }
 
-static BOOL EnumWindowsProc(HWND hwnd, LPARAM lParam)
+static BOOL CALLBACK EnumWindowsProc(HWND hwnd, LPARAM lParam)
 {
 	std::vector<HWND> *hWnds = reinterpret_cast<std::vector<HWND> *>(lParam);
 	hWnds->push_back(hwnd);

@@ -11,7 +11,7 @@ cmake_policy(SET CMP0043 NEW)
 
 set(VERSION_MAJOR "0")
 set(VERSION_MINOR "9")
-set(VERSION_PATCH "1")
+set(VERSION_PATCH "2")
 
 find_package(Git)
 if(GIT_FOUND)
@@ -26,8 +26,9 @@ else()
   message(STATUS "GIT not found")
   set(GIT_HASH "unknown")
 endif()
- 
-if(CMAKE_GENERATOR MATCHES "Visual Studio 15 2017")
+
+if(${MSVC_VERSION} GREATER_EQUAL 1910)
+  # Visual Studio 2017以上の時
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /MP")
   if(USE_STATIC_QTLIB)
@@ -36,7 +37,12 @@ if(CMAKE_GENERATOR MATCHES "Visual Studio 15 2017")
 endif()
 
 if(USE_STATIC_QTLIB)
-  set(Qt5_DIR "${CMAKE_SOURCE_DIR}/libs/qt-5.10.1-static-ltcg-msvc2017-x86_64")
+#  set(Qt5_DIR "${CMAKE_SOURCE_DIR}/libs/qt-5.10.1-static-ltcg-msvc2017-x86_64")
+  find_package(Qt5 COMPONENTS Core Gui Widgets REQUIRED
+#	HINTS "${CMAKE_SOURCE_DIR}/libs/qt-5.10.1-static-ltcg-msvc2017-x86_64"
+	HINTS "${CMAKE_SOURCE_DIR}/libs/qt_static_5.12.3"
+	)
+
   string(REPLACE "/MD" "/MT" CMAKE_C_FLAGS_DEBUG ${CMAKE_C_FLAGS_DEBUG})
   string(REPLACE "/MD" "/MT" CMAKE_C_FLAGS_RELEASE ${CMAKE_C_FLAGS_RELEASE})
   string(REPLACE "/MD" "/MT" CMAKE_CXX_FLAGS_DEBUG ${CMAKE_CXX_FLAGS_DEBUG})
@@ -45,18 +51,18 @@ if(USE_STATIC_QTLIB)
   add_definitions(-DQT_STATIC)
   set( QT_STATIC TRUE )
 else()
-  #set(Qt5_DIR "C:/Qt/5.11.2/msvc2017_64")
-  set(Qt5_DIR "C:/Qt/Qt5.11.2/5.11.2/msvc2017_64/lib/cmake/Qt5")
-  link_directories("C:/Qt/Qt5.11.2/5.11.2/msvc2017_64/lib")
+  #https://blog.kitware.com/cmake-finding-qt5-the-right-way/
+  find_package(Qt5 COMPONENTS Core Gui Widgets REQUIRED
+	HINTS "C:/Qt/5.12.3/msvc2017_64"
+	)
 endif()
 
 list(APPEND CMAKE_PREFIX_PATH ${Qt5_DIR})
 
-find_package(Qt5 COMPONENTS Core Gui Widgets REQUIRED)
 message(STATUS "Qt5")
 message(STATUS " version ${Qt5Widgets_VERSION_STRING}")
-message(STATUS " dir ${Qt5_DIR}")
-message(STATUS " dir ${Qt5Core_DIR}")
+message(STATUS " Qt5_DIR ${Qt5_DIR}")
+message(STATUS " Qt5Core_DIR ${Qt5Core_DIR}")
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 set(CMAKE_AUTOMOC ON)
@@ -204,8 +210,6 @@ add_executable(
 
 if(USE_STATIC_QTLIB)
   set(QT5_ADDITIONAL_LIBS
-    optimized ${Qt5_DIR}/../../Qt5PlatformCompositorSupport.lib
-    debug ${Qt5_DIR}/../../Qt5PlatformCompositorSupportd.lib
     optimized ${Qt5_DIR}/../../Qt5FontDatabaseSupport.lib
     debug ${Qt5_DIR}/../../Qt5FontDatabaseSupportd.lib
     optimized ${Qt5_DIR}/../../Qt5AccessibilitySupport.lib
@@ -214,6 +218,8 @@ if(USE_STATIC_QTLIB)
     debug ${Qt5_DIR}/../../Qt5ThemeSupportd.lib
     optimized ${Qt5_DIR}/../../Qt5EventDispatcherSupport.lib
     debug ${Qt5_DIR}/../../Qt5EventDispatcherSupportd.lib
+    optimized ${Qt5_DIR}/../../Qt5WindowsUIAutomationSupport.lib
+    debug ${Qt5_DIR}/../../Qt5WindowsUIAutomationSupport.lib
 
     optimized ${Qt5_DIR}/../../../plugins/platforms/qminimal.lib
     debug ${Qt5_DIR}/../../../plugins/platforms/qminimald.lib
@@ -228,6 +234,8 @@ if(USE_STATIC_QTLIB)
     debug ${Qt5_DIR}/../../qtpcre2d.lib
     optimized ${Qt5_DIR}/../../qtharfbuzz.lib
     debug ${Qt5_DIR}/../../qtharfbuzzd.lib
+    optimized ${Qt5_DIR}/../../qtfreetype.lib
+    debug ${Qt5_DIR}/../../qtfreetyped.lib
 
     optimized ${Qt5_DIR}/../../../plugins/iconengines/qsvgicon.lib
     debug ${Qt5_DIR}/../../../plugins/iconengines/qsvgicond.lib

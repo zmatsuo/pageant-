@@ -223,6 +223,7 @@ int main(int argc, char *argv[])
 		return 0;
 	}
 
+	QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
 	QApplication a(argc, argv);
 	a.setQuitOnLastWindowClosed(false);
 
@@ -283,21 +284,6 @@ int main(int argc, char *argv[])
 	dbgprintf("exe: %S\n", _GetModuleFileName(nullptr).c_str());
 	dbgprintf("ini: %S\n", setting_get_inifile().c_str());
 	dbgprintf("main() start\n");
-
-#if 0
-    /*
-     * If Pageant was already running, we leave now. If we haven't
-     * even taken any auxiliary action (spawned a command or added
-     * keys), complain.
-     */
-    if (already_running) {
-		if (!command && !added_keys) {
-			MessageBox(hwnd, "Pageant is already running", "Pageant Error",
-					   MB_ICONERROR | MB_OK);
-		}
-		return 0;
-    }
-#endif
 
 	keystore_init();
 	pageant_init();

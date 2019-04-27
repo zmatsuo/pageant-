@@ -4,73 +4,102 @@ Windows用のssh agentです。putty pageantをベースにしています。
 
 次のことを目指しています。
 - 秘密鍵を利用する様々なssh関連のプログラムから利用できる
-- 秘密鍵を手元(ローカル)に置いておいてなるべくコピーせずに済むようにする
+- 秘密鍵を手元(ローカル)に置いておいて、コピーを作らなくても済むようにする
 
 次の経路でssh関連のプログラムと通信を行うことができます。
 - pageant (putty ssh-agent compatible)
-- ssh-agent unix domain socket (cygwin emulation)
-- ssh-agent unix domain socket (Windows Native) *1
+- ssh-agent unix domain socket (Cygwin emulation)
+- ssh-agent unix domain socket (Windows Native)
 - Microsoft ssh *1 (Named Pipe,Microsoft ssh-agant compatible)
 - ssh-agent TCP接続 (socat(WSL)からの接続用)
 
-  *1 Windows10 version 1803(Redstone 4)から利用できます
- 
+
 まだまだ気になるところはありますが、概ね動作します。
 
 # できること
 
-- rsa-sha2-256/512 で署名ができます  
-  (OpenSSH 7.7から従来の(ssh-rsa(SHA1))署名を行うと警告が出ます)
-- BT pageant+を利用できます
-- RDP(リモートデスクトップ)のVirtual Channelを利用
-    - 接続した先(サーバ側)のpageant+から、ローカル(クライアント側)のpageant+を利用できます
-- Windows Native unix domain socket対応
-    - Windows 10 version 1803 Redstone 4(RS4)以降で利用可能です
-	- ([build17061から](https://blogs.msdn.microsoft.com/commandline/2017/12/19/af_unix-comes-to-windows/)利用可能だと思われます)
-	- [socat + TCP](https://github.com/zmatsuo/pageant-/wiki/WSL%E3%81%8B%E3%82%89-pageant---%E3%82%92%E5%88%A9%E7%94%A8%E3%81%99%E3%82%8B)を使用せずにWSLから直接利用できます
-	- Windows側からは `c:/path/.ssh-ageant` とした場合、WSL側からは `export SSH_AUTH_SOCK=/mnt/c/path/.ssh-agent`などと設定します
-- Windows 10 version 1803(Redstone 4)より正式版となったMicorsoftによる移植版OpenSSHのageantとなることができます
 - sshの秘密鍵のパスフレーズを記憶,適当なタイミングで忘れることができます
 - スマートキー(マイナンバーカード)を使うことができます
 - よく使われる秘密鍵ファイルフォーマットをサポートしています(Putty形式,OpenSSH形式,ssh.com形式)
 - 読み込んだ秘密鍵からsshサーバー用公開鍵を抽出できます
 
-# 使い方
+# インストール
 
-## インストール
-
-- インストーラを使用する場合  
+- インストーラを使用する場合
   インストーラ(pageant+-xxx.exe)を実行してください
-- アーカイブファイルを使用する場合  
+- アーカイブファイルを使用する場合
   ファイルを解いて適当なフォルダに置いてください
 
-## 起動
+# 起動
 
-- 他のsshエージェントを止める
+- 他のsshエージェントを止めます
 	- pageant(putty)
-	- ssh-pageant(cygwinなど)
+	- ssh-pageant(Cygwinなど)
 	- Microsoft OpenSSH ageant
-- 環境変数`SSH_AUTH_SOCK`を調整する
-	- Microsoft版OpenSSH を使用するときは設定しない(又は`\\.\pipe\openssh-ssh-agent`)
-- pageant+を起動する
-- 必要に応じて設定から自動起動するようにする
-- `ssh-add -l`などで接続できればok
-
-## 鍵ファイル
-
-- 'Add Key file'ボタンを押してファイルを追加
+- pageant+を起動します
+- 鍵ファイルの追加
+    - 署名で使用する鍵ファイルを追加します。
+    - 'Add Key file'ボタンを押してファイルを追加
 - `ssh-add -l`で鍵を表示できればok
 
-## Micorsoft版OpenSSH
+# エージェントの利用
 
-- 環境変数`SSH_AUTH_SOCK`を設定しない場合の初期値は`\\.\pipe\openssh-ssh-agent`
+- エージェントとの通信経路はアプリケーションによって異なっています。
+- OpenSSHから利用するには環境変数の設定が必要になります。
+
+## Git for Windows
+
+- Git for Windows 内の ssh を使用する場合
+    - 環境変数 `SSH_AUTH_SOCK` を設定します。
+      - `set SSH_AUTH_SOCK=c:\path\.ssh-agent-cygwin` など
+    - Unix Domain Socket(Cygwin emulation) を指定します。
+    - `"C:\Program Files\Git\usr\bin\ssh-add.exe" -l` など
+    で鍵一覧が表示されればokです。
+- PuTTY の plink を使用する場合
+    - 環境変数 `GIT_SSH` に plink.exe のフルパスを設定します。
+    - `set GIT_SSH=C:\Program Files\PuTTY\plink.exe`
+
+## OpenSSH(WSL)
+
+- 環境変数 `SSH_AUTH_SOCK` を設定します。
+   - `export SSH_AUTH_SOCK=/mnt/c/path/.ssh-agent` など
+- Unix domain Socket (Windows Native)を使用します
+- `/usr/bin/ssh-add -l` などで鍵一覧が表示されればokです。
+- Windows 10 version 1803 Redstone 4(RS4)以降で利用可能です
+
+[socat + TCP](https://github.com/zmatsuo/pageant-/wiki/WSL%E3%81%8B%E3%82%89-pageant---%E3%82%92%E5%88%A9%E7%94%A8%E3%81%99%E3%82%8B)でもWSLから利用できます
+
+## OpenSSH(Cygwin)
+
+- 環境変数 `SSH_AUTH_SOCK` を設定します。
+    - `export SSH_AUTH_SOCK=c:/path/.ssh-agent-cygwin` など
+- Unix Domain Socket(Cygwin emulation) を指定します。
+- `c:/cygwin64/bin/ssh-add -l` などで鍵一覧が表示されればokです。
+
+## OpenSSH(msys2)
+
+- 環境変数 `SSH_AUTH_SOCK` を設定します。
+    - `export SSH_AUTH_SOCK=/c/path/.ssh-agent-cygwin` など
+- Unix Domain Socket(Cygwin emulation) を指定します。
+- `/c/msys64/usr/bin/ssh-add -l` などで鍵一覧が表示されればokです。
+
+## OpenSSH(Micorsoft版)
+
+- 環境変数 `SSH_AUTH_SOCK` を設定します。
+    - 設定されていなければデフォルトの `\\.\pipe\openssh-ssh-agent` を使用します
+- Unix Domain Socket(Microsoft Named Pipe) を指定します。
+- `c:\Windows\System32\OpenSSH\ssh-add -l` などで鍵一覧が表示されればokです。
+
+# リレー
+
+エージェントの通信を別のエージェントにリレーすることができます。
 
 ## リモートデスクトップ経由(RDP relay)
 
 - 接続した先(サーバ側)
 	- pageant+を起動、設定の`SSH Agent relay on RDP Server`をチェックする
 - ローカル(クライアント側)
-	- pageant+を起動、設定の`SSH Agent relay on RDP Client`をチェックする  
+	- pageant+を起動、設定の`SSH Agent relay on RDP Client`をチェックする
       (チェックを入れた後のmstscの実行から有効になります)
 	- `pageant compatible`のチェックも入れる
 - リモートデスクトップ(mstsc.exe)で接続する
@@ -80,8 +109,8 @@ Windows用のssh agentです。putty pageantをベースにしています。
 
 ## マイナンバーカード(スマートカード)
 
-- マイナンバーカードに対応したOpenSCをインストールしておく  
-  opensc 0.17.0 からマイナンバーカード対応のようです  
+- マイナンバーカードに対応したOpenSCをインストールしておく
+  opensc 0.17.0 からマイナンバーカード対応のようです
   [0.18.0](https://github.com/OpenSC/OpenSC/releases/tag/0.18.0)で動作確認しました
 - 'Add PKCS Cert'ボタンを押す
 - `C:\Program Files\OpenSC Project\OpenSC\pkcs11\opensc-pkcs11.dll`を選ぶ
@@ -99,7 +128,7 @@ Windows用のssh agentです。putty pageantをベースにしています。
 - 鍵を選択
 - `鍵取込`ボタンを押す
 
-## 公開鍵の取得
+# 公開鍵の取得
 
 - key listの鍵一覧から、公開鍵を取得することができます
 - key listを表示して、鍵を1つ選択する
@@ -159,7 +188,7 @@ pageant+のスタートタップ登録をもう一度やり直してください
 
 # 設定
 
-設定はpageant+が動作しているPCのレジストリに保存します。
+プログラムの設定はpageant+が動作しているPCのレジストリに保存します。
 
 iniファイルに保存することもできます。
 
@@ -193,35 +222,42 @@ REG_EXPAND_SZの場合は環境変数参照(%HOME%など)があると展開さ�
 
 # 参照したプロジェクトなど
 
-- PuTTY  
+- PuTTY
 	<https://www.chiark.greenend.org.uk/~sgtatham/putty/latest.html>
-- PuTTY-CAC  
+- PuTTY-CAC
 	<https://risacher.org/putty-cac/>
 
 reference.txt を参照してください。
 
 # ビルド準備
 
-- Visual Studo 2017をインストール  
-  (MinGW 32bitでのコンパイルはテストしていません)
-- `libs/runonce.bat`を実行
-
 # リリース用ビルド
 
-ソースフォルダでコマンドプロンプトで次の通りに実行する
-```
-mkdir build
-cd build
-cmake .. -G "Visual Studio 15 2017 Win64"
-cmake --build . --config release
-make_installer.bat
-```
+## 準備
+
+Visual Studo 2017をインストールあらかじめインストールしてください(MinGW、32bitでのコンパイルはテストしていません)。
+
+VS 2017 用 x64 Native Tools コマンド プロンプトを開いて次のコマンドを実行してください。
+
+    cd libs
+    runonce.bat
+    build_qt_static.bat
+    
+## ビルド
+ソースフォルダでコマンドプロンプトで次の通りに実行してください。
+
+    mkdir build
+    cd build
+    cmake .. -G "Visual Studio 15 2017 Win64"
+    cmake --build . --config Release
+    make_installer.bat
+
 
 # 開発用ビルド
 
 - 準備
     - <https://www.qt.io/> から Qtをダウンロードしてインストールする
-    - `not_cmake/make_version.bat`を実行して  
+    - `not_cmake/make_version.bat`を実行して
       `not_cmake/version.cpp`を生成しておく
 
 - Visual Studio 2017を使用する場合
